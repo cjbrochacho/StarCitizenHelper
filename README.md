@@ -23,6 +23,19 @@ A Windows utility that automates common keyboard actions in Star Citizen so you 
 
 > If Python isn't found, the launcher walks you through installing it and fixing your PATH. You do not need to open a terminal manually.
 
+### Desktop shortcut
+
+Double-click **`Create_Desktop_Shortcut.bat`**. It draws an icon and puts a
+**Star Citizen Helper** shortcut on your desktop, pointing at wherever you keep this folder.
+
+A shortcut can't simply be included with the project: a `.lnk` stores absolute paths — to
+the target, its working directory, *and* the Python interpreter — so one built on someone
+else's machine would point at folders you don't have. Generating it locally is the only way
+that works everywhere. If you move the project, run it again.
+
+The shortcut launches through `Run_StarCitizenHelper.bat`, so the dependency check still
+happens; its console window starts minimised and closes with the app.
+
 ---
 
 ## The interface
@@ -248,10 +261,15 @@ The app registers a low-level keyboard hook that intercepts Alt+F4 **only when S
 ```
 StarCitizenHelper.py       the app
 Run_StarCitizenHelper.bat  launcher (installs requirements, then starts the app)
+Create_Desktop_Shortcut.bat  builds a desktop shortcut for this machine
+sc_shortcut.py             draws the icon and writes the .lnk
+sc_idle.py                 desktop-wide idle detection
+sc_window.py               finds the game window; snap focus
 sc_fps.py                  frame data from the RTSS shared memory block
 sc_net.py                  latency + server/shard/region
 sc_hud.py                  the header graph and readout
 sc_theme.py                colour palette
+assets/                    generated icon (git-ignored)
 settings.json              created on first save (git-ignored)
 ```
 
