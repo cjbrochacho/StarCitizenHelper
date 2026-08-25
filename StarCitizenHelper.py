@@ -4,6 +4,7 @@ import sys
 import time
 import threading
 import queue
+import random
 import ctypes
 from ctypes import wintypes
 
@@ -28,11 +29,8 @@ _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
 
 DEFAULTS = {
     'keepalive_enabled':  True,
-    'keepalive_idle':     60,
-    'keepalive_interval': 10,
     'keepalive_key':      'tab',
     'keepalive_snap':     'off',
-    'key_hold_ms':        40,
     'scan_toggle':        'ctrl+alt+page up',
     'scan_interval':      2,
     'hold_start':         'shift+w+page up',
@@ -107,6 +105,18 @@ def foreground_is(exe):
 
 
 # ── Application ───────────────────────────────────────────────────────────────
+
+#: Keepalive timings. Fixed rather than exposed - there is no reading of the
+#: game that would make one number right and another wrong, so a field for
+#: them was only ever a way to get them wrong.
+IDLE_SECONDS = 60          # quiet keyboard and mouse before keepalive starts
+KEEPALIVE_INTERVAL = 10    # between taps, once you are away
+
+#: How long a key is held. Varied rather than fixed: a keypress held for
+#: exactly the same number of milliseconds every time is not something a
+#: person does, and the game only needs the press to outlast a frame.
+KEY_HOLD_MS = 40
+KEY_HOLD_JITTER_MS = 12
 
 CRASH_LOG = os.path.join(_DIR, 'assets', 'crash.log')
 
@@ -309,17 +319,13 @@ class App(tk.Tk):
 
         self._add_settings_tab(notebook, 'Keepalive', 'Inactivity keepalive',
             'Runs by itself - there is nothing to switch on. It stays quiet while you '
-            'are at the computer and only sends a key once the keyboard and mouse have '
-            'been still for the idle time below. F13-F24 and Scroll Lock are unbound in '
+            'are at the computer, then sends a key every 10 seconds once the keyboard and '
+            'mouse have been still for a minute. F13-F24 and Scroll Lock are unbound in '
             'Star Citizen, so they keep you active without firing the scanner the way Tab '
             'does. Snap focus brings the game forward for the tap and hands focus straight '
-            'back, so keepalive still works while you are in another window. Key hold also '
-            'applies to Ship Scan.',
-            [('Idle seconds',         'keepalive_idle',     '60'),
-             ('Interval seconds',     'keepalive_interval', '10'),
-             ('Key to send',          'keepalive_key',      'tab'),
-             ('Snap focus (on/off)',  'keepalive_snap',     'off'),
-             ('Key hold ms',          'key_hold_ms',        '40')],
+            'back, so keepalive still works while you are in another window.',
+            [('Key to send',          'keepalive_key',      'tab'),
+             ('Snap focus (on/off)',  'keepalive_snap',     'off')],
             extra_button=('Toggle Keepalive', self._toggle_keepalive))
 
         self._add_settings_tab(notebook, 'Scan Ships', 'Ship Scan',
@@ -607,7 +613,7 @@ class App(tk.Tk):
                 for m in imported['macros']:
                     if not isinstance(m, dict) or not all(k in m for k in ('name', 'hotkey', 'actions')):
                         raise ValueError('A macro entry is missing its name, hotkey, or actions.')
-            for k in ('keepalive_idle', 'keepalive_interval', 'scan_interval'):
+            for k in ('scan_interval',):
                 if k in imported:
                     imported[k] = int(imported[k])
             self.cfg.update(imported)
@@ -697,10 +703,8 @@ class App(tk.Tk):
         note_injection(started, tick())
 
     def _hold_seconds(self):
-        try:
-            return max(0, int(self.cfg.get('key_hold_ms', 40))) / 1000.0
-        except (TypeError, ValueError):
-            return 0.04
+        return random.uniform(KEY_HOLD_MS - KEY_HOLD_JITTER_MS,
+                              KEY_HOLD_MS + KEY_HOLD_JITTER_MS) / 1000.0
 
     def _send_tab(self, source):
         self._tap('tab', self._hold_seconds())
@@ -871,10 +875,10 @@ class App(tk.Tk):
             snapping = str(self.cfg.get('keepalive_snap', 'off')) == 'on'
             reachable = self.game_foreground or (snapping and self.game_running)
             if (self.keep_active and reachable
-                    and self.idle.seconds() >= max(1, int(self.cfg['keepalive_idle']))
+                    and self.idle.seconds() >= IDLE_SECONDS
                     and now >= self.next_keepalive):
                 self._send_keepalive()
-                self.next_keepalive = now + max(1, int(self.cfg['keepalive_interval']))
+                self.next_keepalive = now + KEEPALIVE_INTERVAL
             time.sleep(0.05)
 
     # ── Tkinter periodic callbacks ────────────────────────────────────────────

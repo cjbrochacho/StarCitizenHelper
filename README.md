@@ -116,11 +116,12 @@ clock keeps running across them.
 
 | Field | Default | Description |
 |---|---|---|
-| Idle seconds | `60` | Quiet time before the first key is sent |
-| Interval seconds | `10` | How often it repeats while you stay away |
 | Key to send | `tab` | See below |
 | Snap focus (on/off) | `off` | Keep working while you are in another window |
-| Key hold ms | `40` | How long the key is held. Applies to Ship Scan too |
+
+It waits for **a minute** of no keyboard or mouse, then sends a key **every 10 seconds** while
+you stay away. Those are fixed rather than settings — nothing about the game makes one number
+right and another wrong, so a field for them was only a way to get them wrong.
 
 **Which key.** `tab` fires the ship scanner every time, which you will see on screen. `f13`–`f24`
 and `scroll lock` do not exist on a normal keyboard and are unbound in Star Citizen, so they keep
@@ -135,8 +136,9 @@ window, so this is the only way to reach the game from another app without eleva
 while you are genuinely away; disruptive if you are typing, and jarring if the game runs in
 exclusive fullscreen rather than borderless.
 
-**Key hold.** The game polls input on its own frame cadence and can miss a very short tap. Raise
-to ~80 ms if presses are not registering.
+**How long the key is held** varies between roughly 28 and 52 ms rather than being the same
+every time — a keypress held for exactly the same duration on every repeat is not something a
+person does, and the game only needs the press to outlast a frame.
 
 ---
 
@@ -150,8 +152,7 @@ on the scanning UI.
 | Toggle hotkey | `ctrl+alt+page up` | |
 | Tab interval seconds | `2` | Floors at 1 second |
 
-**Key hold ms** on the Keepalive tab applies here too. You can also use the **Toggle Ship Scan**
-button in the tab, or the Ship Scan chip.
+You can also use the **Toggle Ship Scan** button in the tab, or the Ship Scan chip.
 
 ---
 
@@ -244,11 +245,8 @@ mis-hit cannot close the game. The header shows its state:
 ```json
 {
   "keepalive_enabled":  true,
-  "keepalive_idle":     60,
-  "keepalive_interval": 10,
   "keepalive_key":      "tab",
   "keepalive_snap":     "off",
-  "key_hold_ms":        40,
   "scan_toggle":        "ctrl+alt+page up",
   "scan_interval":      2,
   "hold_start":         "shift+w+page up",
@@ -305,7 +303,9 @@ while another window has focus — the exception is keepalive with **snap focus*
 built to work while you are elsewhere.
 
 **Keys register in Notepad but not in the game.**
-Raise **Key hold ms** to around 80. The game can miss a very short tap.
+The press may be too short for the game's frame cadence to catch. `KEY_HOLD_MS` near the top of
+`StarCitizenHelper.py` sets how long keys are held; raising it to around 80 gives the game more
+of a window.
 
 **The frame-rate line is blank, or says "waiting for the game".**
 RivaTuner has to start *before* Star Citizen. Start RTSS, then restart the game. Latency works
