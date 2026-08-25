@@ -17,24 +17,24 @@ A Windows utility that automates common keyboard actions in Star Citizen so you 
 
 ## Getting started
 
-1. **Double-click `Install_StarCitizenHelper.bat`.** That is the whole setup. It:
-   - installs Python if you don't have it (per-user, so no administrator prompt),
-   - installs the packages the app needs,
-   - puts a **Star Citizen Helper** shortcut on your desktop.
-
-   Safe to run again at any time — it re-checks everything and repairs what's missing.
+1. **Double-click `StarCitizenHelper.bat`.** That is the only thing you ever run. On the
+   first launch it sets everything up — installs Python if you don't have it (per-user, so
+   no administrator prompt), fetches the one package it needs, draws the icon and puts a
+   **Star Citizen Helper** shortcut on your desktop — then starts the app. After that it
+   just starts the app.
 
 2. **Launch Star Citizen.** The app detects `StarCitizen.exe` automatically — the automations are gated and only fire while Star Citizen is the foreground window.
 
-> You never need to open a terminal. If Python can't be installed automatically, the
-> installer opens the download page and tells you which box to tick.
+> You never need to open a terminal. If Python can't be installed automatically, it opens
+> the download page and tells you which box to tick.
 
-Already have Python and just want to start the app? `Run_StarCitizenHelper.bat` still works
-on its own.
+There is no separate installer: every step is a check first and an action only if something
+is missing, so a normal launch adds about 150 ms and a first launch does the setup. Nothing
+to remember, and nothing to run in the right order.
 
 ### How Python gets installed
 
-The installer tries, in order: **winget** (built into Windows 11) for Python 3.13, 3.12 then
+It tries, in order: **winget** (built into Windows 11) for Python 3.13, 3.12 then
 3.11, and if winget is unavailable or fails, a **direct download from python.org** matching
 your machine's architecture — x64, ARM64 or 32-bit. Both routes install per-user, so neither
 needs administrator rights.
@@ -47,14 +47,16 @@ trusting PATH.
 
 ### Desktop shortcut
 
-The installer creates it. If you move the project folder, run the installer again to point
-the shortcut at the new location.
+Made on the first launch. If you move the project folder, delete
+`assets/.shortcut-made` and start the app once to get a fresh one pointing at the new
+location. Delete the shortcut itself and it stays deleted — it is not recreated behind
+your back.
 
 A shortcut can't simply be shipped with the project: a `.lnk` stores absolute paths — to the
 target, its working directory, *and* the Python interpreter — so one built on someone else's
 machine would point at folders you don't have. Generating it locally is the only thing that
-works everywhere. The shortcut launches through `Run_StarCitizenHelper.bat`, so the
-dependency check still happens; its console starts minimised and closes with the app.
+works everywhere. The shortcut launches through `StarCitizenHelper.bat`, so the checks still happen; its
+console starts minimised and closes with the app.
 
 ---
 
@@ -291,16 +293,15 @@ The app registers a low-level keyboard hook that intercepts Alt+F4 **only when S
 
 ```
 StarCitizenHelper.py            the app
-Install_StarCitizenHelper.bat   one-click setup: Python, package, shortcut
-Run_StarCitizenHelper.bat       launcher
+StarCitizenHelper.bat           the only thing you run: sets up if needed, then launches
 
 helper/                         everything the app leans on
   fps.py                        frame data from the RTSS shared memory block
   net.py                        latency + server/shard/region
   hud.py                        the header graph and readout
   idle.py                       desktop-wide idle detection
-  window.py                     finds the game window; snap focus
-  brand.py                      the radar mark beside the title
+  window.py                     finds the game window; snap focus; taskbar icon
+  brand.py                      the radar mark, drawn once for the header and the icon
   theme.py                      colour palette
   shortcut.py                   draws the icon and writes the .lnk
 
@@ -317,7 +318,7 @@ keep in step for one package.
 ## Troubleshooting
 
 **Python was not found.**
-Run `Install_StarCitizenHelper.bat` — it installs Python for you. If that can't reach the
+Run `StarCitizenHelper.bat` — it installs Python for you. If that can't reach the
 internet, install it by hand from [python.org](https://www.python.org/downloads/), tick
 "Add python.exe to PATH", then run the installer again.
 
@@ -342,4 +343,4 @@ A physical key press cancels it. Make sure you fully release the toggle hotkey b
 Choose a combo that Star Citizen doesn't use, e.g. `ctrl+alt+1` through `ctrl+alt+9`.
 
 **The app window disappears instantly on launch.**
-Run `Run_StarCitizenHelper.bat` directly — it pauses on errors so you can read the message. If a dependency failed to install, try running the bat as Administrator.
+Run `StarCitizenHelper.bat` directly — it pauses on errors so you can read the message. If a dependency failed to install, try running it as Administrator.

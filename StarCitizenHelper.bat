@@ -1,42 +1,28 @@
 @echo off
 setlocal EnableDelayedExpansion
 cd /d "%~dp0"
-title Star Citizen Helper - Setup
+title Star Citizen Helper
 
-echo.
-echo   ================================================
-echo    Star Citizen Helper - Setup
-echo   ================================================
-echo.
-echo   This will:
-echo     1. Check for Python, and install it if it is missing
-echo     2. Install the packages the app needs
-echo     3. Put a shortcut on your desktop
-echo.
-echo   Safe to run again at any time.
-echo   ------------------------------------------------
-echo.
+rem Everything below is a check first and an action only if needed, so a normal
+rem launch costs a fraction of a second. First run does the whole setup.
 
-rem ── 1. Python ─────────────────────────────────────────────────────────────
-echo   [1/3] Looking for Python...
+rem ── Python ────────────────────────────────────────────────────────────────
 call :find_python
-if defined PY_CMD goto :python_found
+if defined PY_CMD goto :python_ready
 
-echo         Not installed. Setting it up for you now.
+echo.
+echo   Setting up Star Citizen Helper for the first time.
+echo   Python is not installed - fetching it now.
 echo.
 call :install_python
-echo.
-echo         Checking again...
 call :find_python
 
 if not defined PY_CMD (
     echo.
-    echo   ------------------------------------------------
     echo   [ERROR] Python could not be installed automatically.
-    echo   ------------------------------------------------
     echo.
-    echo   Install it by hand from the page opening now. During setup, tick
-    echo   "Add python.exe to PATH", then run this installer again.
+    echo   Install it by hand from the page opening now, tick
+    echo   "Add python.exe to PATH", then run this again.
     echo.
     start "" https://www.python.org/downloads/
     echo.
@@ -44,13 +30,12 @@ if not defined PY_CMD (
     exit /b 1
 )
 
-:python_found
-echo         Found !PY_VERSION!
+:python_ready
 %PY_CMD% -c "import sys; sys.exit(0 if sys.version_info >= (3,8) else 1)" >nul 2>&1
 if errorlevel 1 (
     echo.
     echo   [ERROR] Python 3.8 or newer is required, but !PY_VERSION! was found.
-    echo   Install a newer version from https://www.python.org/downloads/
+    echo   Get a newer one from https://www.python.org/downloads/
     echo.
     pause
     exit /b 1
@@ -59,57 +44,54 @@ if errorlevel 1 (
 if errorlevel 1 (
     echo.
     echo   [ERROR] This Python has no tkinter, so the window cannot be drawn.
-    echo   Reinstall Python from python.org and leave "tcl/tk and IDLE" ticked.
+    echo   Reinstall from python.org and leave "tcl/tk and IDLE" ticked.
     echo.
     pause
     exit /b 1
 )
-echo.
 
-rem ── 2. Packages ───────────────────────────────────────────────────────────
-echo   [2/3] Installing packages...
-%PY_CMD% -m pip install --disable-pip-version-check --quiet keyboard
+rem ── Package ───────────────────────────────────────────────────────────────
+%PY_CMD% -c "import keyboard" >nul 2>&1
 if errorlevel 1 (
-    echo         Retrying for this user account only...
-    %PY_CMD% -m pip install --disable-pip-version-check --quiet --user keyboard
+    echo   Installing the keyboard package...
+    %PY_CMD% -m pip install --disable-pip-version-check --quiet keyboard
+    if errorlevel 1 %PY_CMD% -m pip install --disable-pip-version-check --quiet --user keyboard
+    %PY_CMD% -c "import keyboard" >nul 2>&1
+    if errorlevel 1 (
+        echo.
+        echo   [ERROR] The keyboard package could not be installed.
+        echo   Check your internet connection and try again.
+        echo.
+        pause
+        exit /b 1
+    )
 )
+
+rem ── Icon and desktop shortcut ─────────────────────────────────────────────
+rem Both are generated rather than shipped, because a .lnk stores absolute
+rem paths and an icon is a build artefact. Made once, then left alone.
+if not exist "%~dp0assets\StarCitizenHelper.ico" (
+    echo   Drawing the icon...
+    %PY_CMD% -m helper.shortcut --icon-only >nul 2>&1
+)
+
+rem A marker rather than looking for the .lnk itself: finding the real desktop
+rem means asking PowerShell, which costs more than every other check combined,
+rem and a shortcut you deleted on purpose should stay deleted.
+if not exist "%~dp0assets\.shortcut-made" (
+    echo   Creating a desktop shortcut...
+    %PY_CMD% -m helper.shortcut >nul 2>&1
+    if not errorlevel 1 echo made> "%~dp0assets\.shortcut-made"
+)
+
+rem ── Launch ────────────────────────────────────────────────────────────────
+%PY_CMD% StarCitizenHelper.py
 if errorlevel 1 (
     echo.
-    echo   [ERROR] The packages could not be installed. Check your internet
-    echo   connection and run this again.
+    echo   [ERROR] The app exited with an error. See the details above.
     echo.
     pause
-    exit /b 1
 )
-echo         Done.
-echo.
-
-rem ── 3. Shortcut ───────────────────────────────────────────────────────────
-echo   [3/3] Creating the desktop shortcut...
-%PY_CMD% -m helper.shortcut
-if errorlevel 1 (
-    echo.
-    echo   [WARNING] The shortcut could not be created, but the app is ready.
-    echo   Start it with Run_StarCitizenHelper.bat
-    echo.
-    pause
-    exit /b 0
-)
-
-echo.
-echo   ------------------------------------------------
-echo    Setup complete.
-echo   ------------------------------------------------
-echo.
-echo   Launch it from the "Star Citizen Helper" shortcut on your desktop.
-echo.
-
-choice /C YN /N /M "  Launch it now? [Y/N] "
-if errorlevel 2 goto :finished
-if errorlevel 1 start "" "%~dp0Run_StarCitizenHelper.bat"
-
-:finished
-echo.
 exit /b 0
 
 
@@ -122,7 +104,6 @@ rem ═════════════════════════�
 set "PY_CMD="
 set "PY_VERSION="
 
-rem The py launcher is the most reliable entry point when it exists.
 py -3 --version >nul 2>&1
 if not errorlevel 1 (
     set "PY_CMD=py -3"
@@ -168,19 +149,19 @@ rem ═════════════════════════�
 :install_python
 where winget >nul 2>&1
 if errorlevel 1 (
-    echo         winget is not available here, going straight to python.org.
+    echo   winget is not available here, going straight to python.org.
     goto :download_python
 )
 
 for %%I in (Python.Python.3.13 Python.Python.3.12 Python.Python.3.11) do (
-    echo         Installing %%I with winget...
+    echo   Installing %%I with winget...
     winget install --exact --id %%I --scope user --silent ^
         --accept-source-agreements --accept-package-agreements
     call :find_python
     if defined PY_CMD exit /b 0
 )
 
-echo         winget could not install it. Falling back to python.org...
+echo   winget could not install it. Falling back to python.org...
 
 :download_python
 set "PY_VER=3.12.10"
@@ -193,15 +174,15 @@ set "PY_FILE=python-%PY_VER%!SUFFIX!.exe"
 set "PY_URL=https://www.python.org/ftp/python/%PY_VER%/!PY_FILE!"
 set "PY_TMP=%TEMP%\!PY_FILE!"
 
-echo         Downloading !PY_FILE! ...
+echo   Downloading !PY_FILE! ...
 powershell -NoProfile -Command ^
     "$ProgressPreference='SilentlyContinue'; try { Invoke-WebRequest -UseBasicParsing -Uri '!PY_URL!' -OutFile '!PY_TMP!' } catch { exit 1 }"
 if errorlevel 1 (
-    echo         The download failed.
+    echo   The download failed.
     exit /b 1
 )
 
-echo         Running the Python installer. This can take a minute...
+echo   Running the Python installer. This can take a minute...
 "!PY_TMP!" /quiet InstallAllUsers=0 PrependPath=1 Include_launcher=1 Include_test=0
 del "!PY_TMP!" >nul 2>&1
 exit /b 0
