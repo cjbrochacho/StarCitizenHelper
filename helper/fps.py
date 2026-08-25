@@ -115,6 +115,14 @@ class Stats:
     frame_time_ms: float = 0.0
     #: True when the figures come from every frame rather than from samples.
     per_frame: bool = False
+    #: Mean gap between one frame's time and the next - micro-stutter, the
+    #: kind that never shows up as a big spike. Zero when unknown.
+    swing_ms: float = 0.0
+    #: That gap as a share of the average frame, so it can be read across
+    #: different frame rates.
+    swing_pct: float = 0.0
+    #: Share of frames taking more than twice the median - discrete hitches.
+    stutter_pct: float = 0.0
     #: (age in seconds, frame time in ms), oldest first - same axis as history.
     frame_times: list[tuple[float, float]] = field(default_factory=list)
     #: (age in seconds, fps), oldest first, for plotting.
@@ -335,6 +343,18 @@ class FpsMonitor(threading.Thread):
         worst_count = max(1, len(slowest_first) // 100)
         worst_mean = sum(slowest_first[:worst_count]) / worst_count
 
+        # Consistency only means anything frame by frame. Across samples
+        # taken ten times a second the interesting variation has already been
+        # averaged away, so these stay at zero rather than inventing a figure.
+        swing = swing_pct = stutter = 0.0
+        if per_frame and len(frames) > 2:
+            gaps = [abs(b - a) for a, b in zip(frames, frames[1:])]
+            swing = sum(gaps) / len(gaps)
+            mean_frame = sum(frames) / len(frames)
+            swing_pct = 100.0 * swing / mean_frame if mean_frame else 0.0
+            middle = sorted(frames)[len(frames) // 2]
+            stutter = 100.0 * sum(1 for ms in frames if ms > 2 * middle) / len(frames)
+
         return Stats(
             status=status,
             fps=frame_rates[-1],
@@ -343,6 +363,9 @@ class FpsMonitor(threading.Thread):
             minimum=1000.0 / slowest_first[0] if slowest_first[0] else 0.0,
             frame_time_ms=samples[-1][2],
             per_frame=per_frame,
+            swing_ms=swing,
+            swing_pct=swing_pct,
+            stutter_pct=stutter,
             frame_times=[(now - stamp, ms) for stamp, ms in frame_pairs],
             history=[(now - stamp, fps) for stamp, fps, _ in samples],
         )

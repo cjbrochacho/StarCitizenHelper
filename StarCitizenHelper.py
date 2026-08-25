@@ -430,6 +430,7 @@ class App(tk.Tk):
         grid = tk.Frame(frame, bg='#101722')
         grid.pack(anchor='w', padx=18, fill='x')
         for row, label in enumerate(('Frame rate', 'Frame time', '1% low',
+                                     'Frame swing', 'Stutter',
                                      'Server', 'Shard', 'Region', 'Latency', 'Jitter')):
             tk.Label(grid, text=label, bg='#101722', fg='#91a7bd',
                      font=('Segoe UI', 9), width=12, anchor='w').grid(row=row, column=0,
@@ -486,6 +487,13 @@ class App(tk.Tk):
                     text=('%.2f fps  (%s)' % (fps_stats.low_1,
                           'every frame' if fps_stats.per_frame else 'sampled'))
                     if fps_ok else '--')
+                self.perf_rows['Frame swing'].config(
+                    text=('%.2f ms  (%.0f%% of frame)' % (fps_stats.swing_ms,
+                                                          fps_stats.swing_pct))
+                    if fps_ok and fps_stats.per_frame else '--')
+                self.perf_rows['Stutter'].config(
+                    text=('%.2f%% of frames over twice the median' % fps_stats.stutter_pct)
+                    if fps_ok and fps_stats.per_frame else '--')
                 self.perf_rows['Server'].config(text=net_stats.server or '--')
                 self.perf_rows['Shard'].config(text=net_stats.shard or '--')
                 self.perf_rows['Region'].config(text=net_stats.region or '--')

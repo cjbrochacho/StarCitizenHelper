@@ -221,7 +221,18 @@ so "all good" reads as two lines hugging opposite edges. Underneath sits the cur
 `IP:port • shard • region`. Readouts are to two decimal places.
 
 The **Performance** tab breaks the same figures out in full: frame rate, frame time, 1% low,
-server, shard, region, latency and jitter.
+frame swing, stutter, server, shard, region, latency and jitter.
+
+Two of those are about *consistency* rather than speed, which is a different question from how
+fast the game is running:
+
+| Stat | What it catches |
+|---|---|
+| **Frame swing** | How much each frame differs from the one before, as a time and as a share of the average frame. This is micro-stutter: a run of 8 ms, 14 ms, 8 ms, 14 ms averages out to a healthy frame rate and a healthy 1% low, and still feels rough. Under about 10% is smooth; 25% and up is where the alternation becomes visible. |
+| **Stutter** | The share of frames taking more than twice the median — discrete hitches rather than steady unevenness. A frame rate can look excellent with a fraction of a percent here and still catch your eye. |
+
+Both need every frame to mean anything, so they show `--` if the figures are coming from
+samples rather than from RivaTuner's per-frame ring.
 
 Behind the two lines sit **frame time bars** — one per pixel column, showing the worst frame in
 that column, on the same time axis as the lines. The frame rate line is an average over each
