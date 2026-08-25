@@ -22,6 +22,8 @@ from sc_fps import FpsMonitor, start_rtss, rtss_executable
 from sc_net import NetMonitor
 from sc_hud import HudGraph
 
+__version__ = '1.2'
+
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
 
@@ -108,7 +110,7 @@ def foreground_is(exe):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('Star Citizen Helper v1.2')
+        self.title('Star Citizen Helper v' + __version__)
         self.geometry('980x760')
         self.minsize(860, 630)
         self.configure(bg='#101722')
@@ -195,7 +197,7 @@ class App(tk.Tk):
         # Title on the left, performance HUD on the right, sharing one row.
         title_box = tk.Frame(header, bg='#101722')
         title_box.pack(side='left', anchor='w')
-        tk.Label(title_box, text='STAR CITIZEN HELPER v1.2', bg='#101722',
+        tk.Label(title_box, text='STAR CITIZEN HELPER v' + __version__, bg='#101722',
                  fg='#eef6ff', font=('Segoe UI Semibold', 18)).pack(anchor='w')
         tk.Label(title_box, text='Automation status and hotkey controls',
                  bg='#101722', fg='#91a7bd').pack(anchor='w')

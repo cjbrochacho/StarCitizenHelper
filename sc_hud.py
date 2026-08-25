@@ -14,7 +14,7 @@ import sc_fps as fps_module
 from sc_fps import STATUS_NO_RTSS, STATUS_OK, WINDOW_SECONDS, Stats
 from sc_net import STATUS_NO_TARGET, NetStats
 from sc_net import STATUS_OK as NET_OK
-from sc_theme import ACCENT, BG, FPS_LOW, LAT, MUTED, TEXT, WARN
+from sc_theme import ACCENT, BG, FPS_LOW, LAT, MUTED, WARN
 
 MIN_PLOT_WIDTH = 220
 READOUT_WIDTH = 104

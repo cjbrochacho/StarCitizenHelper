@@ -96,7 +96,7 @@ echo.
 :: ── Launch ────────────────────────────────────────────────────────────────────
 echo Starting Star Citizen Helper...
 echo.
-%PY_CMD% StarCitizenHelperv1.2.py
+%PY_CMD% StarCitizenHelper.py
 if errorlevel 1 (
     echo.
     echo [ERROR] The app exited with an error. See the details above.

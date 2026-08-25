@@ -220,6 +220,22 @@ The app registers a low-level keyboard hook that intercepts Alt+F4 **only when S
 
 ---
 
+## Project layout
+
+```
+StarCitizenHelper.py       the app
+Run_StarCitizenHelper.bat  launcher (installs requirements, then starts the app)
+sc_fps.py                  frame data from the RTSS shared memory block
+sc_net.py                  latency + server/shard/region
+sc_hud.py                  the header graph and readout
+sc_theme.py                colour palette
+settings.json              created on first save (git-ignored)
+```
+
+The `sc_*` modules are standard library + ctypes only — they add no requirements.
+
+---
+
 ## Troubleshooting
 
 **The launcher says Python was not found.**

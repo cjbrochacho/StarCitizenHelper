@@ -15,6 +15,7 @@ shard head-count, so any number here would be invented.
 from __future__ import annotations
 
 import ctypes
+import os
 import re
 import socket
 import struct
@@ -234,9 +235,6 @@ class JoinReader:
 
 def find_game_log() -> Path | None:
     """Locate LIVE\\Game.log from the RSI launcher's recorded library path."""
-    import json
-    import os
-
     store = Path(os.environ.get("APPDATA", "")) / "rsilauncher" / "logs" / "log.log"
     try:
         text = store.read_text(encoding="utf-8", errors="replace")
