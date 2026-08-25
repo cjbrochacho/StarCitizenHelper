@@ -90,6 +90,12 @@ if errorlevel 1 (
 )
 echo.
 
+:: ── Make sure the window icon exists ──────────────────────────────────────────
+:: It is generated, not committed, so a fresh checkout has none yet.
+if not exist "%~dp0assets\StarCitizenHelper.ico" (
+    %PY_CMD% -m helper.shortcut --icon-only >nul 2>&1
+)
+
 :: ── Launch ────────────────────────────────────────────────────────────────────
 echo Starting Star Citizen Helper...
 echo.

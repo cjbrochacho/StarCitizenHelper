@@ -152,6 +152,8 @@ if __name__ == "__main__":
         sys.exit("Desktop shortcuts are a Windows thing.")
 
     print("Drawing icon    ->", write_icon())
+    if "--icon-only" in sys.argv:
+        raise SystemExit(0)
     link = create_shortcut(icon=ICON)
     print("Shortcut created ->", link)
     print()

@@ -19,7 +19,8 @@ from helper.fps import FpsMonitor, rtss_executable, start_rtss
 from helper.hud import HudGraph
 from helper.idle import IdleWatcher, note_injection, tick
 from helper.net import NetMonitor, process_pid
-from helper.window import force_foreground, foreground_hwnd, window_for_pid
+from helper.window import (apply_window_icon, force_foreground, foreground_hwnd,
+                           set_app_id, window_for_pid)
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
@@ -107,18 +108,18 @@ def foreground_is(exe):
 
 # ── Application ───────────────────────────────────────────────────────────────
 
+APP_ID = 'StarCitizenHelper.App'
+ICON_PATH = os.path.join(_DIR, 'assets', 'StarCitizenHelper.ico')
+
+
 class App(tk.Tk):
     def __init__(self):
+        # Before the first window exists, or the taskbar keeps grouping this
+        # under the Python interpreter and showing its icon.
+        set_app_id(APP_ID)
         super().__init__()
         self.title('Star Citizen Helper')
-        # Replaces the default Tk feather in the title bar and taskbar. The
-        # icon is written by the installer, so it may not exist yet.
-        _icon = os.path.join(_DIR, 'assets', 'StarCitizenHelper.ico')
-        if os.path.exists(_icon):
-            try:
-                self.iconbitmap(_icon)
-            except tk.TclError:
-                pass
+        self._apply_icon()
         self.geometry('980x760')
         self.minsize(860, 630)
         self.configure(bg='#101722')
@@ -177,6 +178,18 @@ class App(tk.Tk):
         self._log('Ready. Global hotkeys registered.')
 
     # ── UI construction ───────────────────────────────────────────────────────
+
+    def _apply_icon(self):
+        """Title bar, taskbar and dialogs. The icon is written by the
+        installer, so a fresh checkout may not have one yet."""
+        if not os.path.exists(ICON_PATH):
+            return
+        try:
+            self.iconbitmap(default=ICON_PATH)   # covers dialogs too
+        except tk.TclError:
+            pass
+        self.update_idletasks()                  # the window must exist first
+        apply_window_icon(self.winfo_id(), ICON_PATH)
 
     def _build_ui(self):
         style = ttk.Style(self)

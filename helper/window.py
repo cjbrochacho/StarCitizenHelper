@@ -105,3 +105,55 @@ def force_foreground(hwnd):
             return True
         time.sleep(0.02)
     return is_foreground(hwnd)
+
+
+# ── Taskbar identity and icons ────────────────────────────────────────────
+#
+# Two things decide what the taskbar button shows, and Tk sets neither.
+# Windows groups buttons by AppUserModelID: without an explicit one, the app
+# inherits the interpreter's identity and its icon. And the button is drawn
+# from the window's *large* icon, where Tk's iconbitmap only sets the small
+# one - which is why the title bar can look right while the taskbar does not.
+
+shell32 = ctypes.WinDLL("shell32", use_last_error=True)
+
+WM_SETICON = 0x0080
+ICON_SMALL, ICON_BIG = 0, 1
+IMAGE_ICON = 1
+LR_LOADFROMFILE = 0x00000010
+SM_CXICON, SM_CYICON, SM_CXSMICON, SM_CYSMICON = 11, 12, 49, 50
+
+user32.LoadImageW.argtypes = (wintypes.HINSTANCE, wintypes.LPCWSTR, wintypes.UINT,
+                              ctypes.c_int, ctypes.c_int, wintypes.UINT)
+user32.LoadImageW.restype = wintypes.HANDLE
+user32.SendMessageW.argtypes = (wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
+user32.GetSystemMetrics.argtypes = (ctypes.c_int,)
+
+
+def set_app_id(app_id):
+    """Give the process its own taskbar identity, not the interpreter's.
+
+    Must be called before the first window exists.
+    """
+    try:
+        shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+        return True
+    except Exception:
+        return False
+
+
+def apply_window_icon(hwnd, ico_path):
+    """Attach both icon sizes to a window so the taskbar picks them up."""
+    hwnd = top_level(hwnd)
+    if not hwnd:
+        return False
+    applied = False
+    for which, cx, cy in ((ICON_SMALL, SM_CXSMICON, SM_CYSMICON),
+                          (ICON_BIG, SM_CXICON, SM_CYICON)):
+        handle = user32.LoadImageW(None, str(ico_path), IMAGE_ICON,
+                                   user32.GetSystemMetrics(cx),
+                                   user32.GetSystemMetrics(cy), LR_LOADFROMFILE)
+        if handle:
+            user32.SendMessageW(hwnd, WM_SETICON, which, handle)
+            applied = True
+    return applied
