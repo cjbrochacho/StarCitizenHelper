@@ -110,7 +110,12 @@ def foreground_is(exe):
 #: game that would make one number right and another wrong, so a field for
 #: them was only ever a way to get them wrong.
 IDLE_SECONDS = 60          # quiet keyboard and mouse before keepalive starts
-KEEPALIVE_INTERVAL = 10    # between taps, once you are away
+
+#: Gap between taps once you are away, drawn fresh each time. The upper bound
+#: has to stay under whatever the game's own idle timeout is, or the thing
+#: this exists to prevent happens anyway.
+KEEPALIVE_MIN_SECONDS = 30
+KEEPALIVE_MAX_SECONDS = 180
 
 #: How long a key is held. Varied rather than fixed: a keypress held for
 #: exactly the same number of milliseconds every time is not something a
@@ -319,8 +324,8 @@ class App(tk.Tk):
 
         self._add_settings_tab(notebook, 'Keepalive', 'Inactivity keepalive',
             'Runs by itself - there is nothing to switch on. It stays quiet while you '
-            'are at the computer, then sends a key every 10 seconds once the keyboard and '
-            'mouse have been still for a minute. F13-F24 and Scroll Lock are unbound in '
+            'are at the computer, then sends a key every 30 seconds to 3 minutes once the '
+            'keyboard and mouse have been still for a minute. F13-F24 and Scroll Lock are unbound in '
             'Star Citizen, so they keep you active without firing the scanner the way Tab '
             'does. Snap focus brings the game forward for the tap and hands focus straight '
             'back, so keepalive still works while you are in another window.',
@@ -878,7 +883,8 @@ class App(tk.Tk):
                     and self.idle.seconds() >= IDLE_SECONDS
                     and now >= self.next_keepalive):
                 self._send_keepalive()
-                self.next_keepalive = now + KEEPALIVE_INTERVAL
+                self.next_keepalive = now + random.uniform(KEEPALIVE_MIN_SECONDS,
+                                                           KEEPALIVE_MAX_SECONDS)
             time.sleep(0.05)
 
     # ── Tkinter periodic callbacks ────────────────────────────────────────────

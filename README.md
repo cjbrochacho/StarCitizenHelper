@@ -119,9 +119,15 @@ clock keeps running across them.
 | Key to send | `tab` | See below |
 | Snap focus (on/off) | `off` | Keep working while you are in another window |
 
-It waits for **a minute** of no keyboard or mouse, then sends a key **every 10 seconds** while
-you stay away. Those are fixed rather than settings — nothing about the game makes one number
-right and another wrong, so a field for them was only a way to get them wrong.
+It waits for **a minute** of no keyboard or mouse, then sends a key every **30 seconds to 3
+minutes** — a fresh gap drawn each time — while you stay away. These live as constants at the
+top of `StarCitizenHelper.py` rather than as settings, since nothing about the game makes one
+number right and another wrong.
+
+**The upper bound matters.** It has to stay below the game's own idle timeout or you get
+dropped anyway, which is the thing this exists to prevent. That threshold is not something
+this tool can measure, so if 3 minutes turns out to be too long, lower
+`KEEPALIVE_MAX_SECONDS`.
 
 **Which key.** `tab` fires the ship scanner every time, which you will see on screen. `f13`–`f24`
 and `scroll lock` do not exist on a normal keyboard and are unbound in Star Citizen, so they keep
