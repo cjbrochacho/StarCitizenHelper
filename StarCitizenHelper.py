@@ -10,10 +10,6 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
 import keyboard
-try:
-    from pynput import mouse
-except ImportError:
-    mouse = None
 
 # Performance HUD: frame rate (via RivaTuner) and latency/server details.
 # Pure stdlib + ctypes - these add no new requirements.
@@ -21,6 +17,7 @@ import sc_theme
 from sc_fps import FpsMonitor, start_rtss, rtss_executable
 from sc_net import NetMonitor
 from sc_hud import HudGraph
+from sc_idle import IdleWatcher, note_injection, tick
 
 __version__ = '1.2'
 
@@ -150,10 +147,11 @@ class App(tk.Tk):
         self.hud = None
         self._rtss_attempt = 0.0
 
-        self.last_activity = time.monotonic()
+        # Windows tracks desktop-wide idle time for us; our own taps are
+        # filtered out of it so they cannot look like the user coming back.
+        self.idle = IdleWatcher()
         self.next_keepalive = 0
         self.next_scan = 0
-        self.ignore_activity_until = 0  # suppresses idle-timer reset during bot Tab presses
         self.running_macro = ''
 
         self._build_ui()
@@ -162,16 +160,6 @@ class App(tk.Tk):
         # Suppressing hook: callback must return True to let a key through, False to block it.
         self._alt_hook = keyboard.hook(self._alt_f4_guard, suppress=True)
         keyboard.on_press(self._on_key_press)
-
-        self._mouse_listener = None
-        if mouse:
-            self._mouse_listener = mouse.Listener(
-                on_move=lambda x, y: self._record_activity(),
-                on_click=lambda x, y, b, pressed: self._record_activity(),
-                on_scroll=lambda x, y, dx, dy: self._record_activity(),
-            )
-            self._mouse_listener.daemon = True
-            self._mouse_listener.start()
 
         threading.Thread(target=self._automation_loop, daemon=True).start()
         self.fps_monitor.start()
@@ -629,12 +617,7 @@ class App(tk.Tk):
 
     # ── Activity tracking ─────────────────────────────────────────────────────
 
-    def _record_activity(self, *_):
-        if time.monotonic() >= self.ignore_activity_until:
-            self.last_activity = time.monotonic()
-
     def _on_key_press(self, event):
-        self._record_activity()
         if (event.event_type != keyboard.KEY_DOWN
                 or not self.hold_active
                 or time.monotonic() < self.injected_until):
@@ -652,13 +635,15 @@ class App(tk.Tk):
     # ── Key injection helpers ─────────────────────────────────────────────────
 
     def _tap(self, key):
-        # Update injected_until around the press so our own output doesn't cancel KeepRunning.
+        # Update injected_until around the press so our own output doesn't cancel
+        # KeepRunning, and record the tick window so the idle clock ignores it too.
+        started = tick()
         self.injected_until = time.monotonic() + 0.20
         keyboard.press_and_release(key)
         self.injected_until = time.monotonic() + 0.20
+        note_injection(started, tick())
 
     def _send_tab(self, source):
-        self.ignore_activity_until = time.monotonic() + 0.15
         self._tap('tab')
         self.log_queue.put(source + ': sent Tab')
 
@@ -736,6 +721,7 @@ class App(tk.Tk):
         if self.stop_event.is_set() or token != self.hold_token:
             return
         try:
+            started = tick()
             self.injected_until = time.monotonic() + 0.20
             for key in keys:
                 keyboard.press(key)
@@ -743,6 +729,7 @@ class App(tk.Tk):
             self.hold_active = True
             self.hold_pending = False
             self.injected_until = time.monotonic() + 0.20
+            note_injection(started, tick())   # window spans the presses
             self.log_queue.put('KeepRunning toggled on: ' + '+'.join(self.held_keys))
         except Exception as e:
             self.held_keys = []
@@ -753,11 +740,14 @@ class App(tk.Tk):
     def _release(self):
         self.hold_token += 1
         self.hold_pending = False
+        started = tick()
         for key in reversed(self.held_keys):
             try:
                 keyboard.release(key)
             except Exception:
                 pass
+        if self.held_keys:
+            note_injection(started, tick())   # releases are our input too
         if self.hold_active:
             self.log_queue.put('KeepRunning released.')
         self.held_keys = []
@@ -782,7 +772,7 @@ class App(tk.Tk):
                     self._send_tab('Ship Scan')
                     self.next_scan = now + max(1, int(self.cfg['scan_interval']))
                 if (self.keep_active
-                        and now - self.last_activity >= max(1, int(self.cfg['keepalive_idle']))
+                        and self.idle.seconds() >= max(1, int(self.cfg['keepalive_idle']))
                         and now >= self.next_keepalive):
                     self._send_tab('Keepalive')
                     self.next_keepalive = now + max(1, int(self.cfg['keepalive_interval']))
@@ -842,7 +832,7 @@ class App(tk.Tk):
         update_chip('Macro', bool(self.running_macro),
                     ' (' + self.running_macro + ')' if self.running_macro else '')
 
-        status = 'Physical inactivity: ' + str(int(now - self.last_activity)) + 's'
+        status = 'Physical inactivity: ' + str(int(self.idle.seconds())) + 's'
         if self.scan_active:
             status += '   •   Ship Scan Tab in ' + format(max(0, self.next_scan - now), '.1f') + 's'
         if self.keep_active:
@@ -884,11 +874,6 @@ class App(tk.Tk):
             keyboard.unhook_all()
         except Exception:
             pass
-        if self._mouse_listener:
-            try:
-                self._mouse_listener.stop()
-            except Exception:
-                pass
         self.destroy()
 
 
