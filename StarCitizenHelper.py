@@ -20,6 +20,7 @@ from helper.brand import BrandMark, WordMark
 from helper.fps import FpsMonitor, rtss_executable, start_rtss
 from helper.hud import HudGraph
 from helper.idle import IdleWatcher, note_injection, tick
+from helper.hardware import HardwareMonitor
 from helper.history import collect as collect_history
 from helper.net import NetMonitor, find_game_log, process_pid
 from helper.window import (apply_window_icon, force_foreground, foreground_hwnd,
@@ -200,6 +201,7 @@ class App(tk.Tk):
         self.injected_until = 0        # suppresses KeepRunning cancel during bot keypresses
         self.fps_monitor = FpsMonitor()
         self.net_monitor = NetMonitor()
+        self.hardware = HardwareMonitor()
         self.hud = None
         self._rtss_attempt = 0.0
 
@@ -220,6 +222,7 @@ class App(tk.Tk):
         threading.Thread(target=self._automation_loop, daemon=True).start()
         self.fps_monitor.start()
         self.net_monitor.start()
+        self.hardware.start()
         self.after(100, self._drain_log_queue)
         self.after(200, self._refresh_dashboard)
         self.after(100, self._refresh_hud)
@@ -263,6 +266,14 @@ class App(tk.Tk):
         if self.cfg.get('hud_enabled', True):
             hud_box = tk.Frame(header, bg=theme.BG)
             hud_box.pack(side='right', anchor='e', fill='x', expand=True, padx=(40, 0))
+            self.cpu_label = tk.Label(hud_box, text='', bg=theme.BG,
+                                      fg=theme.MUTED, font=('Consolas', 8),
+                                      anchor='e', justify='right')
+            self.cpu_label.pack(fill='x')
+            self.gpu_label = tk.Label(hud_box, text='', bg=theme.BG,
+                                      fg=theme.MUTED, font=('Consolas', 8),
+                                      anchor='e', justify='right')
+            self.gpu_label.pack(fill='x', pady=(0, 3))
             self.hud = HudGraph(hud_box, on_start_rtss=self._start_rtss)
             self.hud.configure(width=460)
             self.hud.pack(fill='x', expand=True)
@@ -475,6 +486,15 @@ class App(tk.Tk):
                     self.server_label.config(text=net_stats.server + shard + region)
                 else:
                     self.server_label.config(text='server unknown - not in a match')
+
+            if getattr(self, 'cpu_label', None) is not None:
+                cpu_mhz, gpu_mhz = self.hardware.readings()
+                self.cpu_label.config(text='%s   %s' % (
+                    self.hardware.cpu_name,
+                    ('%d MHz' % cpu_mhz) if cpu_mhz else '-- MHz'))
+                self.gpu_label.config(text='%s   %s' % (
+                    self.hardware.gpu_name,
+                    ('%d MHz' % gpu_mhz) if gpu_mhz else '-- MHz'))
 
             if getattr(self, 'perf_rows', None):
                 fps_ok = fps_stats.status == 'ok'
@@ -1066,6 +1086,7 @@ class App(tk.Tk):
         try:
             self.fps_monitor.shutdown()
             self.net_monitor.shutdown()
+            self.hardware.shutdown()
         except Exception:
             pass
         self.scan_active = False

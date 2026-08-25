@@ -8,7 +8,7 @@ connection are actually doing — all from one window that sits behind the game.
 - **Ship Scan** — repeats Tab on a timer for cycling scan contacts
 - **KeepRunning** — holds Shift+W (or any keys) down so you keep moving
 - **Macros** — your own hotkeys, each tapping a sequence of keys
-- **Performance HUD** — frame rate, latency, and which server and shard you are on
+- **Performance HUD** — frame rate, latency, CPU and GPU clocks, and which server you are on
 - **Server history** — the last ten shards you were on, so a crash cannot lose your ship
 - **Alt+F4 guard** — swallows Alt+F4 while the game has focus
 
@@ -211,6 +211,15 @@ does nothing. Pick combos the game does not use — `ctrl+alt+1` through `ctrl+a
 
 ## Performance HUD
 
+Above the graph sit the two chips doing the work and how fast they are running right now:
+the CPU on one line, the GPU on the next, both refreshed every second. Neither speed is
+something Windows will simply tell you. The CPU's is worked out the way Task Manager does it,
+from the performance counter that reports the current speed as a percentage of the chip's
+nominal one, so 125% of a 4.3 GHz part reads 5.4 GHz. The GPU has no Windows API at all: MSI
+Afterburner publishes its core clock when it is running, and failing that NVIDIA's driver ships
+`nvidia-smi`, which answers in about 80 ms and so is asked every other second rather than every
+one. On a machine with neither, the model still shows and the clock reads `-- MHz`.
+
 A rolling 60-second graph in the header, two sparklines sharing one canvas, each scaled
 independently. Both are read **every 100 ms**, so the two move together:
 
@@ -339,6 +348,7 @@ helper/
   __init__.py            marks the package
   fps.py                 frame data from the RTSS shared memory block
   net.py                 latency, and server/shard/region from the game's log
+  hardware.py            CPU and GPU model, and their current clocks
   history.py             past shards, read out of the game logs
   hud.py                 the header graph and its readout
   idle.py                desktop-wide idle detection
