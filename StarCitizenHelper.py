@@ -523,8 +523,10 @@ class App(tk.Tk):
                  font=('Segoe UI Semibold', 14)).pack(anchor='w', padx=20, pady=(18, 4))
         tk.Label(frame, text='The last few shards you were on, newest first. If the game '
                              'drops out and leaves your ship somewhere, this is which shard '
-                             'to get back to. Read from the game logs, so sessions from '
-                             'before this app was installed are here too.',
+                             'to get back to. The name is built from the shard id: Star '
+                             'Citizen gives its servers none of their own, and the build '
+                             'number in the id changes every patch. Read from the game logs, '
+                             'so sessions from before this app was installed are here too.',
                  bg='#192433', fg='#9eb2c6', wraplength=780,
                  justify='left').pack(anchor='w', padx=20, pady=(0, 12))
 
@@ -537,8 +539,8 @@ class App(tk.Tk):
         style.map('History.Treeview', background=[('selected', '#2a4661')],
                   foreground=[('selected', '#ffffff')])
 
-        columns = ('joined', 'duration', 'shard', 'region', 'server')
-        widths = (150, 80, 210, 100, 170)
+        columns = ('joined', 'duration', 'server', 'shard', 'address')
+        widths = (150, 80, 190, 200, 165)
         self.history_view = ttk.Treeview(frame, columns=columns, show='headings',
                                          style='History.Treeview', height=10)
         for name, width in zip(columns, widths):
@@ -581,7 +583,7 @@ class App(tk.Tk):
             view.insert('', 'end', tags=('current',) if item.ongoing else (),
                         values=(item.joined.strftime('%a %d %b  %H:%M'),
                                 item.duration + (' *' if item.ongoing else ''),
-                                item.shard, item.region, item.server))
+                                item.name, item.shard, item.server))
         self.history_note.config(
             text='%d sessions  -  * is the one running now' % len(sessions)
             if any(i.ongoing for i in sessions) else '%d sessions' % len(sessions))
@@ -593,7 +595,7 @@ class App(tk.Tk):
             self.history_note.config(text='Pick a row first.')
             return
         values = view.item(selected[0], 'values')
-        text = '%s  %s  (%s, %s)' % (values[2], values[4], values[3], values[0])
+        text = '%s  -  %s  (%s, joined %s)' % (values[2], values[3], values[4], values[0])
         self.clipboard_clear()
         self.clipboard_append(text)
         self.history_note.config(text='Copied: ' + values[2])

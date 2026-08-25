@@ -24,20 +24,47 @@ _STAMP = re.compile(rb"<(\d{4}-\d\d-\d\dT[\d:.]+Z)>")
 #: Enough of the tail to be sure of catching the final timestamp.
 _TAIL_BYTES = 64 * 1024
 
+# A shard name is pub_<region><n><az>_<build>_<number>, e.g.
+# pub_use1b_12326004_120. The build changes with every patch - the same server
+# appeared as pub_use1b_12269732_120 before the last one - so it is no part of
+# the server's identity and is left out of the readable name.
+_SHARD = re.compile(r"^(?P<access>[a-z]+)_(?P<region>[a-z]+)(?P<zone>\d+[a-z]?)"
+                    r"_(?P<build>\d+)_(?P<number>\d+)$")
+
+#: Longest first, so "apse" is not mistaken for "aps".
 _REGIONS = [
-    ("use", "US-East"), ("usw", "US-West"), ("usc", "US-Central"),
-    ("euc", "EU-Central"), ("eun", "EU-North"), ("eu", "Europe"),
-    ("apse", "Asia-Pacific"), ("aps", "Asia-Pacific"), ("ap", "Asia-Pacific"),
+    ("apse", "Asia-Pacific SE"), ("apne", "Asia-Pacific NE"),
+    ("aps", "Asia-Pacific S"), ("ape", "Asia-Pacific E"), ("ap", "Asia-Pacific"),
+    ("use", "US-East"), ("usw", "US-West"), ("usc", "US-Central"), ("us", "US"),
+    ("euw", "EU-West"), ("euc", "EU-Central"), ("eun", "EU-North"), ("eu", "Europe"),
     ("aus", "Australia"),
 ]
 
 
 def region_of(shard: str) -> str:
-    body = shard.split("_", 1)[1] if "_" in shard else shard
+    """Just the region, e.g. US-East."""
+    match = _SHARD.match(shard)
+    body = match["region"] if match else (shard.split("_", 1)[-1])
     for prefix, name in _REGIONS:
         if body.startswith(prefix):
             return name
     return "unknown"
+
+
+def server_name(shard: str) -> str:
+    """The shard as something readable, e.g. "US-East 1B  #120".
+
+    Star Citizen gives its servers no names of their own, so this is built from
+    the parts of the shard id that identify one: region, availability zone and
+    instance number. The same shard reaches the same address every time, so
+    this names the machine your ship is parked on.
+    """
+    match = _SHARD.match(shard)
+    if not match:
+        return shard
+    zone = match["zone"].upper()
+    number = match["number"].lstrip("0") or "0"
+    return f"{region_of(shard)} {zone}  #{number}"
 
 
 def _parse_stamp(raw: bytes) -> datetime:
@@ -57,6 +84,10 @@ class Session:
     @property
     def region(self) -> str:
         return region_of(self.shard)
+
+    @property
+    def name(self) -> str:
+        return server_name(self.shard)
 
     @property
     def seconds(self) -> float:
