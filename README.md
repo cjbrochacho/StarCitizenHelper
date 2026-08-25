@@ -317,8 +317,11 @@ game is running and signed in.
 A physical keypress cancels it. Release the toggle combo fully first — the 350 ms arming delay
 covers most cases.
 
-**The window vanishes instantly.**
-Run `StarCitizenHelper.bat` directly; it pauses on errors so you can read the message.
+**The window vanishes instantly, or never appears.**
+The app runs windowed, with no console behind it, so an unhandled error is written to
+`assets/crash.log` and shown in a message box. Check that file. Startup problems that the
+launcher can catch — no Python, no tkinter, missing package — are reported by
+`StarCitizenHelper.bat` before it hands over.
 
 ---
 

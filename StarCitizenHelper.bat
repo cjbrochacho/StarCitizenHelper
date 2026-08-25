@@ -85,13 +85,11 @@ if not exist "%~dp0assets\.shortcut-made" (
 )
 
 rem ── Launch ────────────────────────────────────────────────────────────────
-%PY_CMD% StarCitizenHelper.py
-if errorlevel 1 (
-    echo.
-    echo   [ERROR] The app exited with an error. See the details above.
-    echo.
-    pause
-)
+rem Everything above has already checked that the app can run, so hand off to
+rem the windowed interpreter and exit. Staying attached would leave this
+rem console in the taskbar alongside the app for the whole session.
+call :find_pythonw
+start "" %PYW_CMD% "%~dp0StarCitizenHelper.py"
 exit /b 0
 
 
@@ -139,6 +137,22 @@ exit /b 0
 
 :got_python
 for /f "delims=" %%V in ('%PY_CMD% --version 2^>^&1') do set "PY_VERSION=%%V"
+exit /b 0
+
+
+rem ══════════════════════════════════════════════════════════════════════════
+rem  The same interpreter, windowed - pythonw rather than python - so running
+rem  the app does not open a console. Falls back to the console one if the
+rem  windowed build is missing, which is better than not starting at all.
+rem ══════════════════════════════════════════════════════════════════════════
+:find_pythonw
+rem Ask the interpreter where it lives and use the windowed build beside it.
+rem Going through the py launcher instead leaves a pyw.exe shim sitting there
+rem as a second process for the whole session.
+set "PYW_CMD=%PY_CMD%"
+set "PY_DIR="
+for /f "delims=" %%W in ('%PY_CMD% -c "import sys,os;print(os.path.dirname(sys.executable))" 2^>nul') do set "PY_DIR=%%W"
+if defined PY_DIR if exist "!PY_DIR!\pythonw.exe" set PYW_CMD="!PY_DIR!\pythonw.exe"
 exit /b 0
 
 

@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import time
 import threading
 import queue
@@ -108,11 +109,43 @@ def foreground_is(exe):
 
 # ── Application ───────────────────────────────────────────────────────────────
 
+CRASH_LOG = os.path.join(_DIR, 'assets', 'crash.log')
+
+
+def _report_crash(exc_type, exc, tb):
+    """Record an unhandled error and say so.
+
+    The app runs windowed, with no console behind it, so an uncaught error
+    would otherwise vanish with the window. Written down and shown instead.
+    """
+    import traceback
+    try:
+        os.makedirs(os.path.dirname(CRASH_LOG), exist_ok=True)
+        with open(CRASH_LOG, 'a', encoding='utf-8') as handle:
+            handle.write(time.strftime('\n=== %Y-%m-%d %H:%M:%S ===\n'))
+            traceback.print_exception(exc_type, exc, tb, file=handle)
+    except OSError:
+        pass
+    try:
+        messagebox.showerror(
+            'Star Citizen Helper',
+            '%s: %s\n\nDetails written to:\n%s'
+            % (exc_type.__name__, exc, CRASH_LOG))
+    except Exception:
+        pass
+
+
+sys.excepthook = _report_crash
+
+
 APP_ID = 'StarCitizenHelper.App'
 ICON_PATH = os.path.join(_DIR, 'assets', 'StarCitizenHelper.ico')
 
 
 class App(tk.Tk):
+    # Errors inside Tk callbacks never reach sys.excepthook.
+    report_callback_exception = staticmethod(_report_crash)
+
     def __init__(self):
         # Before the first window exists, or the taskbar keeps grouping this
         # under the Python interpreter and showing its icon.
