@@ -1,256 +1,242 @@
 # Star Citizen Helper
 
-A Windows utility that automates common keyboard actions in Star Citizen so you can stay active in-game hands-free — keepalive keypresses, continuous ship scanning, held-key macros (Shift+W), and fully custom hotkey macros — plus a live performance HUD showing frame rate, latency and which server you are on.
+A Windows utility for Star Citizen. It keeps your session alive while you are away, automates
+the keypresses you would otherwise spam by hand, and shows what your frame rate and your
+connection are actually doing — all from one window that sits behind the game.
 
----
-
-## Requirements
-
-- Windows 10 or 11
-- Python 3.8 or newer — **the installer sets this up for you**, so there is nothing to do
-  in advance
-- *Optional:* [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/)
-  — only needed for the frame-rate half of the HUD. You already have it if you use MSI
-  Afterburner. Everything else works without it.
+- **Keepalive** — taps a key once you have genuinely stepped away, so the server never drops you
+- **Ship Scan** — repeats Tab on a timer for cycling scan contacts
+- **KeepRunning** — holds Shift+W (or any keys) down so you keep moving
+- **Macros** — your own hotkeys, each tapping a sequence of keys
+- **Performance HUD** — frame rate, latency, and which server and shard you are on
+- **Alt+F4 guard** — swallows Alt+F4 while the game has focus
 
 ---
 
 ## Getting started
 
-1. **Double-click `StarCitizenHelper.bat`.** That is the only thing you ever run. On the
-   first launch it sets everything up — installs Python if you don't have it (per-user, so
-   no administrator prompt), fetches the one package it needs, draws the icon and puts a
-   **Star Citizen Helper** shortcut on your desktop — then starts the app. After that it
-   just starts the app.
+**Double-click `StarCitizenHelper.bat`.** That is the only thing you ever run.
 
-2. **Launch Star Citizen.** The app detects `StarCitizen.exe` automatically — the automations are gated and only fire while Star Citizen is the foreground window.
+The first launch sets everything up — installs Python if you don't have it, fetches the one
+package it needs, draws the icon, and puts a **Star Citizen Helper** shortcut on your desktop —
+then starts the app. Every launch after that just starts the app.
 
-> You never need to open a terminal. If Python can't be installed automatically, it opens
-> the download page and tells you which box to tick.
+There is no separate installer step to remember. Each step checks first and acts only if
+something is missing, so a normal launch adds roughly 150 ms.
 
-There is no separate installer: every step is a check first and an action only if something
-is missing, so a normal launch adds about 150 ms and a first launch does the setup. Nothing
-to remember, and nothing to run in the right order.
+> You never need to open a terminal. If Python cannot be installed automatically, the script
+> opens the download page and tells you which box to tick.
+
+Then **launch Star Citizen**. The app finds `StarCitizen.exe` on its own.
+
+### Requirements
+
+- Windows 10 or 11
+- Python 3.8+ — installed for you if missing, per-user, so no administrator prompt
+- *Optional:* [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/)
+  for the frame-rate half of the HUD. You already have it if you use MSI Afterburner.
+  Everything else works without it.
+
+The only third-party package is `keyboard`. Everything else is the Python standard library.
 
 ### How Python gets installed
 
-It tries, in order: **winget** (built into Windows 11) for Python 3.13, 3.12 then
-3.11, and if winget is unavailable or fails, a **direct download from python.org** matching
-your machine's architecture — x64, ARM64 or 32-bit. Both routes install per-user, so neither
-needs administrator rights.
+In order: **winget** (built into Windows 11) for Python 3.13, then 3.12, then 3.11 — and if
+winget is missing or fails, a **direct download from python.org** matching your machine, x64 or
+ARM64 or 32-bit. Both routes install per-user, so neither needs administrator rights.
 
-It also handles two things that trip naive scripts up: the **Microsoft Store `python.exe`
-stub**, which sits on PATH even when Python isn't installed and opens the Store instead of
-reporting a version; and the fact that **PATH isn't refreshed** inside an already-open
-window, so straight after an install it looks where Python actually landed rather than
-trusting PATH.
+Two things that trip naive scripts up are handled: the **Microsoft Store `python.exe` stub**,
+which sits on PATH even with no Python installed and opens the Store rather than reporting a
+version; and the fact that **PATH is never refreshed inside an already-open window**, so
+straight after an install it looks where Python actually landed instead of trusting PATH.
 
 ### Desktop shortcut
 
-Made on the first launch. If you move the project folder, delete
-`assets/.shortcut-made` and start the app once to get a fresh one pointing at the new
-location. Delete the shortcut itself and it stays deleted — it is not recreated behind
-your back.
+Created on first launch. Delete it and it stays deleted — it is not put back behind your back.
+If you move the project folder, delete `assets/.shortcut-made` and start the app once to get a
+shortcut pointing at the new location.
 
-A shortcut can't simply be shipped with the project: a `.lnk` stores absolute paths — to the
-target, its working directory, *and* the Python interpreter — so one built on someone else's
-machine would point at folders you don't have. Generating it locally is the only thing that
-works everywhere. The shortcut launches through `StarCitizenHelper.bat`, so the checks still happen; its
-console starts minimised and closes with the app.
+A shortcut cannot simply be shipped in the repository: a `.lnk` stores absolute paths — to the
+target, its working directory, *and* the Python interpreter — so one built on another machine
+would point at folders you do not have.
 
 ---
 
-## The interface
+## The window
 
-The header shows the live **performance HUD** — frame rate and latency, with the current
-server underneath. Below it is the **ACTIVE AUTOMATIONS** bar — four status chips (Keepalive, Ship Scan, KeepRunning, Macro). Each chip shows whether that automation is ON or OFF and can be clicked to toggle it without using a hotkey.
+The header shows the **performance HUD** with the current server underneath. Below it, the
+**ACTIVE AUTOMATIONS** bar holds four chips — Keepalive, Ship Scan, KeepRunning, Macro — each
+showing ON or OFF, and each clickable to toggle without touching a hotkey. Under that is the
+Alt+F4 guard state and how long you have been physically inactive.
 
-Below that are the control buttons, which are always visible regardless of which tab is open:
+These buttons are always visible, whichever tab is open:
 
 | Button | What it does |
 |---|---|
-| **Save Settings** | Writes current field values to `settings.json` and re-registers all hotkeys |
-| **Backup Settings** | Saves a copy of your current config to `Documents\StarCitizenHelper_hotkeys_backup.json` |
-| **Import Settings** | Loads a previously backed-up config file |
-| **Stop & Release** | Releases KeepRunning held keys |
-| **EMERGENCY DISABLE ALL** | Releases Shift, Ctrl, Alt, Win, W, A, S, D, and Tab immediately |
+| **Save Settings** | Writes the fields to `settings.json` and re-registers every hotkey |
+| **Backup Settings (.json)** | Copies your config to `Documents\StarCitizenHelper_hotkeys_backup.json` |
+| **Import Settings (.json)** | Loads a previously backed-up config |
+| **Stop & Release** | Releases any keys KeepRunning is holding |
+| **EMERGENCY DISABLE ALL** | Instantly releases Shift, Ctrl, Alt, Win, W, A, S, D and Tab |
+
+Six tabs: **Keepalive**, **Scan Ships**, **KeepRunning**, **Macros**, **Performance**,
+**Activity Log**.
 
 ---
 
-## Features
+## Hotkeys
 
-### Keepalive
+| Feature | Default | Notes |
+|---|---|---|
+| Keepalive on | `Shift + Tab + Page Up` | |
+| Keepalive off | `Shift + Tab + Page Down` | |
+| Ship Scan toggle | `Ctrl + Alt + Page Up` | |
+| KeepRunning toggle | `Shift + W + Page Up` | One hotkey starts and stops |
+| Macros | yours to choose | Set per macro in the Macros tab |
 
-Automatically sends a keypress after a period of physical inactivity, then repeats at a set interval. Useful for staying active in-game while you're AFK at the keyboard.
+All of them are editable in their tab. Click **Save Settings** afterwards. Hotkeys are global
+and do not swallow the keys, so the game still sees them.
 
-Idle time comes from Windows itself, which tracks it desktop-wide — so it notices input a hook can miss, including inside a fullscreen game. Keys this app sends are filtered out of that reading, so its own taps can't be mistaken for you coming back.
+---
 
-**Default hotkeys**
+## Keepalive
 
-| | Hotkey |
-|---|---|
-| Enable | `Shift + Tab + Page Up` |
-| Disable | `Shift + Tab + Page Down` |
+Sends a key once you have not touched the keyboard or mouse for a while, then repeats, so the
+server never counts you as idle.
 
-**Settings**
+Idle time comes from Windows itself, which tracks it desktop-wide. That catches input a hook can
+miss, including inside a fullscreen game, and it needs no extra library. Keys this app sends are
+filtered back out of that reading, so its own taps cannot be mistaken for you coming back — the
+clock keeps running across them.
 
 | Field | Default | Description |
 |---|---|---|
-| Idle seconds | `60` | How long with no mouse/keyboard input before the first key is sent |
-| Interval seconds | `10` | How often the key is sent after the idle threshold is crossed |
-| Key to send | `tab` | Which key to press — see below |
-| Snap focus (on/off) | `off` | Keep the session alive while you're in another window |
-| Key hold ms | `40` | How long the key is held down. Also applies to Ship Scan |
+| Enable hotkey | `shift+tab+page up` | |
+| Disable hotkey | `shift+tab+page down` | |
+| Idle seconds | `60` | Quiet time before the first key is sent |
+| Interval seconds | `10` | How often it repeats while you stay away |
+| Key to send | `tab` | See below |
+| Snap focus (on/off) | `off` | Keep working while you are in another window |
+| Key hold ms | `40` | How long the key is held. Applies to Ship Scan too |
 
-**Which key to send.** `tab` fires the ship scanner every time, which is visible in game.
-`f13`–`f24` and `scroll lock` don't exist on a normal keyboard and aren't bound to anything
-in Star Citizen, so they keep you active without doing anything on screen. The trade-off is
-that an unbound key may not count as activity if the game's idle timer only counts inputs it
-has a binding for — if you still get logged out on `f13`, switch back to `tab`.
+**Which key.** `tab` fires the ship scanner every time, which you will see on screen. `f13`–`f24`
+and `scroll lock` do not exist on a normal keyboard and are unbound in Star Citizen, so they keep
+you active without anything happening. The catch: an unbound key may not count as activity if the
+game's idle timer only counts inputs it has a binding for. If you still get dropped on `f13`, go
+back to `tab`.
 
-**Snap focus.** Normally keepalive only fires while Star Citizen is the active window, so it
-does nothing while you're in a browser. With snap focus on, it brings the game forward for
-the tap and hands focus straight back — about a tenth of a second. That's invisible while
-you're genuinely AFK, but it will interrupt typing in another app, and if the game runs in
-exclusive fullscreen it flips your display each time. Borderless windowed is far smoother.
+**Snap focus.** Normally keepalive only fires while Star Citizen is the active window, so it does
+nothing while you are in a browser. Switch this on and it pulls the game forward for the tap and
+hands focus straight back, about a tenth of a second. Injected keys only ever reach the focused
+window, so this is the only way to reach the game from another app without elevation. Invisible
+while you are genuinely away; disruptive if you are typing, and jarring if the game runs in
+exclusive fullscreen rather than borderless.
 
-**Key hold.** The game polls input on its own frame cadence and can miss a very short tap.
-Raise this to ~80 ms if presses aren't registering.
-
-**Example:** with defaults, if you haven't touched the mouse or keyboard for 60 seconds,
-the key is sent. It then repeats every 10 seconds until you move the mouse or press a key.
+**Key hold.** The game polls input on its own frame cadence and can miss a very short tap. Raise
+to ~80 ms if presses are not registering.
 
 ---
 
-### Ship Scan
+## Ship Scan
 
-Continuously sends Tab on a fixed interval, **regardless of whether you are actively using input**. Designed for cycling through contacts on your ship's scanning UI.
-
-**Default hotkey:** `Ctrl + Alt + Page Up` (toggle on/off)
-
-**Settings**
+Repeats Tab on a fixed interval whether or not you are using the keyboard — for cycling contacts
+on the scanning UI.
 
 | Field | Default | Description |
 |---|---|---|
-| Tab interval seconds | `2` | How often Tab is sent |
+| Toggle hotkey | `ctrl+alt+page up` | |
+| Tab interval seconds | `2` | Floors at 1 second |
 
-**Key hold ms** on the Keepalive tab applies here too — raise it if the game misses presses.
-
-You can also click the **Toggle Ship Scan** button inside the tab, or click the Ship Scan chip in the top bar.
+**Key hold ms** on the Keepalive tab applies here too. You can also use the **Toggle Ship Scan**
+button in the tab, or the Ship Scan chip.
 
 ---
 
-### KeepRunning
+## KeepRunning
 
-Holds one or more keys down continuously — by default `Shift + W` (run forward). A single hotkey acts as a toggle: press once to start, press again to stop.
-
-**Default hotkey:** `Shift + W + Page Up` (toggle on/off)
-
-**Settings**
+Holds keys down until you stop it — `shift+w` by default, so your character keeps running. One
+hotkey toggles both ways.
 
 | Field | Default | Description |
 |---|---|---|
-| Keys to hold | `shift+w` | Keys held down, `+`-separated |
+| Toggle hotkey | `shift+w+page up` | |
+| Keys to hold | `shift+w` | `+`-separated |
 
-**Auto-release conditions**
-- You press any physical key
-- Star Citizen loses foreground focus (e.g. you Alt-Tab away)
-
-There is a **350 ms arming delay** after you press the hotkey, so the keys you used for the toggle combo are fully released before the hold begins.
-
-**Example:** pressing `Shift + W + Page Up` starts holding Shift+W so your character runs. Pressing the same hotkey again (or any other key) releases them.
+It releases automatically when you press any physical key, or when Star Citizen stops being the
+foreground window. There is a **350 ms arming delay** after the hotkey so the keys in the combo
+are fully released before the hold starts.
 
 ---
 
-### Performance HUD
+## Macros
 
-The header carries a rolling 60-second graph with two sparklines sharing one canvas, each
-scaled independently. Both frame rate and latency are sampled **every 100 ms**, so the two
-series move together:
+Named hotkeys that tap a sequence of keys in order. Each is registered globally and runs off the
+UI thread, so nothing blocks.
 
-- **cyan = frame rate**, riding the top when it is high
-- **amber = latency**, riding the bottom when it is low
+| Field | Example | Description |
+|---|---|---|
+| Name | `Countermeasures` | Shown while it runs |
+| Hotkey | `ctrl+alt+1` | Global, triggers this macro |
+| Actions | `h, h, h` | Comma-separated keys, tapped in order |
+| Delay between actions | `0.10` | Seconds between each |
 
-so "everything's fine" reads as two lines hugging opposite edges. The current server sits
-underneath: `IP:port • shard • region`. The **Performance** tab breaks out the same figures
-in full — frame rate, frame time, 1% low, server, shard, region, latency and jitter.
+Actions take the same syntax as hotkeys: single keys (`1`, `tab`, `space`), modified keys
+(`shift+w`, `ctrl+c`), or a sequence (`1, 2, tab`) where each item is pressed and released on its
+own. Only one macro runs at a time; triggering a second while one is going logs a warning and
+does nothing. Pick combos the game does not use — `ctrl+alt+1` through `ctrl+alt+9` are safe.
 
-**Frame rate** is read from RivaTuner Statistics Server's shared memory. RTSS must be running
-*before* Star Citizen starts, because it hooks a game as the game launches and cannot attach
-to one already running. If RTSS is installed but not running, the graph says so and the
-Performance tab offers a **Start RivaTuner** button — RTSS requires administrator rights, so
-expect a UAC prompt.
+---
 
-**Latency** is measured to the datacenter the game connects to. The sim server itself answers
-nothing — not ICMP, not TCP on any port — so the ping targets the backend host the game holds
-a live connection to, in the same cloud region. It needs no elevation.
+## Performance HUD
 
-Both figures are shown to two decimal places. Latency is timed around the call rather than
-read from the reply's own round-trip field, which reports whole milliseconds only — too
-coarse for a decimal, and too coarse to measure jitter, which varies by less than its
-step. The trade-off is that the number sits a fraction of a millisecond above what
-`ping.exe` would say, because the measurement includes the API call as well as the network.
+A rolling 60-second graph in the header, two sparklines sharing one canvas, each scaled
+independently. Both are sampled **every 100 ms**, so the two move together:
+
+- **cyan — frame rate**, riding the top when it is high
+- **amber — latency**, riding the bottom when it is low
+
+so "all good" reads as two lines hugging opposite edges. Underneath sits the current server:
+`IP:port • shard • region`. Readouts are to two decimal places.
+
+The **Performance** tab breaks the same figures out in full: frame rate, frame time, 1% low,
+server, shard, region, latency and jitter.
+
+**Frame rate** comes from RivaTuner's shared memory. RTSS has to be running *before* Star Citizen
+starts — it hooks a game as the game launches and cannot attach to one already running. If RTSS
+is installed but not running the graph says so, and the Performance tab offers a **Start
+RivaTuner** button. RTSS needs administrator rights, so expect a UAC prompt.
+
+**Latency** is measured to the datacenter the game is connected to. The sim server itself answers
+nothing — not ICMP, not TCP on any port — so the ping goes to the backend host the game holds a
+live connection to, in the same cloud region. No elevation needed.
+
+It is timed around the call rather than read from the reply's round-trip field, which reports
+whole milliseconds only: too coarse for a decimal, and too coarse for jitter, which varies by less
+than that step. The trade-off is a reading a fraction of a millisecond above what `ping.exe` would
+say, since the measurement includes the API call as well as the network.
 
 **There is no player count**, deliberately. The client is only ever told about itself and the
-entities streamed in around it — never the shard head-count — so any number here would be
-invented.
+entities streamed in around it, never the shard head-count, so any number here would be invented.
 
 Set `"hud_enabled": false` in `settings.json` to hide the header graph.
 
 ---
 
-### Macros
+## Alt+F4 protection
 
-Create named hotkey macros that tap a sequence of keys in order. Each macro is registered as a global hotkey and runs in the background without blocking the UI.
+A low-level hook swallows Alt+F4 **only while Star Citizen is the foreground window**, so a
+mis-hit cannot close the game. The header shows its state:
 
-**To add a macro:**
-
-1. Open the **Macros** tab.
-2. Fill in the fields:
-
-| Field | Example | Description |
-|---|---|---|
-| Name | `Countermeasures` | Display label shown while the macro runs |
-| Hotkey | `ctrl+alt+1` | Global hotkey that triggers this macro |
-| Actions | `h, h, h` | Comma-separated keys tapped in sequence |
-| Delay between actions | `0.10` | Seconds between each keypress |
-
-3. Click **Add macro**. It is saved and registered immediately.
-
-**Action syntax** — use the same format as keyboard shortcuts:
-- Single keys: `1`, `2`, `tab`, `f`, `space`, `enter`
-- Modified keys: `shift+w`, `ctrl+c`, `alt+f4`
-- Sequences: `1, 2, tab, shift+w` — each item is pressed and released individually
-
-**Example macros**
-
-| Name | Hotkey | Actions | Delay | What it does |
-|---|---|---|---|---|
-| Countermeasures | `ctrl+alt+1` | `h, h, h` | `0.10` | Taps H three times (deploy countermeasures) |
-| Power reset | `ctrl+alt+2` | `u, u, u` | `0.15` | Cycles power systems |
-| Quick shield cycle | `ctrl+alt+3` | `f5, f6, f7` | `0.20` | Redistributes shield power |
-
-Only one macro can run at a time — triggering a second while one is active logs a warning and does nothing.
-
----
-
-## Hotkey reference
-
-| Feature | Default hotkey | Notes |
-|---|---|---|
-| Keepalive ON | `Shift + Tab + Page Up` | |
-| Keepalive OFF | `Shift + Tab + Page Down` | |
-| Ship Scan toggle | `Ctrl + Alt + Page Up` | |
-| KeepRunning toggle | `Shift + W + Page Up` | Single hotkey starts and stops |
-| Custom macros | User-defined | Set in the Macros tab |
-
-All hotkeys can be changed in their respective tabs. Click **Save Settings** after editing.
+- **INACTIVE** — `StarCitizen.exe` is not running
+- **ARMED** — running, but not in front
+- **ACTIVE** — in front, and Alt+F4 is being blocked
 
 ---
 
 ## Settings file
 
-`settings.json` is stored in the same folder as the app and loaded automatically on startup. You can edit it by hand or use **Backup / Import** in the app.
+`settings.json` sits next to the app and loads at startup. Edit it by hand or use
+**Backup** / **Import**.
 
 ```json
 {
@@ -279,68 +265,64 @@ All hotkeys can be changed in their respective tabs. Click **Save Settings** aft
 
 ---
 
-## Alt+F4 protection
-
-The app registers a low-level keyboard hook that intercepts Alt+F4 **only when Star Citizen is the foreground window**, preventing an accidental keypress from closing the game. The guard label in the top bar shows its current state:
-
-- **INACTIVE** — StarCitizen.exe is not running
-- **ARMED** — StarCitizen.exe is running but not in the foreground
-- **ACTIVE** — Star Citizen is foreground; Alt+F4 is blocked
-
----
-
 ## Project layout
 
 ```
-StarCitizenHelper.py            the app
-StarCitizenHelper.bat           the only thing you run: sets up if needed, then launches
+StarCitizenHelper.py     the app
+StarCitizenHelper.bat    the only thing you run: sets up if needed, then launches
 
-helper/                         everything the app leans on
-  fps.py                        frame data from the RTSS shared memory block
-  net.py                        latency + server/shard/region
-  hud.py                        the header graph and readout
-  idle.py                       desktop-wide idle detection
-  window.py                     finds the game window; snap focus; taskbar icon
-  brand.py                      the radar mark, drawn once for the header and the icon
-  theme.py                      colour palette
-  shortcut.py                   draws the icon and writes the .lnk
+helper/
+  __init__.py            marks the package
+  fps.py                 frame data from the RTSS shared memory block
+  net.py                 latency, and server/shard/region from the game's log
+  hud.py                 the header graph and its readout
+  idle.py                desktop-wide idle detection
+  window.py              finds the game window; snap focus; taskbar icon
+  brand.py               the radar mark and the header wordmark
+  theme.py               colour palette
+  shortcut.py            draws the icon and writes the .lnk
 
-assets/                         generated icon (git-ignored)
-settings.json                   created on first save (git-ignored)
+assets/                  generated icon and shortcut marker (git-ignored)
+settings.json            written on first save (git-ignored)
 ```
 
-Everything in `helper/` is standard library + ctypes only. The single third-party
-dependency is `keyboard`, which the installer fetches — there is no `requirements.txt` to
-keep in step for one package.
+Everything under `helper/` is standard library plus `ctypes`.
 
 ---
 
 ## Troubleshooting
 
 **Python was not found.**
-Run `StarCitizenHelper.bat` — it installs Python for you. If that can't reach the
-internet, install it by hand from [python.org](https://www.python.org/downloads/), tick
-"Add python.exe to PATH", then run the installer again.
+Run `StarCitizenHelper.bat` — it installs Python for you. If it cannot reach the internet, install
+by hand from [python.org](https://www.python.org/downloads/), tick "Add python.exe to PATH", and
+run it again.
 
-**Hotkeys don't respond in-game.**
-Make sure Star Citizen is the active foreground window. Ship Scan, KeepRunning and keepalive
-are all paused while another window has focus — the one exception is keepalive with **snap
-focus** switched on, which is designed to work while you are elsewhere.
+**Hotkeys do nothing in-game.**
+Star Citizen has to be the active window. Ship Scan, KeepRunning and keepalive are all paused
+while another window has focus — the exception is keepalive with **snap focus** on, which is
+built to work while you are elsewhere.
+
+**Keys register in Notepad but not in the game.**
+Raise **Key hold ms** to around 80. The game can miss a very short tap.
 
 **The frame-rate line is blank, or says "waiting for the game".**
-RivaTuner has to be running *before* Star Citizen starts — it hooks a game as the game
-launches and cannot attach to one already running. Start RTSS, then restart the game. The
-latency half of the HUD works regardless.
+RivaTuner has to start *before* Star Citizen. Start RTSS, then restart the game. Latency works
+either way.
 
 **Latency shows `--`.**
-The app pings a backend host that Star Citizen itself is connected to, so it only has a
-target while the game is running and signed in.
+The ping targets a backend host the game itself is connected to, so there is no target until the
+game is running and signed in.
 
-**KeepRunning stops immediately after starting.**
-A physical key press cancels it. Make sure you fully release the toggle hotkey before pressing other keys — the 350 ms arming delay handles most cases, but fast typists may need a slightly longer delay (not currently configurable).
+**KeepRunning stops the moment it starts.**
+A physical keypress cancels it. Release the toggle combo fully first — the 350 ms arming delay
+covers most cases.
 
-**A macro hotkey conflicts with a game binding.**
-Choose a combo that Star Citizen doesn't use, e.g. `ctrl+alt+1` through `ctrl+alt+9`.
+**The window vanishes instantly.**
+Run `StarCitizenHelper.bat` directly; it pauses on errors so you can read the message.
 
-**The app window disappears instantly on launch.**
-Run `StarCitizenHelper.bat` directly — it pauses on errors so you can read the message. If a dependency failed to install, try running it as Administrator.
+---
+
+## A note on automation
+
+Automating input sits in a grey area in most games' terms of service. Everything here only
+repeats keys you could press yourself, but use it at your own risk.
