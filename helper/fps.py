@@ -115,8 +115,8 @@ class Stats:
     frame_time_ms: float = 0.0
     #: True when the figures come from every frame rather than from samples.
     per_frame: bool = False
-    #: Recent frame times in ms, oldest first, for the frametime plot.
-    frame_times: list[float] = field(default_factory=list)
+    #: (age in seconds, frame time in ms), oldest first - same axis as history.
+    frame_times: list[tuple[float, float]] = field(default_factory=list)
     #: (age in seconds, fps), oldest first, for plotting.
     history: list[tuple[float, float]] = field(default_factory=list)
 
@@ -315,7 +315,7 @@ class FpsMonitor(threading.Thread):
         with self._lock:
             status = self._status
             samples = list(self._samples)
-            frames = [ms for _, ms in self._frames]
+            frame_pairs = list(self._frames)
 
         if not samples:
             return Stats(status=status)
@@ -325,6 +325,7 @@ class FpsMonitor(threading.Thread):
         # Percentiles come from every frame when RTSS gives us its ring, and
         # from the sampled frame times only as a fallback - one frame in ten
         # cannot show a stutter that lasted one frame.
+        frames = [ms for _, ms in frame_pairs]
         per_frame = len(frames) > 20
         pool = frames if per_frame else [ft for _, _, ft in samples]
         slowest_first = sorted(pool, reverse=True)
@@ -342,6 +343,6 @@ class FpsMonitor(threading.Thread):
             minimum=1000.0 / slowest_first[0] if slowest_first[0] else 0.0,
             frame_time_ms=samples[-1][2],
             per_frame=per_frame,
-            frame_times=frames,
+            frame_times=[(now - stamp, ms) for stamp, ms in frame_pairs],
             history=[(now - stamp, fps) for stamp, fps, _ in samples],
         )
