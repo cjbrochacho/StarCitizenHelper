@@ -14,7 +14,7 @@ import keyboard
 # Performance HUD: frame rate (via RivaTuner) and latency/server details.
 # Pure stdlib + ctypes - these add no new requirements.
 from helper import theme
-from helper.brand import BrandMark
+from helper.brand import BrandMark, WordMark
 from helper.fps import FpsMonitor, rtss_executable, start_rtss
 from helper.hud import HudGraph
 from helper.idle import IdleWatcher, note_injection, tick
@@ -207,12 +207,10 @@ class App(tk.Tk):
         title_box.pack(side='left', anchor='nw')
         BrandMark(title_box, size=46, background='#101722').pack(side='left',
                                                                  anchor='n', padx=(0, 12))
-        wordmark = tk.Frame(title_box, bg='#101722')
-        wordmark.pack(side='left', anchor='nw')
-        tk.Label(wordmark, text='STAR CITIZEN HELPER', bg='#101722',
-                 fg='#eef6ff', font=('Segoe UI Semibold', 18)).pack(anchor='w')
-        tk.Label(wordmark, text='Automation status and hotkey controls',
-                 bg='#101722', fg='#91a7bd').pack(anchor='w')
+        WordMark(title_box, 'STAR CITIZEN HELPER',
+                 'Automation status and hotkey controls',
+                 background='#101722', title_fill='#eef6ff',
+                 subtitle_fill='#91a7bd').pack(side='left', anchor='nw')
 
         if self.cfg.get('hud_enabled', True):
             hud_box = tk.Frame(header, bg=theme.BG)
