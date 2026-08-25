@@ -4,7 +4,7 @@ A Windows utility for Star Citizen. It keeps your session alive while you are aw
 the keypresses you would otherwise spam by hand, and shows what your frame rate and your
 connection are actually doing — all from one window that sits behind the game.
 
-- **Keepalive** — taps a key once you have genuinely stepped away, so the server never drops you
+- **Keepalive** — runs by itself, tapping a key once you have genuinely stepped away, so the server never drops you
 - **Ship Scan** — repeats Tab on a timer for cycling scan contacts
 - **KeepRunning** — holds Shift+W (or any keys) down so you keep moving
 - **Macros** — your own hotkeys, each tapping a sequence of keys
@@ -88,8 +88,6 @@ Six tabs: **Keepalive**, **Scan Ships**, **KeepRunning**, **Macros**, **Performa
 
 | Feature | Default | Notes |
 |---|---|---|
-| Keepalive on | `Shift + Tab + Page Up` | |
-| Keepalive off | `Shift + Tab + Page Down` | |
 | Ship Scan toggle | `Ctrl + Alt + Page Up` | |
 | KeepRunning toggle | `Shift + W + Page Up` | One hotkey starts and stops |
 | Macros | yours to choose | Set per macro in the Macros tab |
@@ -97,12 +95,19 @@ Six tabs: **Keepalive**, **Scan Ships**, **KeepRunning**, **Macros**, **Performa
 All of them are editable in their tab. Click **Save Settings** afterwards. Hotkeys are global
 and do not swallow the keys, so the game still sees them.
 
+Keepalive has no hotkey: it runs on its own, and the **Toggle Keepalive** button on its tab —
+or the Keepalive chip — is there for the times you want it off.
+
 ---
 
 ## Keepalive
 
-Sends a key once you have not touched the keyboard or mouse for a while, then repeats, so the
-server never counts you as idle.
+**Runs by itself. There is nothing to switch on.** It stays quiet while you are at the
+computer, and sends a key only once the keyboard and mouse have been still for the idle time,
+then repeats, so the server never counts you as idle.
+
+To turn it off, use **Toggle Keepalive** on its tab or click the Keepalive chip. That choice is
+remembered, so an off stays off across restarts.
 
 Idle time comes from Windows itself, which tracks it desktop-wide. That catches input a hook can
 miss, including inside a fullscreen game, and it needs no extra library. Keys this app sends are
@@ -111,8 +116,6 @@ clock keeps running across them.
 
 | Field | Default | Description |
 |---|---|---|
-| Enable hotkey | `shift+tab+page up` | |
-| Disable hotkey | `shift+tab+page down` | |
 | Idle seconds | `60` | Quiet time before the first key is sent |
 | Interval seconds | `10` | How often it repeats while you stay away |
 | Key to send | `tab` | See below |
@@ -240,8 +243,7 @@ mis-hit cannot close the game. The header shows its state:
 
 ```json
 {
-  "keepalive_on":       "shift+tab+page up",
-  "keepalive_off":      "shift+tab+page down",
+  "keepalive_enabled":  true,
   "keepalive_idle":     60,
   "keepalive_interval": 10,
   "keepalive_key":      "tab",

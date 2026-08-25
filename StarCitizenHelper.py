@@ -27,8 +27,7 @@ _DIR = os.path.dirname(os.path.abspath(__file__))
 _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
 
 DEFAULTS = {
-    'keepalive_on':       'shift+tab+page up',
-    'keepalive_off':      'shift+tab+page down',
+    'keepalive_enabled':  True,
     'keepalive_idle':     60,
     'keepalive_interval': 10,
     'keepalive_key':      'tab',
@@ -176,7 +175,7 @@ class App(tk.Tk):
         self.game_foreground = False
         self.game_check_at = 0
         self.guard_last_log = 0
-        self.keep_active = False
+        self.keep_active = bool(self.cfg.get('keepalive_enabled', True))
         self.scan_active = False
         self.hold_active = False
         self.held_keys = []
@@ -309,18 +308,19 @@ class App(tk.Tk):
         notebook.pack(fill='both', expand=True, padx=22, pady=(0, 10))
 
         self._add_settings_tab(notebook, 'Keepalive', 'Inactivity keepalive',
-            'After no physical mouse/keyboard activity, sends a key at the chosen '
-            'interval. F13-F24 and Scroll Lock are unbound in Star Citizen, so they keep '
-            'you active without firing the scanner the way Tab does. Snap focus brings the '
-            'game forward for the tap and hands focus straight back, so keepalive still '
-            'works while you are in another window. Key hold also applies to Ship Scan.',
-            [('Enable hotkey',        'keepalive_on',       'Shift+Tab+Page Up'),
-             ('Disable hotkey',       'keepalive_off',      'Shift+Tab+Page Down'),
-             ('Idle seconds',         'keepalive_idle',     '60'),
+            'Runs by itself - there is nothing to switch on. It stays quiet while you '
+            'are at the computer and only sends a key once the keyboard and mouse have '
+            'been still for the idle time below. F13-F24 and Scroll Lock are unbound in '
+            'Star Citizen, so they keep you active without firing the scanner the way Tab '
+            'does. Snap focus brings the game forward for the tap and hands focus straight '
+            'back, so keepalive still works while you are in another window. Key hold also '
+            'applies to Ship Scan.',
+            [('Idle seconds',         'keepalive_idle',     '60'),
              ('Interval seconds',     'keepalive_interval', '10'),
              ('Key to send',          'keepalive_key',      'tab'),
              ('Snap focus (on/off)',  'keepalive_snap',     'off'),
-             ('Key hold ms',          'key_hold_ms',        '40')])
+             ('Key hold ms',          'key_hold_ms',        '40')],
+            extra_button=('Toggle Keepalive', self._toggle_keepalive))
 
         self._add_settings_tab(notebook, 'Scan Ships', 'Ship Scan',
             'Independent of inactivity: sends Tab continuously even while you use your keyboard or mouse.',
@@ -635,8 +635,6 @@ class App(tk.Tk):
         self.hotkey_handles = []
         try:
             for key, fn in [
-                ('keepalive_on',  self._enable_keepalive),
-                ('keepalive_off', self._disable_keepalive),
                 ('scan_toggle',   self._toggle_scan),
                 ('hold_start',    self._toggle_hold),
             ]:
@@ -735,13 +733,21 @@ class App(tk.Tk):
 
     # ── Automation controls ───────────────────────────────────────────────────
 
-    def _enable_keepalive(self):
-        self.keep_active = True
-        self.log_queue.put('Keepalive enabled.')
+    def _toggle_keepalive(self):
+        """Keepalive runs by itself; this is only for switching it off."""
+        self.keep_active = not self.keep_active
+        self.next_keepalive = time.monotonic()
+        self.log_queue.put('Keepalive ' + ('enabled.' if self.keep_active else 'disabled.'))
+        self._remember_keepalive()
 
-    def _disable_keepalive(self):
-        self.keep_active = False
-        self.log_queue.put('Keepalive disabled.')
+    def _remember_keepalive(self):
+        """Persist the on/off state, so a deliberate 'off' survives a restart."""
+        self.cfg['keepalive_enabled'] = self.keep_active
+        try:
+            with open(_SETTINGS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(self.cfg, f, indent=2)
+        except OSError:
+            pass
 
     def _toggle_scan(self):
         self.scan_active = not self.scan_active
@@ -750,8 +756,7 @@ class App(tk.Tk):
 
     def _toggle_automation(self, name):
         if name == 'Keepalive':
-            self.keep_active = not self.keep_active
-            self.log_queue.put('Keepalive ' + ('enabled.' if self.keep_active else 'disabled.'))
+            self._toggle_keepalive()
         elif name == 'Ship Scan':
             self.scan_active = not self.scan_active
             if self.scan_active:
