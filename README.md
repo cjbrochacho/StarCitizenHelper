@@ -135,6 +135,17 @@ you active without anything happening. The catch: an unbound key may not count a
 game's idle timer only counts inputs it has a binding for. If you still get dropped on `f13`, go
 back to `tab`.
 
+The choice also decides what leaves your machine. A bound key like `tab` produces a real in-game
+action, which the server handles and can timestamp like any other. An unbound key fires nothing,
+so there is no action for anything upstream to see — the client keeps streaming its usual state
+either way.
+
+Worth being clear-eyed about: varying the gap defeats a naive "exactly every N seconds" pattern,
+but the thing that marks out an idle keepalive is not its rhythm, it is that nothing else is
+happening. No amount of jitter makes an otherwise silent session look like someone playing.
+Automation is against the spirit of most games' rules whatever the timing, which is why the note
+at the bottom of this file says what it says.
+
 **Snap focus.** Normally keepalive only fires while Star Citizen is the active window, so it does
 nothing while you are in a browser. Switch this on and it pulls the game forward for the tap and
 hands focus straight back, about a tenth of a second. Injected keys only ever reach the focused
