@@ -90,22 +90,33 @@ class Pinger:
                                                   + len(self._payload) + 8)
 
     def ping(self, ip: str, timeout_ms: int = _PING_TIMEOUT_MS) -> float | None:
+        """Round trip in milliseconds, or None if there was no reply.
+
+        The reply's own RoundTripTime field is whole milliseconds, which is too
+        coarse to show a decimal or to measure jitter with - successive pings
+        differ by less than the quantisation step. Timing the call instead
+        gives real sub-millisecond resolution. It reads a fraction of a
+        millisecond high, because the measurement includes the API call as
+        well as the network, but that offset is constant and small next to any
+        real latency.
+        """
         if not self._handle or self._handle == wintypes.HANDLE(-1).value:
             return None
         try:
             addr = struct.unpack("<I", socket.inet_aton(ip))[0]
         except OSError:
             return None
+
+        started = time.perf_counter()
         got = iphlpapi.IcmpSendEcho(self._handle, addr, self._payload, len(self._payload),
                                     None, self._reply, ctypes.sizeof(self._reply), timeout_ms)
+        elapsed_ms = (time.perf_counter() - started) * 1000.0
         if not got:
             return None
         reply = _IcmpEchoReply.from_buffer_copy(self._reply)
         if reply.Status != 0:
             return None
-        # RoundTripTime is whole milliseconds; report at least 1 so a sub-ms
-        # reply is not mistaken for a failure.
-        return float(reply.RoundTripTime) or 0.5
+        return elapsed_ms
 
     def close(self) -> None:
         if self._handle:

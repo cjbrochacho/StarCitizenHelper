@@ -412,16 +412,16 @@ class App(tk.Tk):
                 fps_ok = fps_stats.status == 'ok'
                 net_ok = net_stats.status == 'ok'
                 self.perf_rows['Frame rate'].config(
-                    text=('%.0f fps  (avg %.0f)' % (fps_stats.fps, fps_stats.average)) if fps_ok else '--')
+                    text=('%.2f fps  (avg %.2f)' % (fps_stats.fps, fps_stats.average)) if fps_ok else '--')
                 self.perf_rows['Frame time'].config(
-                    text=('%.1f ms' % fps_stats.frame_time_ms) if fps_ok else '--')
+                    text=('%.2f ms' % fps_stats.frame_time_ms) if fps_ok else '--')
                 self.perf_rows['1% low'].config(
-                    text=('%.0f fps' % fps_stats.low_1) if fps_ok else '--')
+                    text=('%.2f fps' % fps_stats.low_1) if fps_ok else '--')
                 self.perf_rows['Server'].config(text=net_stats.server or '--')
                 self.perf_rows['Shard'].config(text=net_stats.shard or '--')
                 self.perf_rows['Region'].config(text=net_stats.region or '--')
                 self.perf_rows['Latency'].config(
-                    text=('%.0f ms  (avg %.1f, %.0f%% loss)'
+                    text=('%.2f ms  (avg %.2f, %.0f%% loss)'
                           % (net_stats.ping_ms, net_stats.average, net_stats.loss_pct))
                     if net_ok else '--')
                 self.perf_rows['Jitter'].config(

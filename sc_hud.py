@@ -17,7 +17,7 @@ from sc_net import STATUS_OK as NET_OK
 from sc_theme import ACCENT, BG, FPS_LOW, LAT, MUTED, WARN
 
 MIN_PLOT_WIDTH = 220
-READOUT_WIDTH = 104
+READOUT_WIDTH = 122
 HEIGHT = 76
 PADDING = 6
 
@@ -53,13 +53,13 @@ class HudGraph(tk.Canvas):
         self._fps_tag = self.create_text(0, 0, text="FPS", fill=MUTED, anchor="w",
                                          font=("Segoe UI", 7))
         self._fps_val = self.create_text(0, 0, text="--", fill=ACCENT, anchor="e",
-                                         font=("Consolas", 15))
+                                         font=("Consolas", 14))
         self._fps_sub = self.create_text(0, 0, text="", fill=MUTED, anchor="e",
                                          font=("Consolas", 8))
         self._ping_tag = self.create_text(0, 0, text="PING", fill=MUTED, anchor="w",
                                           font=("Segoe UI", 7))
         self._ping_val = self.create_text(0, 0, text="--", fill=LAT, anchor="e",
-                                          font=("Consolas", 15))
+                                          font=("Consolas", 14))
         self._ping_sub = self.create_text(0, 0, text="", fill=MUTED, anchor="e",
                                           font=("Consolas", 8))
 
@@ -113,8 +113,8 @@ class HudGraph(tk.Canvas):
                 self.itemconfig(self._fps_low, state="normal")
             else:
                 self.itemconfig(self._fps_low, state="hidden")
-            self.itemconfig(self._fps_val, text=f"{stats.fps:.0f}")
-            self.itemconfig(self._fps_sub, text=f"{stats.average:.0f} avg  {stats.frame_time_ms:.1f}ms")
+            self.itemconfig(self._fps_val, text=f"{stats.fps:.2f}")
+            self.itemconfig(self._fps_sub, text=f"{stats.average:.2f} avg  {stats.frame_time_ms:.2f}ms")
         else:
             self._hide(self._fps_line, self._fps_low)
             self.itemconfig(self._fps_val, text="--")
@@ -126,9 +126,9 @@ class HudGraph(tk.Canvas):
         if stats.status == NET_OK and stats.history:
             self._ms_top = _ease(self._ms_top, stats.history, _MS_STEPS, 20.0)
             self._plot(self._ping_line, stats.history, self._ms_top)
-            self.itemconfig(self._ping_val, text=f"{stats.ping_ms:.0f}")
+            self.itemconfig(self._ping_val, text=f"{stats.ping_ms:.2f}")
             loss = f"  {stats.loss_pct:.0f}%loss" if stats.loss_pct >= 1 else ""
-            self.itemconfig(self._ping_sub, text=f"{stats.jitter:.1f} jit{loss}")
+            self.itemconfig(self._ping_sub, text=f"{stats.jitter:.2f} jit{loss}")
         else:
             self._hide(self._ping_line)
             self.itemconfig(self._ping_val, text="--")
