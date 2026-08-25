@@ -1,4 +1,4 @@
-# Star Citizen Helper v1.2
+# Star Citizen Helper
 
 A Windows utility that automates common keyboard actions in Star Citizen so you can stay active in-game hands-free — keepalive keypresses, continuous ship scanning, held-key macros (Shift+W), and fully custom hotkey macros — plus a live performance HUD showing frame rate, latency and which server you are on.
 
@@ -290,21 +290,27 @@ The app registers a low-level keyboard hook that intercepts Alt+F4 **only when S
 ## Project layout
 
 ```
-StarCitizenHelper.py       the app
-Run_StarCitizenHelper.bat  launcher (installs requirements, then starts the app)
-Install_StarCitizenHelper.bat  one-click setup: Python, packages, shortcut
-sc_shortcut.py             draws the icon and writes the .lnk
-sc_idle.py                 desktop-wide idle detection
-sc_window.py               finds the game window; snap focus
-sc_fps.py                  frame data from the RTSS shared memory block
-sc_net.py                  latency + server/shard/region
-sc_hud.py                  the header graph and readout
-sc_theme.py                colour palette
-assets/                    generated icon (git-ignored)
-settings.json              created on first save (git-ignored)
+StarCitizenHelper.py            the app
+Install_StarCitizenHelper.bat   one-click setup: Python, package, shortcut
+Run_StarCitizenHelper.bat       launcher
+
+helper/                         everything the app leans on
+  fps.py                        frame data from the RTSS shared memory block
+  net.py                        latency + server/shard/region
+  hud.py                        the header graph and readout
+  idle.py                       desktop-wide idle detection
+  window.py                     finds the game window; snap focus
+  brand.py                      the radar mark beside the title
+  theme.py                      colour palette
+  shortcut.py                   draws the icon and writes the .lnk
+
+assets/                         generated icon (git-ignored)
+settings.json                   created on first save (git-ignored)
 ```
 
-The `sc_*` modules are standard library + ctypes only — they add no requirements.
+Everything in `helper/` is standard library + ctypes only. The single third-party
+dependency is `keyboard`, which the installer fetches — there is no `requirements.txt` to
+keep in step for one package.
 
 ---
 

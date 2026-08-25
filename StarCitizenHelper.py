@@ -13,15 +13,13 @@ import keyboard
 
 # Performance HUD: frame rate (via RivaTuner) and latency/server details.
 # Pure stdlib + ctypes - these add no new requirements.
-import sc_theme
-from sc_fps import FpsMonitor, start_rtss, rtss_executable
-from sc_net import NetMonitor
-from sc_hud import HudGraph
-from sc_idle import IdleWatcher, note_injection, tick
-from sc_net import process_pid
-from sc_window import force_foreground, foreground_hwnd, window_for_pid
-
-__version__ = '1.2'
+from helper import theme
+from helper.brand import BrandMark
+from helper.fps import FpsMonitor, rtss_executable, start_rtss
+from helper.hud import HudGraph
+from helper.idle import IdleWatcher, note_injection, tick
+from helper.net import NetMonitor, process_pid
+from helper.window import force_foreground, foreground_hwnd, window_for_pid
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
@@ -112,7 +110,15 @@ def foreground_is(exe):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('Star Citizen Helper v' + __version__)
+        self.title('Star Citizen Helper')
+        # Replaces the default Tk feather in the title bar and taskbar. The
+        # icon is written by the installer, so it may not exist yet.
+        _icon = os.path.join(_DIR, 'assets', 'StarCitizenHelper.ico')
+        if os.path.exists(_icon):
+            try:
+                self.iconbitmap(_icon)
+            except tk.TclError:
+                pass
         self.geometry('980x760')
         self.minsize(860, 630)
         self.configure(bg='#101722')
@@ -186,19 +192,23 @@ class App(tk.Tk):
         # Title on the left, performance HUD on the right, sharing one row.
         title_box = tk.Frame(header, bg='#101722')
         title_box.pack(side='left', anchor='nw')
-        tk.Label(title_box, text='STAR CITIZEN HELPER v' + __version__, bg='#101722',
+        BrandMark(title_box, size=46, background='#101722').pack(side='left',
+                                                                 anchor='n', padx=(0, 12))
+        wordmark = tk.Frame(title_box, bg='#101722')
+        wordmark.pack(side='left', anchor='nw')
+        tk.Label(wordmark, text='STAR CITIZEN HELPER', bg='#101722',
                  fg='#eef6ff', font=('Segoe UI Semibold', 18)).pack(anchor='w')
-        tk.Label(title_box, text='Automation status and hotkey controls',
+        tk.Label(wordmark, text='Automation status and hotkey controls',
                  bg='#101722', fg='#91a7bd').pack(anchor='w')
 
         if self.cfg.get('hud_enabled', True):
-            hud_box = tk.Frame(header, bg=sc_theme.BG)
+            hud_box = tk.Frame(header, bg=theme.BG)
             hud_box.pack(side='right', anchor='e', fill='x', expand=True, padx=(40, 0))
             self.hud = HudGraph(hud_box, on_start_rtss=self._start_rtss)
             self.hud.configure(width=460)
             self.hud.pack(fill='x', expand=True)
-            self.server_label = tk.Label(hud_box, text='', bg=sc_theme.BG,
-                                         fg=sc_theme.MUTED, font=('Consolas', 8),
+            self.server_label = tk.Label(hud_box, text='', bg=theme.BG,
+                                         fg=theme.MUTED, font=('Consolas', 8),
                                          anchor='e', justify='right')
             self.server_label.pack(fill='x', pady=(2, 0))
 

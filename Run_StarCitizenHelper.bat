@@ -3,7 +3,7 @@ setlocal EnableDelayedExpansion
 cd /d "%~dp0"
 
 echo =========================================
-echo  Star Citizen Helper v1.2  --  Launcher
+echo  Star Citizen Helper  --  Launcher
 echo =========================================
 echo.
 
@@ -74,19 +74,16 @@ if errorlevel 1 (
     exit /b 1
 )
 
-:: ── Install / verify dependencies ─────────────────────────────────────────────
-echo Installing / verifying dependencies...
-echo.
-%PY_CMD% -m pip install -r requirements.txt
+:: ── Verify dependencies ───────────────────────────────────────────────────────
+:: Only check. Installing belongs to the installer, and doing it on every
+:: launch just slows the app down.
+%PY_CMD% -c "import keyboard" >nul 2>&1
 if errorlevel 1 (
     echo.
-    echo [ERROR] Dependency installation failed.
+    echo [ERROR] The 'keyboard' package is missing.
     echo.
-    echo   Possible causes:
-    echo     - No internet connection
-    echo     - pip needs an upgrade:  py -3 -m pip install --upgrade pip
-    echo     - Permission error: right-click this file and choose
-    echo       "Run as administrator", then try again
+    echo   Run Install_StarCitizenHelper.bat once - it sets everything up.
+    echo   Or install it yourself with:  %PY_CMD% -m pip install keyboard
     echo.
     pause
     exit /b 1

@@ -10,11 +10,11 @@ from __future__ import annotations
 import tkinter as tk
 from typing import Callable
 
-import sc_fps as fps_module
-from sc_fps import STATUS_NO_RTSS, STATUS_OK, WINDOW_SECONDS, Stats
-from sc_net import STATUS_NO_TARGET, NetStats
-from sc_net import STATUS_OK as NET_OK
-from sc_theme import ACCENT, BG, FPS_LOW, LAT, MUTED, WARN
+from . import fps as fps_module
+from .fps import STATUS_NO_RTSS, STATUS_OK, WINDOW_SECONDS, Stats
+from .net import STATUS_NO_TARGET, NetStats
+from .net import STATUS_OK as NET_OK
+from .theme import ACCENT, BG, FPS_LOW, LAT, MUTED, WARN
 
 MIN_PLOT_WIDTH = 220
 READOUT_WIDTH = 122

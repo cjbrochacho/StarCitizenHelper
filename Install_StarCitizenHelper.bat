@@ -68,10 +68,10 @@ echo.
 
 rem ── 2. Packages ───────────────────────────────────────────────────────────
 echo   [2/3] Installing packages...
-%PY_CMD% -m pip install --disable-pip-version-check --quiet -r requirements.txt
+%PY_CMD% -m pip install --disable-pip-version-check --quiet keyboard
 if errorlevel 1 (
     echo         Retrying for this user account only...
-    %PY_CMD% -m pip install --disable-pip-version-check --quiet --user -r requirements.txt
+    %PY_CMD% -m pip install --disable-pip-version-check --quiet --user keyboard
 )
 if errorlevel 1 (
     echo.
@@ -86,7 +86,7 @@ echo.
 
 rem ── 3. Shortcut ───────────────────────────────────────────────────────────
 echo   [3/3] Creating the desktop shortcut...
-%PY_CMD% sc_shortcut.py
+%PY_CMD% -m helper.shortcut
 if errorlevel 1 (
     echo.
     echo   [WARNING] The shortcut could not be created, but the app is ready.

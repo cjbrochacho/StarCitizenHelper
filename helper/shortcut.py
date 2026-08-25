@@ -18,7 +18,8 @@ import sys
 import zlib
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+# The project root is one level up now that this lives in the package.
+ROOT = Path(__file__).resolve().parent.parent
 LAUNCHER = ROOT / "Run_StarCitizenHelper.bat"
 ICON = ROOT / "assets" / "StarCitizenHelper.ico"
 SHORTCUT_NAME = "Star Citizen Helper.lnk"
