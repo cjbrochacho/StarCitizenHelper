@@ -1,13 +1,17 @@
 # Star Citizen Helper v1.2
 
-A Windows utility that automates common keyboard actions in Star Citizen so you can stay active in-game hands-free — keepalive Tab presses, continuous ship scanning, held-key macros (Shift+W), and fully custom hotkey macros — plus a live performance HUD showing frame rate, latency and which server you are on.
+A Windows utility that automates common keyboard actions in Star Citizen so you can stay active in-game hands-free — keepalive keypresses, continuous ship scanning, held-key macros (Shift+W), and fully custom hotkey macros — plus a live performance HUD showing frame rate, latency and which server you are on.
 
 ---
 
 ## Requirements
 
 - Windows 10 or 11
-- Python 3.8 or newer — [Microsoft Store](https://apps.microsoft.com/search?query=python) (easiest) or [python.org](https://www.python.org/downloads/)
+- Python 3.8 or newer — **the installer sets this up for you**, so there is nothing to do
+  in advance
+- *Optional:* [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/)
+  — only needed for the frame-rate half of the HUD. You already have it if you use MSI
+  Afterburner. Everything else works without it.
 
 ---
 
@@ -56,7 +60,8 @@ dependency check still happens; its console starts minimised and closes with the
 
 ## The interface
 
-At the top of the window is the **ACTIVE AUTOMATIONS** bar — four status chips (Keepalive, Ship Scan, KeepRunning, Macro). Each chip shows whether that automation is ON or OFF and can be clicked to toggle it without using a hotkey.
+The header shows the live **performance HUD** — frame rate and latency, with the current
+server underneath. Below it is the **ACTIVE AUTOMATIONS** bar — four status chips (Keepalive, Ship Scan, KeepRunning, Macro). Each chip shows whether that automation is ON or OFF and can be clicked to toggle it without using a hotkey.
 
 Below that are the control buttons, which are always visible regardless of which tab is open:
 
@@ -110,7 +115,8 @@ exclusive fullscreen it flips your display each time. Borderless windowed is far
 **Key hold.** The game polls input on its own frame cadence and can miss a very short tap.
 Raise this to ~80 ms if presses aren't registering.
 
-**Example:** with defaults, if you haven't touched the mouse or keyboard for 60 seconds, Tab is sent. It then repeats every 10 seconds until you move the mouse or press a key.
+**Example:** with defaults, if you haven't touched the mouse or keyboard for 60 seconds,
+the key is sent. It then repeats every 10 seconds until you move the mouse or press a key.
 
 ---
 
@@ -125,6 +131,8 @@ Continuously sends Tab on a fixed interval, **regardless of whether you are acti
 | Field | Default | Description |
 |---|---|---|
 | Tab interval seconds | `2` | How often Tab is sent |
+
+**Key hold ms** on the Keepalive tab applies here too — raise it if the game misses presses.
 
 You can also click the **Toggle Ship Scan** button inside the tab, or click the Ship Scan chip in the top bar.
 
@@ -174,6 +182,12 @@ expect a UAC prompt.
 **Latency** is measured to the datacenter the game connects to. The sim server itself answers
 nothing — not ICMP, not TCP on any port — so the ping targets the backend host the game holds
 a live connection to, in the same cloud region. It needs no elevation.
+
+Both figures are shown to two decimal places. Latency is timed around the call rather than
+read from the reply's own round-trip field, which reports whole milliseconds only — too
+coarse for a decimal, and too coarse to measure jitter, which varies by less than its
+step. The trade-off is that the number sits a fraction of a millisecond above what
+`ping.exe` would say, because the measurement includes the API call as well as the network.
 
 **There is no player count**, deliberately. The client is only ever told about itself and the
 entities streamed in around it — never the shard head-count — so any number here would be
@@ -296,11 +310,24 @@ The `sc_*` modules are standard library + ctypes only — they add no requiremen
 
 ## Troubleshooting
 
-**The launcher says Python was not found.**
-Install Python from the Microsoft Store or python.org (tick "Add Python to PATH" during install). Then close and re-run the launcher.
+**Python was not found.**
+Run `Install_StarCitizenHelper.bat` — it installs Python for you. If that can't reach the
+internet, install it by hand from [python.org](https://www.python.org/downloads/), tick
+"Add python.exe to PATH", then run the installer again.
 
 **Hotkeys don't respond in-game.**
-Make sure Star Citizen is the active foreground window. All automations are paused when any other window is in focus.
+Make sure Star Citizen is the active foreground window. Ship Scan, KeepRunning and keepalive
+are all paused while another window has focus — the one exception is keepalive with **snap
+focus** switched on, which is designed to work while you are elsewhere.
+
+**The frame-rate line is blank, or says "waiting for the game".**
+RivaTuner has to be running *before* Star Citizen starts — it hooks a game as the game
+launches and cannot attach to one already running. Start RTSS, then restart the game. The
+latency half of the HUD works regardless.
+
+**Latency shows `--`.**
+The app pings a backend host that Star Citizen itself is connected to, so it only has a
+target while the game is running and signed in.
 
 **KeepRunning stops immediately after starting.**
 A physical key press cancels it. Make sure you fully release the toggle hotkey before pressing other keys — the 350 ms arming delay handles most cases, but fast typists may need a slightly longer delay (not currently configurable).
