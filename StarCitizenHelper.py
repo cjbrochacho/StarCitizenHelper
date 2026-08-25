@@ -189,7 +189,7 @@ class App(tk.Tk):
 
         # Title on the left, performance HUD on the right, sharing one row.
         title_box = tk.Frame(header, bg='#101722')
-        title_box.pack(side='left', anchor='w')
+        title_box.pack(side='left', anchor='nw')
         tk.Label(title_box, text='STAR CITIZEN HELPER v' + __version__, bg='#101722',
                  fg='#eef6ff', font=('Segoe UI Semibold', 18)).pack(anchor='w')
         tk.Label(title_box, text='Automation status and hotkey controls',
