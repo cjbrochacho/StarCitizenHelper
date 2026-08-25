@@ -1,6 +1,6 @@
 # Star Citizen Helper v1.2
 
-A Windows utility that automates common keyboard actions in Star Citizen so you can stay active in-game hands-free — keepalive Tab presses, continuous ship scanning, held-key macros (Shift+W), and fully custom hotkey macros.
+A Windows utility that automates common keyboard actions in Star Citizen so you can stay active in-game hands-free — keepalive Tab presses, continuous ship scanning, held-key macros (Shift+W), and fully custom hotkey macros — plus a live performance HUD showing frame rate, latency and which server you are on.
 
 ---
 
@@ -103,6 +103,36 @@ There is a **350 ms arming delay** after you press the hotkey, so the keys you u
 
 ---
 
+### Performance HUD
+
+The header carries a rolling 60-second graph with two sparklines sharing one canvas, each
+scaled independently:
+
+- **cyan = frame rate**, riding the top when it is high
+- **amber = latency**, riding the bottom when it is low
+
+so "everything's fine" reads as two lines hugging opposite edges. The current server sits
+underneath: `IP:port • shard • region`. The **Performance** tab breaks out the same figures
+in full — frame rate, frame time, 1% low, server, shard, region, latency and jitter.
+
+**Frame rate** is read from RivaTuner Statistics Server's shared memory. RTSS must be running
+*before* Star Citizen starts, because it hooks a game as the game launches and cannot attach
+to one already running. If RTSS is installed but not running, the graph says so and the
+Performance tab offers a **Start RivaTuner** button — RTSS requires administrator rights, so
+expect a UAC prompt.
+
+**Latency** is measured to the datacenter the game connects to. The sim server itself answers
+nothing — not ICMP, not TCP on any port — so the ping targets the backend host the game holds
+a live connection to, in the same cloud region. It needs no elevation.
+
+**There is no player count**, deliberately. The client is only ever told about itself and the
+entities streamed in around it — never the shard head-count — so any number here would be
+invented.
+
+Set `"hud_enabled": false` in `settings.json` to hide the header graph.
+
+---
+
 ### Macros
 
 Create named hotkey macros that tap a sequence of keys in order. Each macro is registered as a global hotkey and runs in the background without blocking the UI.
@@ -166,6 +196,7 @@ All hotkeys can be changed in their respective tabs. Click **Save Settings** aft
   "scan_interval":      2,
   "hold_start":         "shift+w+page up",
   "hold_keys":          "shift+w",
+  "hud_enabled":        true,
   "macros": [
     {
       "name":    "Countermeasures",

@@ -15,6 +15,13 @@ try:
 except ImportError:
     mouse = None
 
+# Performance HUD: frame rate (via RivaTuner) and latency/server details.
+# Pure stdlib + ctypes - these add no new requirements.
+import sc_theme
+from sc_fps import FpsMonitor, start_rtss, rtss_executable
+from sc_net import NetMonitor
+from sc_hud import HudGraph
+
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
 
@@ -28,6 +35,7 @@ DEFAULTS = {
     'hold_start':         'shift+w+page up',
     'hold_keys':          'shift+w',
     'macros':             [],
+    'hud_enabled':        True,
 }
 
 # ── Win32 process helpers ─────────────────────────────────────────────────────
@@ -135,6 +143,11 @@ class App(tk.Tk):
         self.hold_pending = False
         self.hold_token = 0
         self.injected_until = 0        # suppresses KeepRunning cancel during bot keypresses
+        self.fps_monitor = FpsMonitor()
+        self.net_monitor = NetMonitor()
+        self.hud = None
+        self._rtss_attempt = 0.0
+
         self.last_activity = time.monotonic()
         self.next_keepalive = 0
         self.next_scan = 0
@@ -159,8 +172,11 @@ class App(tk.Tk):
             self._mouse_listener.start()
 
         threading.Thread(target=self._automation_loop, daemon=True).start()
+        self.fps_monitor.start()
+        self.net_monitor.start()
         self.after(100, self._drain_log_queue)
         self.after(200, self._refresh_dashboard)
+        self.after(100, self._refresh_hud)
         self._log('Ready. Global hotkeys registered.')
 
     # ── UI construction ───────────────────────────────────────────────────────
@@ -175,10 +191,25 @@ class App(tk.Tk):
         # Header
         header = tk.Frame(self, bg='#101722')
         header.pack(fill='x', padx=22, pady=(18, 5))
-        tk.Label(header, text='STAR CITIZEN HELPER v1.2', bg='#101722',
+
+        # Title on the left, performance HUD on the right, sharing one row.
+        title_box = tk.Frame(header, bg='#101722')
+        title_box.pack(side='left', anchor='w')
+        tk.Label(title_box, text='STAR CITIZEN HELPER v1.2', bg='#101722',
                  fg='#eef6ff', font=('Segoe UI Semibold', 18)).pack(anchor='w')
-        tk.Label(header, text='Automation status and hotkey controls',
+        tk.Label(title_box, text='Automation status and hotkey controls',
                  bg='#101722', fg='#91a7bd').pack(anchor='w')
+
+        if self.cfg.get('hud_enabled', True):
+            hud_box = tk.Frame(header, bg=sc_theme.BG)
+            hud_box.pack(side='right', anchor='e', fill='x', expand=True, padx=(40, 0))
+            self.hud = HudGraph(hud_box, on_start_rtss=self._start_rtss)
+            self.hud.configure(width=460)
+            self.hud.pack(fill='x', expand=True)
+            self.server_label = tk.Label(hud_box, text='', bg=sc_theme.BG,
+                                         fg=sc_theme.MUTED, font=('Consolas', 8),
+                                         anchor='e', justify='right')
+            self.server_label.pack(fill='x', pady=(2, 0))
 
         # Active automations panel
         panel = tk.Frame(self, bg='#192433', highlightbackground='#2e435a', highlightthickness=1)
@@ -255,6 +286,7 @@ class App(tk.Tk):
              ('Keys to hold',  'hold_keys',  'shift+w')])
 
         self._build_macros_tab(notebook)
+        self._build_perf_tab(notebook)
         self._build_log_tab(notebook)
 
     def _add_settings_tab(self, notebook, tab_name, title, desc, fields, extra_button=None):
@@ -317,6 +349,107 @@ class App(tk.Tk):
                   bg='#a65a46', fg='white', relief='flat', padx=14, pady=7).pack(
                       anchor='w', padx=20, pady=(6, 14))
         self._refresh_macro_list()
+
+    # ── Performance HUD ───────────────────────────────────────────────────────
+
+    def _build_perf_tab(self, notebook):
+        """Frame rate and network detail, alongside the header graph."""
+        frame = tk.Frame(notebook, bg='#101722')
+        notebook.add(frame, text='Performance')
+
+        tk.Label(frame, text='Performance & Server', bg='#101722', fg='#eef6ff',
+                 font=('Segoe UI Semibold', 13)).pack(anchor='w', padx=18, pady=(16, 2))
+        tk.Label(frame, text='Frame rate comes from RivaTuner Statistics Server. Latency is '
+                             'measured to the datacenter the game connects to - the sim server itself '
+                             'answers no probes.',
+                 bg='#101722', fg='#91a7bd', wraplength=760, justify='left'
+                 ).pack(anchor='w', padx=18, pady=(0, 12))
+
+        self.perf_rows = {}
+        grid = tk.Frame(frame, bg='#101722')
+        grid.pack(anchor='w', padx=18, fill='x')
+        for row, label in enumerate(('Frame rate', 'Frame time', '1% low',
+                                     'Server', 'Shard', 'Region', 'Latency', 'Jitter')):
+            tk.Label(grid, text=label, bg='#101722', fg='#91a7bd',
+                     font=('Segoe UI', 9), width=12, anchor='w').grid(row=row, column=0,
+                                                                      sticky='w', pady=2)
+            value = tk.Label(grid, text='--', bg='#101722', fg='#eef6ff',
+                             font=('Consolas', 10), anchor='w')
+            value.grid(row=row, column=1, sticky='w', pady=2)
+            self.perf_rows[label] = value
+
+        self.rtss_button = tk.Button(frame, text='Start RivaTuner', command=self._start_rtss,
+                                     bg='#253448', fg='#eef6ff', activebackground='#2a4661',
+                                     relief='flat', padx=14, pady=6)
+        self.rtss_button.pack(anchor='w', padx=18, pady=(16, 4))
+        self.rtss_note = tk.Label(frame, text='', bg='#101722', fg='#91a7bd',
+                                  wraplength=760, justify='left')
+        self.rtss_note.pack(anchor='w', padx=18)
+
+    def _start_rtss(self):
+        """RivaTuner needs administrator rights, so this raises a UAC prompt."""
+        if time.monotonic() - self._rtss_attempt < 8.0:
+            return  # it takes a moment to appear; do not stack UAC prompts
+        self._rtss_attempt = time.monotonic()
+        problem = start_rtss()
+        if problem is None:
+            self.log_queue.put('Starting RivaTuner - approve the administrator prompt if asked.')
+        else:
+            self.log_queue.put('RivaTuner: ' + problem)
+
+    def _refresh_hud(self):
+        """Feed the header graph and the Performance tab, ten times a second."""
+        if self.stop_event.is_set():
+            return
+        try:
+            fps_stats = self.fps_monitor.stats()
+            net_stats = self.net_monitor.stats()
+
+            if self.hud is not None:
+                self.hud.update(fps_stats, net_stats)
+                if net_stats.server:
+                    region = ('  •  ' + net_stats.region) if net_stats.region not in ('', 'unknown') else ''
+                    shard = ('  •  ' + net_stats.shard) if net_stats.shard else ''
+                    self.server_label.config(text=net_stats.server + shard + region)
+                else:
+                    self.server_label.config(text='server unknown - not in a match')
+
+            if getattr(self, 'perf_rows', None):
+                fps_ok = fps_stats.status == 'ok'
+                net_ok = net_stats.status == 'ok'
+                self.perf_rows['Frame rate'].config(
+                    text=('%.0f fps  (avg %.0f)' % (fps_stats.fps, fps_stats.average)) if fps_ok else '--')
+                self.perf_rows['Frame time'].config(
+                    text=('%.1f ms' % fps_stats.frame_time_ms) if fps_ok else '--')
+                self.perf_rows['1% low'].config(
+                    text=('%.0f fps' % fps_stats.low_1) if fps_ok else '--')
+                self.perf_rows['Server'].config(text=net_stats.server or '--')
+                self.perf_rows['Shard'].config(text=net_stats.shard or '--')
+                self.perf_rows['Region'].config(text=net_stats.region or '--')
+                self.perf_rows['Latency'].config(
+                    text=('%.0f ms  (avg %.1f, %.0f%% loss)'
+                          % (net_stats.ping_ms, net_stats.average, net_stats.loss_pct))
+                    if net_ok else '--')
+                self.perf_rows['Jitter'].config(
+                    text=('%.2f ms' % net_stats.jitter) if net_ok else '--')
+
+            if getattr(self, 'rtss_note', None):
+                if fps_stats.status == 'no_rtss':
+                    self.rtss_note.config(
+                        text='RivaTuner is not running, so there is no frame data. It must be '
+                             'started before Star Citizen to hook the game.'
+                        if rtss_executable() else
+                        'RivaTuner Statistics Server is not installed - frame rate unavailable.')
+                    self.rtss_button.config(state='normal' if rtss_executable() else 'disabled')
+                elif fps_stats.status == 'no_game':
+                    self.rtss_note.config(text='RivaTuner is running; waiting for the game.')
+                    self.rtss_button.config(state='disabled')
+                else:
+                    self.rtss_note.config(text='')
+                    self.rtss_button.config(state='disabled')
+        except Exception as exc:               # never let the HUD kill the UI loop
+            self.log_queue.put('HUD error: %s' % exc)
+        self.after(100, self._refresh_hud)
 
     def _build_log_tab(self, notebook):
         frame = tk.Frame(notebook, bg='#192433')
@@ -732,6 +865,11 @@ class App(tk.Tk):
 
     def close(self):
         self.stop_event.set()
+        try:
+            self.fps_monitor.shutdown()
+            self.net_monitor.shutdown()
+        except Exception:
+            pass
         self.scan_active = False
         self.keep_active = False
         self._emergency()
