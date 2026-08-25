@@ -127,10 +127,6 @@ class App(tk.Tk):
             pass
         if not isinstance(self.cfg.get('macros'), list):
             self.cfg['macros'] = []
-        self.settings_source = (
-            'Local settings.json' if os.path.exists(_SETTINGS_FILE)
-            else 'Built-in defaults (not saved yet)'
-        )
 
         # Automation state
         self.log_queue = queue.Queue()
@@ -248,10 +244,6 @@ class App(tk.Tk):
             tk.Button(btn_row, text=label, command=cmd, bg=color, fg='white',
                       relief='flat', padx=12, pady=7).pack(side='left', padx=(0, 8))
 
-        self.json_status_var = tk.StringVar()
-        tk.Label(controls, textvariable=self.json_status_var, bg='#192433',
-                 fg='#9ebee0', anchor='w').pack(fill='x', padx=14, pady=(2, 10))
-        self._update_settings_label()
 
         # Tab notebook
         self.field_vars = {
@@ -502,10 +494,6 @@ class App(tk.Tk):
 
     # ── Settings persistence ──────────────────────────────────────────────────
 
-    def _update_settings_label(self):
-        self.json_status_var.set(
-            'Active settings: ' + self.settings_source + '   •   Local file: ' + _SETTINGS_FILE)
-
     def _sync_fields_to_cfg(self):
         for k, var in self.field_vars.items():
             if k.endswith(('idle', 'interval', '_ms')):
@@ -518,8 +506,6 @@ class App(tk.Tk):
             self._sync_fields_to_cfg()
             with open(_SETTINGS_FILE, 'w', encoding='utf-8') as f:
                 json.dump(self.cfg, f, indent=2)
-            self.settings_source = 'Local settings.json (saved)'
-            self._update_settings_label()
             self._register_hotkeys()
             self._log('Settings saved and hotkeys updated.')
         except ValueError:
@@ -538,8 +524,6 @@ class App(tk.Tk):
             path = os.path.join(self._documents_folder(), 'StarCitizenHelper_hotkeys_backup.json')
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(self.cfg, f, indent=2)
-            self.settings_source = 'Local settings.json • backup created: ' + os.path.basename(path)
-            self._update_settings_label()
             self._log('Hotkey backup saved: ' + path)
             messagebox.showinfo('Backup saved', 'Your hotkeys and macros were saved to:\n' + path)
         except ValueError:
@@ -578,8 +562,6 @@ class App(tk.Tk):
             self._refresh_macro_list()
             with open(_SETTINGS_FILE, 'w', encoding='utf-8') as f:
                 json.dump(self.cfg, f, indent=2)
-            self.settings_source = 'Imported JSON: ' + os.path.basename(path)
-            self._update_settings_label()
             self._register_hotkeys()
             self._log('Imported hotkeys and macros from: ' + path)
             messagebox.showinfo('Import complete', 'Hotkeys and macros were imported and activated.')
