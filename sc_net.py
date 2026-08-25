@@ -29,7 +29,12 @@ from pathlib import Path
 iphlpapi = ctypes.WinDLL("iphlpapi.dll", use_last_error=True)
 
 WINDOW_SECONDS = 60.0
-PING_INTERVAL = 1.0
+#: Matches the frame-rate poll so both series on the graph move together.
+#: Measured against the live target: 10 Hz draws no rate limiting and no loss.
+PING_INTERVAL = 0.1
+#: Finding the game means enumerating every process, which is far too heavy to
+#: repeat ten times a second, so the result is held between checks.
+_PID_REFRESH_SECONDS = 2.0
 _LOG_POLL_SECONDS = 3.0
 _PING_TIMEOUT_MS = 1500
 
@@ -286,12 +291,18 @@ class NetMonitor(threading.Thread):
         self._target = ""
         self._target_checked = 0.0
         self._log_checked = 0.0
+        self._pid = 0
+        self._pid_checked = 0.0
 
     def run(self) -> None:
         self._log_path = find_game_log()
         while not self._stop.is_set():
+            started = time.monotonic()
             self._tick()
-            self._stop.wait(PING_INTERVAL)
+            # A round trip takes tens of milliseconds; sleeping the full
+            # interval on top of that would stretch the cadence past it.
+            if self._stop.wait(max(0.0, PING_INTERVAL - (time.monotonic() - started))):
+                break
         self._pinger.close()
 
     def shutdown(self) -> None:
@@ -301,7 +312,10 @@ class NetMonitor(threading.Thread):
 
     def _tick(self) -> None:
         now = time.monotonic()
-        pid = self._pid_provider()
+        if not self._pid or now - self._pid_checked > _PID_REFRESH_SECONDS:
+            self._pid = self._pid_provider()
+            self._pid_checked = now
+        pid = self._pid
 
         if now - self._log_checked > _LOG_POLL_SECONDS:
             self._log_checked = now

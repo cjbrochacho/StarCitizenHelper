@@ -230,8 +230,10 @@ class FpsMonitor(threading.Thread):
 
     def run(self) -> None:
         while not self._stop.is_set():
+            started = time.monotonic()
             self._poll()
-            self._stop.wait(POLL_SECONDS)
+            if self._stop.wait(max(0.0, POLL_SECONDS - (time.monotonic() - started))):
+                break
         self._memory.disconnect()
 
     def shutdown(self) -> None:

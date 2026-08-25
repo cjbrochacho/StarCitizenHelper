@@ -13,28 +13,44 @@ A Windows utility that automates common keyboard actions in Star Citizen so you 
 
 ## Getting started
 
-1. **Install Python** if you haven't already (see above). The Microsoft Store version adds Python to your PATH automatically.
+1. **Double-click `Install_StarCitizenHelper.bat`.** That is the whole setup. It:
+   - installs Python if you don't have it (per-user, so no administrator prompt),
+   - installs the packages the app needs,
+   - puts a **Star Citizen Helper** shortcut on your desktop.
 
-2. **Double-click `Run_StarCitizenHelper.bat`.**
-   - It installs the required packages on first run.
-   - On subsequent launches it verifies them and starts the app immediately.
+   Safe to run again at any time — it re-checks everything and repairs what's missing.
 
-3. **Launch Star Citizen.** The app detects `StarCitizen.exe` automatically — all automations are gated and only fire while Star Citizen is the foreground window.
+2. **Launch Star Citizen.** The app detects `StarCitizen.exe` automatically — the automations are gated and only fire while Star Citizen is the foreground window.
 
-> If Python isn't found, the launcher walks you through installing it and fixing your PATH. You do not need to open a terminal manually.
+> You never need to open a terminal. If Python can't be installed automatically, the
+> installer opens the download page and tells you which box to tick.
+
+Already have Python and just want to start the app? `Run_StarCitizenHelper.bat` still works
+on its own.
+
+### How Python gets installed
+
+The installer tries, in order: **winget** (built into Windows 11) for Python 3.13, 3.12 then
+3.11, and if winget is unavailable or fails, a **direct download from python.org** matching
+your machine's architecture — x64, ARM64 or 32-bit. Both routes install per-user, so neither
+needs administrator rights.
+
+It also handles two things that trip naive scripts up: the **Microsoft Store `python.exe`
+stub**, which sits on PATH even when Python isn't installed and opens the Store instead of
+reporting a version; and the fact that **PATH isn't refreshed** inside an already-open
+window, so straight after an install it looks where Python actually landed rather than
+trusting PATH.
 
 ### Desktop shortcut
 
-Double-click **`Create_Desktop_Shortcut.bat`**. It draws an icon and puts a
-**Star Citizen Helper** shortcut on your desktop, pointing at wherever you keep this folder.
+The installer creates it. If you move the project folder, run the installer again to point
+the shortcut at the new location.
 
-A shortcut can't simply be included with the project: a `.lnk` stores absolute paths — to
-the target, its working directory, *and* the Python interpreter — so one built on someone
-else's machine would point at folders you don't have. Generating it locally is the only way
-that works everywhere. If you move the project, run it again.
-
-The shortcut launches through `Run_StarCitizenHelper.bat`, so the dependency check still
-happens; its console window starts minimised and closes with the app.
+A shortcut can't simply be shipped with the project: a `.lnk` stores absolute paths — to the
+target, its working directory, *and* the Python interpreter — so one built on someone else's
+machine would point at folders you don't have. Generating it locally is the only thing that
+works everywhere. The shortcut launches through `Run_StarCitizenHelper.bat`, so the
+dependency check still happens; its console starts minimised and closes with the app.
 
 ---
 
@@ -139,7 +155,8 @@ There is a **350 ms arming delay** after you press the hotkey, so the keys you u
 ### Performance HUD
 
 The header carries a rolling 60-second graph with two sparklines sharing one canvas, each
-scaled independently:
+scaled independently. Both frame rate and latency are sampled **every 100 ms**, so the two
+series move together:
 
 - **cyan = frame rate**, riding the top when it is high
 - **amber = latency**, riding the bottom when it is low
@@ -261,7 +278,7 @@ The app registers a low-level keyboard hook that intercepts Alt+F4 **only when S
 ```
 StarCitizenHelper.py       the app
 Run_StarCitizenHelper.bat  launcher (installs requirements, then starts the app)
-Create_Desktop_Shortcut.bat  builds a desktop shortcut for this machine
+Install_StarCitizenHelper.bat  one-click setup: Python, packages, shortcut
 sc_shortcut.py             draws the icon and writes the .lnk
 sc_idle.py                 desktop-wide idle detection
 sc_window.py               finds the game window; snap focus
