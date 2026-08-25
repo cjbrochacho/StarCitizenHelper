@@ -18,6 +18,8 @@ from sc_fps import FpsMonitor, start_rtss, rtss_executable
 from sc_net import NetMonitor
 from sc_hud import HudGraph
 from sc_idle import IdleWatcher, note_injection, tick
+from sc_net import process_pid
+from sc_window import force_foreground, foreground_hwnd, window_for_pid
 
 __version__ = '1.2'
 
@@ -29,6 +31,9 @@ DEFAULTS = {
     'keepalive_off':      'shift+tab+page down',
     'keepalive_idle':     60,
     'keepalive_interval': 10,
+    'keepalive_key':      'tab',
+    'keepalive_snap':     'off',
+    'key_hold_ms':        40,
     'scan_toggle':        'ctrl+alt+page up',
     'scan_interval':      2,
     'hold_start':         'shift+w+page up',
@@ -258,11 +263,18 @@ class App(tk.Tk):
         notebook.pack(fill='both', expand=True, padx=22, pady=(0, 10))
 
         self._add_settings_tab(notebook, 'Keepalive', 'Inactivity keepalive',
-            'After no physical mouse/keyboard activity, sends Tab at the chosen interval.',
+            'After no physical mouse/keyboard activity, sends a key at the chosen '
+            'interval. F13-F24 and Scroll Lock are unbound in Star Citizen, so they keep '
+            'you active without firing the scanner the way Tab does. Snap focus brings the '
+            'game forward for the tap and hands focus straight back, so keepalive still '
+            'works while you are in another window. Key hold also applies to Ship Scan.',
             [('Enable hotkey',        'keepalive_on',       'Shift+Tab+Page Up'),
              ('Disable hotkey',       'keepalive_off',      'Shift+Tab+Page Down'),
              ('Idle seconds',         'keepalive_idle',     '60'),
-             ('Tab interval seconds', 'keepalive_interval', '10')])
+             ('Interval seconds',     'keepalive_interval', '10'),
+             ('Key to send',          'keepalive_key',      'tab'),
+             ('Snap focus (on/off)',  'keepalive_snap',     'off'),
+             ('Key hold ms',          'key_hold_ms',        '40')])
 
         self._add_settings_tab(notebook, 'Scan Ships', 'Ship Scan',
             'Independent of inactivity: sends Tab continuously even while you use your keyboard or mouse.',
@@ -496,7 +508,7 @@ class App(tk.Tk):
 
     def _sync_fields_to_cfg(self):
         for k, var in self.field_vars.items():
-            if k.endswith(('idle', 'interval')):
+            if k.endswith(('idle', 'interval', '_ms')):
                 self.cfg[k] = int(var.get())
             else:
                 self.cfg[k] = var.get().strip().lower()
@@ -634,18 +646,56 @@ class App(tk.Tk):
 
     # ── Key injection helpers ─────────────────────────────────────────────────
 
-    def _tap(self, key):
+    def _tap(self, key, hold=0.0):
         # Update injected_until around the press so our own output doesn't cancel
         # KeepRunning, and record the tick window so the idle clock ignores it too.
         started = tick()
         self.injected_until = time.monotonic() + 0.20
-        keyboard.press_and_release(key)
+        if hold > 0:
+            # The game polls input on its own frame cadence and can miss a very
+            # short tap, so hold the key down briefly.
+            keyboard.press(key)
+            time.sleep(hold)
+            keyboard.release(key)
+        else:
+            keyboard.press_and_release(key)
         self.injected_until = time.monotonic() + 0.20
         note_injection(started, tick())
 
+    def _hold_seconds(self):
+        try:
+            return max(0, int(self.cfg.get('key_hold_ms', 40))) / 1000.0
+        except (TypeError, ValueError):
+            return 0.04
+
     def _send_tab(self, source):
-        self._tap('tab')
+        self._tap('tab', self._hold_seconds())
         self.log_queue.put(source + ': sent Tab')
+
+    def _send_keepalive(self):
+        """Send the keepalive key, snapping the game forward first if needed."""
+        key = self.cfg.get('keepalive_key') or 'tab'
+        hold = self._hold_seconds()
+
+        if self.game_foreground:
+            self._tap(key, hold)
+            self.log_queue.put('Keepalive: sent ' + key.upper())
+            return
+
+        # Snap focus: injected input only reaches whichever window has focus,
+        # so borrow it for a moment and hand it straight back.
+        target = window_for_pid(process_pid('StarCitizen.exe'))
+        previous = foreground_hwnd()
+        if not force_foreground(target):
+            self.log_queue.put('Keepalive: could not bring Star Citizen forward.')
+            return
+        time.sleep(0.08)          # let the game settle before it reads the key
+        try:
+            self._tap(key, hold)
+        finally:
+            if previous and previous != target:
+                force_foreground(previous)
+        self.log_queue.put('Keepalive: sent ' + key.upper() + ' via snap focus')
 
     # ── Automation controls ───────────────────────────────────────────────────
 
@@ -771,15 +821,19 @@ class App(tk.Tk):
                 if self.scan_active and now >= self.next_scan:
                     self._send_tab('Ship Scan')
                     self.next_scan = now + max(1, int(self.cfg['scan_interval']))
-                if (self.keep_active
-                        and self.idle.seconds() >= max(1, int(self.cfg['keepalive_idle']))
-                        and now >= self.next_keepalive):
-                    self._send_tab('Keepalive')
-                    self.next_keepalive = now + max(1, int(self.cfg['keepalive_interval']))
-            else:
-                if self.hold_active or self.hold_pending:
-                    self._release()
-                    self.log_queue.put('KeepRunning auto-paused (Star Citizen not foreground)')
+            elif self.hold_active or self.hold_pending:
+                self._release()
+                self.log_queue.put('KeepRunning auto-paused (Star Citizen not foreground)')
+
+            # Keepalive normally waits for the game to be in front. With snap
+            # focus on it only needs the game to be running.
+            snapping = str(self.cfg.get('keepalive_snap', 'off')) == 'on'
+            reachable = self.game_foreground or (snapping and self.game_running)
+            if (self.keep_active and reachable
+                    and self.idle.seconds() >= max(1, int(self.cfg['keepalive_idle']))
+                    and now >= self.next_keepalive):
+                self._send_keepalive()
+                self.next_keepalive = now + max(1, int(self.cfg['keepalive_interval']))
             time.sleep(0.05)
 
     # ── Tkinter periodic callbacks ────────────────────────────────────────────

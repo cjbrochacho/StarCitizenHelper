@@ -45,7 +45,9 @@ Below that are the control buttons, which are always visible regardless of which
 
 ### Keepalive
 
-Automatically sends a **Tab keypress** after a period of physical inactivity, then repeats at a set interval. Useful for staying active in-game while you're AFK at the keyboard.
+Automatically sends a keypress after a period of physical inactivity, then repeats at a set interval. Useful for staying active in-game while you're AFK at the keyboard.
+
+Idle time comes from Windows itself, which tracks it desktop-wide — so it notices input a hook can miss, including inside a fullscreen game. Keys this app sends are filtered out of that reading, so its own taps can't be mistaken for you coming back.
 
 **Default hotkeys**
 
@@ -58,8 +60,26 @@ Automatically sends a **Tab keypress** after a period of physical inactivity, th
 
 | Field | Default | Description |
 |---|---|---|
-| Idle seconds | `60` | How long with no mouse/keyboard input before the first Tab is sent |
-| Tab interval seconds | `10` | How often Tab is sent after the idle threshold is crossed |
+| Idle seconds | `60` | How long with no mouse/keyboard input before the first key is sent |
+| Interval seconds | `10` | How often the key is sent after the idle threshold is crossed |
+| Key to send | `tab` | Which key to press — see below |
+| Snap focus (on/off) | `off` | Keep the session alive while you're in another window |
+| Key hold ms | `40` | How long the key is held down. Also applies to Ship Scan |
+
+**Which key to send.** `tab` fires the ship scanner every time, which is visible in game.
+`f13`–`f24` and `scroll lock` don't exist on a normal keyboard and aren't bound to anything
+in Star Citizen, so they keep you active without doing anything on screen. The trade-off is
+that an unbound key may not count as activity if the game's idle timer only counts inputs it
+has a binding for — if you still get logged out on `f13`, switch back to `tab`.
+
+**Snap focus.** Normally keepalive only fires while Star Citizen is the active window, so it
+does nothing while you're in a browser. With snap focus on, it brings the game forward for
+the tap and hands focus straight back — about a tenth of a second. That's invisible while
+you're genuinely AFK, but it will interrupt typing in another app, and if the game runs in
+exclusive fullscreen it flips your display each time. Borderless windowed is far smoother.
+
+**Key hold.** The game polls input on its own frame cadence and can miss a very short tap.
+Raise this to ~80 ms if presses aren't registering.
 
 **Example:** with defaults, if you haven't touched the mouse or keyboard for 60 seconds, Tab is sent. It then repeats every 10 seconds until you move the mouse or press a key.
 
@@ -192,6 +212,9 @@ All hotkeys can be changed in their respective tabs. Click **Save Settings** aft
   "keepalive_off":      "shift+tab+page down",
   "keepalive_idle":     60,
   "keepalive_interval": 10,
+  "keepalive_key":      "tab",
+  "keepalive_snap":     "off",
+  "key_hold_ms":        40,
   "scan_toggle":        "ctrl+alt+page up",
   "scan_interval":      2,
   "hold_start":         "shift+w+page up",
