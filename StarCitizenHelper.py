@@ -539,8 +539,8 @@ class App(tk.Tk):
         style.map('History.Treeview', background=[('selected', '#2a4661')],
                   foreground=[('selected', '#ffffff')])
 
-        columns = ('joined', 'duration', 'server', 'shard', 'address')
-        widths = (150, 80, 190, 200, 165)
+        columns = ('joined', 'duration', 'server', 'address')
+        widths = (170, 90, 240, 200)
         self.history_view = ttk.Treeview(frame, columns=columns, show='headings',
                                          style='History.Treeview', height=10)
         for name, width in zip(columns, widths):
@@ -579,11 +579,13 @@ class App(tk.Tk):
             self.history_note.config(text='Could not read the logs: %s' % exc)
             return
 
+        self._history_shards = {}
         for item in sessions:
-            view.insert('', 'end', tags=('current',) if item.ongoing else (),
+            row = view.insert('', 'end', tags=('current',) if item.ongoing else (),
                         values=(item.joined.strftime('%a %d %b  %H:%M'),
                                 item.duration + (' *' if item.ongoing else ''),
-                                item.name, item.shard, item.server))
+                                item.name, item.server))
+            self._history_shards[row] = item.shard
         self.history_note.config(
             text='%d sessions  -  * is the one running now' % len(sessions)
             if any(i.ongoing for i in sessions) else '%d sessions' % len(sessions))
@@ -595,7 +597,8 @@ class App(tk.Tk):
             self.history_note.config(text='Pick a row first.')
             return
         values = view.item(selected[0], 'values')
-        text = '%s  -  %s  (%s, joined %s)' % (values[2], values[3], values[4], values[0])
+        shard = getattr(self, '_history_shards', {}).get(selected[0], '')
+        text = '%s  -  %s  (%s, joined %s)' % (values[2], shard, values[3], values[0])
         self.clipboard_clear()
         self.clipboard_append(text)
         self.history_note.config(text='Copied: ' + values[2])

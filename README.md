@@ -262,8 +262,8 @@ joined and how long you stayed. The session running now is highlighted and marke
 Star Citizen gives its servers no names, so the readable one is built from the shard id:
 `pub_use1b_12326004_120` becomes **US-East 1B #120**. The build number in the middle changes
 with every patch — the same server was `pub_use1b_12269732_120` before the last one — so it is
-left out, and the name stays put across updates. The raw shard id is kept in its own column,
-since that is the form to quote in a support ticket.
+left out, and the name stays put across updates. **Copy selected** includes the raw shard id,
+which is the form to quote in a support ticket.
 
 The point of it: if the game drops out and leaves your ship parked somewhere, you need to know
 *which shard* to get back to. That is exactly what is hardest to remember after a crash, and
