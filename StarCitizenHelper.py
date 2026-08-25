@@ -18,7 +18,7 @@ import keyboard
 from helper import theme
 from helper.brand import BrandMark, WordMark
 from helper.fps import FpsMonitor, rtss_executable, start_rtss
-from helper.hud import HudGraph
+from helper.hud import FrameTimeGraph, HudGraph
 from helper.idle import IdleWatcher, note_injection, tick
 from helper.history import collect as collect_history
 from helper.net import NetMonitor, find_game_log, process_pid
@@ -426,6 +426,16 @@ class App(tk.Tk):
                  bg='#101722', fg='#91a7bd', wraplength=760, justify='left'
                  ).pack(anchor='w', padx=18, pady=(0, 12))
 
+        tk.Label(frame, text='FRAME TIMES', bg='#101722', fg='#91a7bd',
+                 font=('Segoe UI Semibold', 8)).pack(anchor='w', padx=18, pady=(4, 2))
+        self.frame_graph = FrameTimeGraph(frame, background='#101722')
+        self.frame_graph.pack(fill='x', padx=18)
+        tk.Label(frame, text='Milliseconds per frame, lower is better - a spike is a stutter. '
+                             'Where frames share a pixel the worst one is drawn, since '
+                             'averaging hides exactly what this is for.',
+                 bg='#101722', fg='#8ca2b9', wraplength=760,
+                 justify='left').pack(anchor='w', padx=18, pady=(2, 14))
+
         self.perf_rows = {}
         grid = tk.Frame(frame, bg='#101722')
         grid.pack(anchor='w', padx=18, fill='x')
@@ -475,6 +485,9 @@ class App(tk.Tk):
                 else:
                     self.server_label.config(text='server unknown - not in a match')
 
+            if getattr(self, 'frame_graph', None):
+                self.frame_graph.update_frames(fps_stats)
+
             if getattr(self, 'perf_rows', None):
                 fps_ok = fps_stats.status == 'ok'
                 net_ok = net_stats.status == 'ok'
@@ -483,7 +496,9 @@ class App(tk.Tk):
                 self.perf_rows['Frame time'].config(
                     text=('%.2f ms' % fps_stats.frame_time_ms) if fps_ok else '--')
                 self.perf_rows['1% low'].config(
-                    text=('%.2f fps' % fps_stats.low_1) if fps_ok else '--')
+                    text=('%.2f fps  (%s)' % (fps_stats.low_1,
+                          'every frame' if fps_stats.per_frame else 'sampled'))
+                    if fps_ok else '--')
                 self.perf_rows['Server'].config(text=net_stats.server or '--')
                 self.perf_rows['Shard'].config(text=net_stats.shard or '--')
                 self.perf_rows['Region'].config(text=net_stats.region or '--')

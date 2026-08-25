@@ -212,7 +212,7 @@ does nothing. Pick combos the game does not use — `ctrl+alt+1` through `ctrl+a
 ## Performance HUD
 
 A rolling 60-second graph in the header, two sparklines sharing one canvas, each scaled
-independently. Both are sampled **every 100 ms**, so the two move together:
+independently. Both are read **every 100 ms**, so the two move together:
 
 - **cyan — frame rate**, riding the top when it is high
 - **amber — latency**, riding the bottom when it is low
@@ -220,8 +220,29 @@ independently. Both are sampled **every 100 ms**, so the two move together:
 so "all good" reads as two lines hugging opposite edges. Underneath sits the current server:
 `IP:port • shard • region`. Readouts are to two decimal places.
 
-The **Performance** tab breaks the same figures out in full: frame rate, frame time, 1% low,
-server, shard, region, latency and jitter.
+The **Performance** tab breaks the same figures out in full — frame rate, frame time, 1% low,
+server, shard, region, latency and jitter — above a **frame time graph**.
+
+### The frame time graph
+
+Milliseconds per frame, lower is better, and a spike is a stutter. This is the chart
+benchmarking tools draw, and it is drawn as a line rather than bars on purpose: bars in this
+corner of the world mean a histogram of how frame times are distributed, which is a different
+question. A time series wants a line.
+
+It is in milliseconds rather than frames per second because **a frame rate is an average and a
+stutter is one frame**. At 115 fps a single 40 ms frame is a visible hitch and barely moves the
+average — invisible on an FPS readout, obvious here.
+
+Where several frames land on the same pixel the **worst** of them is drawn, not the mean.
+Averaging is what hides the spike you opened the graph to find. The dashed amber line marks the
+1% low in milliseconds, which is the standard way to show it: it is one number summarising the
+window, not something with a value at each moment, so it belongs as a reference line rather than
+a second trace.
+
+Frame times come from RivaTuner's own per-frame ring buffer, so **every frame is counted** — the
+1% low and the minimum are real percentiles over thousands of frames rather than estimates from
+periodic samples. The Performance tab says which it is using.
 
 **Frame rate** comes from RivaTuner's shared memory. RTSS has to be running *before* Star Citizen
 starts — it hooks a game as the game launches and cannot attach to one already running. If RTSS

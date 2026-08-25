@@ -61,6 +61,17 @@ _APP_NAME_LENGTH = 260
 _APP_TIME0, _APP_TIME1, _APP_FRAMES, _APP_FRAME_TIME = 268, 272, 276, 280
 _APP_ENTRY_MINIMUM = 284
 
+# RTSS keeps the last 1024 frame times, in microseconds, for its own on-screen
+# frametime graph - a running counter of frames drawn, then the ring itself and
+# the slot it will write next. Reading it gives every frame rather than the one
+# that happened to be current when we looked, which is the difference between
+# a real 1% low and an estimate of one.
+_APP_FRAME_COUNTER = 920
+_APP_FRAME_RING = 924
+_APP_FRAME_RING_LEN = 1024
+_APP_FRAME_RING_POS = 5020
+_APP_ENTRY_WITH_RING = _APP_FRAME_RING_POS + 4
+
 #: How long a reading stays meaningful before the game counts as gone.
 _STALE_SECONDS = 2.5
 
@@ -88,6 +99,8 @@ def _u32(buffer: bytes, offset: int) -> int:
 class Reading:
     fps: float
     frame_time_ms: float
+    #: Frame times, in ms, drawn since the previous read - oldest first.
+    frames: list[float] = field(default_factory=list)
 
 
 @dataclass
@@ -100,6 +113,10 @@ class Stats:
     low_1: float = 0.0
     minimum: float = 0.0
     frame_time_ms: float = 0.0
+    #: True when the figures come from every frame rather than from samples.
+    per_frame: bool = False
+    #: Recent frame times in ms, oldest first, for the frametime plot.
+    frame_times: list[float] = field(default_factory=list)
     #: (age in seconds, fps), oldest first, for plotting.
     history: list[tuple[float, float]] = field(default_factory=list)
 
@@ -111,6 +128,7 @@ class RtssSharedMemory:
         self.mapping_name = mapping_name
         self._handle = None
         self._view = None
+        self._last_counter = None
 
     @property
     def open(self) -> bool:
@@ -135,6 +153,22 @@ class RtssSharedMemory:
         if self._handle:
             kernel32.CloseHandle(self._handle)
         self._handle = self._view = None
+
+    def _new_frames(self, raw: bytes) -> list[float]:
+        """Frame times drawn since the last read, in ms, oldest first.
+
+        The running frame counter says how many are new; anything more than the
+        ring holds has been overwritten and is simply gone.
+        """
+        counter = _u32(raw, _APP_FRAME_COUNTER)
+        previous, self._last_counter = self._last_counter, counter
+        if previous is None or counter < previous:
+            return []                                  # first look, or restarted
+        fresh = min(counter - previous, _APP_FRAME_RING_LEN)
+        if not fresh:
+            return []
+        ordered = _ring_frames(raw)[-fresh:]
+        return [value / 1000.0 for value in ordered if value]
 
     def read(self, process_name: str) -> Reading | None:
         """Latest reading for one executable, or None if RTSS has no entry."""
@@ -176,8 +210,20 @@ class RtssSharedMemory:
             fps = frames * 1000.0 / window
             if fps < _MIN_PLAUSIBLE_FPS:
                 return None
-            return Reading(fps=fps, frame_time_ms=frame_time_us / 1000.0)
+
+            drawn = []
+            if entry_size >= _APP_ENTRY_WITH_RING:
+                base = self._view + array_offset + index * entry_size
+                drawn = self._new_frames(ctypes.string_at(base, _APP_ENTRY_WITH_RING))
+            return Reading(fps=fps, frame_time_ms=frame_time_us / 1000.0, frames=drawn)
         return None
+
+
+def _ring_frames(raw: bytes) -> list[int]:
+    """The ring unrolled oldest-first, in microseconds."""
+    position = _u32(raw, _APP_FRAME_RING_POS) % _APP_FRAME_RING_LEN
+    values = [_u32(raw, _APP_FRAME_RING + i * 4) for i in range(_APP_FRAME_RING_LEN)]
+    return values[position:] + values[:position]
 
 
 def rtss_executable() -> Path | None:
@@ -223,6 +269,8 @@ class FpsMonitor(threading.Thread):
         self.process_name = process_name
         self._memory = RtssSharedMemory(mapping_name)
         self._samples: deque[tuple[float, float, float]] = deque()
+        #: (when, frame time in ms) for every frame drawn in the window.
+        self._frames: deque[tuple[float, float]] = deque()
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._status = STATUS_NO_RTSS
@@ -248,6 +296,7 @@ class FpsMonitor(threading.Thread):
                 self._status = STATUS_OK
                 self._last_seen = now
                 self._samples.append((now, reading.fps, reading.frame_time_ms))
+                self._frames.extend((now, ms) for ms in reading.frames)
             elif not self._memory.open:
                 self._status = STATUS_NO_RTSS
                 self._samples.clear()
@@ -258,18 +307,27 @@ class FpsMonitor(threading.Thread):
             cutoff = now - WINDOW_SECONDS
             while self._samples and self._samples[0][0] < cutoff:
                 self._samples.popleft()
+            while self._frames and self._frames[0][0] < cutoff:
+                self._frames.popleft()
 
     def stats(self) -> Stats:
         now = time.monotonic()
         with self._lock:
             status = self._status
             samples = list(self._samples)
+            frames = [ms for _, ms in self._frames]
 
         if not samples:
             return Stats(status=status)
 
         frame_rates = [fps for _, fps, _ in samples]
-        slowest_first = sorted((frame_time for _, _, frame_time in samples), reverse=True)
+
+        # Percentiles come from every frame when RTSS gives us its ring, and
+        # from the sampled frame times only as a fallback - one frame in ten
+        # cannot show a stutter that lasted one frame.
+        per_frame = len(frames) > 20
+        pool = frames if per_frame else [ft for _, _, ft in samples]
+        slowest_first = sorted(pool, reverse=True)
 
         # The 1% low is the mean of the worst one percent of frame times,
         # reported the way benchmarks do it: as the frame rate they represent.
@@ -283,5 +341,7 @@ class FpsMonitor(threading.Thread):
             low_1=1000.0 / worst_mean if worst_mean else 0.0,
             minimum=1000.0 / slowest_first[0] if slowest_first[0] else 0.0,
             frame_time_ms=samples[-1][2],
+            per_frame=per_frame,
+            frame_times=frames,
             history=[(now - stamp, fps) for stamp, fps, _ in samples],
         )
