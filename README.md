@@ -9,6 +9,7 @@ connection are actually doing — all from one window that sits behind the game.
 - **KeepRunning** — holds Shift+W (or any keys) down so you keep moving
 - **Macros** — your own hotkeys, each tapping a sequence of keys
 - **Performance HUD** — frame rate, latency, and which server and shard you are on
+- **Server history** — the last ten shards you were on, so a crash cannot lose your ship
 - **Alt+F4 guard** — swallows Alt+F4 while the game has focus
 
 ---
@@ -79,8 +80,8 @@ These buttons are always visible, whichever tab is open:
 | **Stop & Release** | Releases any keys KeepRunning is holding |
 | **EMERGENCY DISABLE ALL** | Instantly releases Shift, Ctrl, Alt, Win, W, A, S, D and Tab |
 
-Six tabs: **Keepalive**, **Scan Ships**, **KeepRunning**, **Macros**, **Performance**,
-**Activity Log**.
+Seven tabs: **Keepalive**, **Scan Ships**, **KeepRunning**, **Macros**, **Performance**,
+**Server History**, **Activity Log**.
 
 ---
 
@@ -243,6 +244,25 @@ Set `"hud_enabled": false` in `settings.json` to hide the header graph.
 
 ---
 
+## Server history
+
+The **Server History** tab lists the last ten shards you were on, newest first, with when you
+joined and how long you stayed. The session running now is highlighted and marked `*`.
+
+The point of it: if the game drops out and leaves your ship parked somewhere, you need to know
+*which shard* to get back to. That is exactly what is hardest to remember after a crash, and
+the game does not show it to you anywhere.
+
+**Copy selected** puts the shard, server, region and time on the clipboard, which is the form
+worth pasting into a support ticket or an org chat.
+
+It reads Star Citizen's own logs — the current one plus the backups the game keeps — so
+sessions from before this app was installed are there too, and nothing needs to have been
+running at the time. Logs are read newest first and reading stops once there are ten, so it
+costs a few milliseconds rather than working through months of backups.
+
+---
+
 ## Alt+F4 protection
 
 A low-level hook swallows Alt+F4 **only while Star Citizen is the foreground window**, so a
@@ -292,6 +312,7 @@ helper/
   __init__.py            marks the package
   fps.py                 frame data from the RTSS shared memory block
   net.py                 latency, and server/shard/region from the game's log
+  history.py             past shards, read out of the game logs
   hud.py                 the header graph and its readout
   idle.py                desktop-wide idle detection
   window.py              finds the game window; snap focus; taskbar icon

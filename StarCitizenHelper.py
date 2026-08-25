@@ -20,7 +20,8 @@ from helper.brand import BrandMark, WordMark
 from helper.fps import FpsMonitor, rtss_executable, start_rtss
 from helper.hud import HudGraph
 from helper.idle import IdleWatcher, note_injection, tick
-from helper.net import NetMonitor, process_pid
+from helper.history import collect as collect_history
+from helper.net import NetMonitor, find_game_log, process_pid
 from helper.window import (apply_window_icon, force_foreground, foreground_hwnd,
                            set_app_id, window_for_pid)
 
@@ -346,6 +347,7 @@ class App(tk.Tk):
 
         self._build_macros_tab(notebook)
         self._build_perf_tab(notebook)
+        self._build_history_tab(notebook)
         self._build_log_tab(notebook)
 
     def _add_settings_tab(self, notebook, tab_name, title, desc, fields, extra_button=None):
@@ -509,6 +511,90 @@ class App(tk.Tk):
         except Exception as exc:               # never let the HUD kill the UI loop
             self.log_queue.put('HUD error: %s' % exc)
         self.after(100, self._refresh_hud)
+
+    def _build_history_tab(self, notebook):
+        """Where you have been, so a crash does not lose your ship."""
+        frame = tk.Frame(notebook, bg='#192433')
+        notebook.add(frame, text='Server History')
+
+        tk.Label(frame, text='Server history', bg='#192433', fg='#eef6ff',
+                 font=('Segoe UI Semibold', 14)).pack(anchor='w', padx=20, pady=(18, 4))
+        tk.Label(frame, text='The last few shards you were on, newest first. If the game '
+                             'drops out and leaves your ship somewhere, this is which shard '
+                             'to get back to. Read from the game logs, so sessions from '
+                             'before this app was installed are here too.',
+                 bg='#192433', fg='#9eb2c6', wraplength=780,
+                 justify='left').pack(anchor='w', padx=20, pady=(0, 12))
+
+        style = ttk.Style(self)
+        style.configure('History.Treeview', background='#0f1721', foreground='#eaf4ff',
+                        fieldbackground='#0f1721', borderwidth=0, rowheight=26)
+        style.configure('History.Treeview.Heading', background='#1c2938',
+                        foreground='#9eb2c6', borderwidth=0,
+                        font=('Segoe UI Semibold', 9))
+        style.map('History.Treeview', background=[('selected', '#2a4661')],
+                  foreground=[('selected', '#ffffff')])
+
+        columns = ('joined', 'duration', 'shard', 'region', 'server')
+        widths = (150, 80, 210, 100, 170)
+        self.history_view = ttk.Treeview(frame, columns=columns, show='headings',
+                                         style='History.Treeview', height=10)
+        for name, width in zip(columns, widths):
+            self.history_view.heading(name, text=name.title())
+            self.history_view.column(name, width=width,
+                                     anchor='w' if name != 'duration' else 'e')
+        self.history_view.tag_configure('current', foreground='#41b8f5')
+        self.history_view.pack(fill='both', expand=True, padx=20)
+
+        row = tk.Frame(frame, bg='#192433')
+        row.pack(fill='x', padx=20, pady=12)
+        tk.Button(row, text='Refresh', command=self._refresh_history, bg='#2a6f9e',
+                  fg='white', relief='flat', padx=16, pady=6).pack(side='left')
+        tk.Button(row, text='Copy selected', command=self._copy_history_row, bg='#253448',
+                  fg='#eef6ff', relief='flat', padx=16, pady=6).pack(side='left', padx=(8, 0))
+        self.history_note = tk.Label(row, text='', bg='#192433', fg='#8ca2b9')
+        self.history_note.pack(side='left', padx=(12, 0))
+
+        # Off the startup path: reading logs should not delay the window.
+        self.after(400, self._refresh_history)
+
+    def _refresh_history(self):
+        view = getattr(self, 'history_view', None)
+        if view is None:
+            return
+        for item in view.get_children():
+            view.delete(item)
+
+        log = find_game_log()
+        if log is None:
+            self.history_note.config(text='No game logs found.')
+            return
+        try:
+            sessions = collect_history(log.parent)
+        except Exception as exc:
+            self.history_note.config(text='Could not read the logs: %s' % exc)
+            return
+
+        for item in sessions:
+            view.insert('', 'end', tags=('current',) if item.ongoing else (),
+                        values=(item.joined.strftime('%a %d %b  %H:%M'),
+                                item.duration + (' *' if item.ongoing else ''),
+                                item.shard, item.region, item.server))
+        self.history_note.config(
+            text='%d sessions  -  * is the one running now' % len(sessions)
+            if any(i.ongoing for i in sessions) else '%d sessions' % len(sessions))
+
+    def _copy_history_row(self):
+        view = getattr(self, 'history_view', None)
+        selected = view.selection() if view else ()
+        if not selected:
+            self.history_note.config(text='Pick a row first.')
+            return
+        values = view.item(selected[0], 'values')
+        text = '%s  %s  (%s, %s)' % (values[2], values[4], values[3], values[0])
+        self.clipboard_clear()
+        self.clipboard_append(text)
+        self.history_note.config(text='Copied: ' + values[2])
 
     def _build_log_tab(self, notebook):
         frame = tk.Frame(notebook, bg='#192433')
