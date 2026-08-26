@@ -1,10 +1,23 @@
 """Latency to the game's datacenter, plus which server/shard we are on.
 
-The sim server itself answers nothing - not ICMP, not TCP on any port (checked).
-So latency is measured to the CIG backend host the game holds a TLS connection
-to, which sits in the same cloud region as the sim server and does answer ICMP.
-That is the closest thing to "ping to the server" that is actually reachable,
-and it needs no elevation: IcmpSendEcho is what the ordinary ping command uses.
+The sim server answers nothing - not ICMP, not TCP on any port. Nor can it be
+reached indirectly: a TTL walk toward one dies at Google's peering edge, and
+every region from Frankfurt to Sydney comes back as the same router at the same
+few milliseconds, because Google's backbone does not report TTL once traffic is
+on it.
+
+Pinging whatever host the game holds a TLS connection to does not work either.
+Those are CIG's platform services, and they sit in one fixed region, so the
+number barely moves when the shard moves to the other side of the planet -
+which is the one thing this figure exists to show.
+
+What does work: the shard name says which Google Cloud region the server is in
+(pub_euw1b is europe-west1, zone b), and Google publishes a per-region endpoint
+that does answer ICMP. So latency is measured to the game's region rather than
+to the game's machine. It is a proxy, and it is labelled as one, but it moves by
+a hundred milliseconds when the region does, which the old number did not.
+
+No elevation is needed: IcmpSendEcho is what the ordinary ping command uses.
 
 Server, port, shard and region come from the game's own log - the <Join PU>
 line names all of them. Player population is deliberately not shown: the client
@@ -26,6 +39,10 @@ from ctypes import wintypes
 from dataclasses import dataclass, field
 from pathlib import Path
 
+# One table of region names, so the Performance tab and Server History cannot
+# disagree about what pub_euw1b is called.
+from .history import region_of
+
 iphlpapi = ctypes.WinDLL("iphlpapi.dll", use_last_error=True)
 
 WINDOW_SECONDS = 60.0
@@ -42,20 +59,54 @@ STATUS_NO_GAME = "no_game"
 STATUS_NO_TARGET = "no_target"
 STATUS_OK = "ok"
 
-#: CIG shard names start pub_<region><n><letter>_..., e.g. pub_use1b_12326004.
-#: Map the region token to something human. Order matters: longest first.
-_REGIONS = [
-    ("use", "US-East"),
-    ("usw", "US-West"),
-    ("usc", "US-Central"),
-    ("euc", "EU-Central"),
-    ("eun", "EU-North"),
-    ("eu", "Europe"),
-    ("apse", "Asia-Pacific"),
-    ("aps", "Asia-Pacific"),
-    ("ap", "Asia-Pacific"),
-    ("aus", "Australia"),
-]
+#: CIG's region tokens are Google Cloud's own region names with the punctuation
+#: taken out, so pub_apse2a is asia-southeast2 zone a. Mapping them back gives
+#: a host in the same datacenter as the sim server that will actually answer.
+_GCP_REGIONS = {
+    "use1": "us-east1", "use4": "us-east4", "use5": "us-east5",
+    "usc1": "us-central1", "usw1": "us-west1", "usw2": "us-west2",
+    "usw3": "us-west3", "usw4": "us-west4",
+    "euw1": "europe-west1", "euw2": "europe-west2", "euw3": "europe-west3",
+    "euw4": "europe-west4", "euw6": "europe-west6", "euw9": "europe-west9",
+    "euc1": "europe-central2", "eun1": "europe-north1",
+    "ape1": "asia-east1", "ape2": "asia-east2",
+    "apse1": "asia-southeast1", "apse2": "asia-southeast2",
+    "apne1": "asia-northeast1", "apne2": "asia-northeast2",
+    "apne3": "asia-northeast3", "aps1": "asia-south1",
+    "aus1": "australia-southeast1", "ause1": "australia-southeast1",
+    "ause2": "australia-southeast2",
+}
+
+#: Google's regional Cloud Storage endpoint. Every region has one, they answer
+#: ICMP, and they are pinned to their region rather than anycast to the nearest
+#: edge - checked across seven regions, and the times line up with the map.
+_REGION_ENDPOINT = "storage.{}.rep.googleapis.com"
+
+#: pub_use1b_12326004_120 -> use1
+_SHARD_REGION_RE = re.compile(r"^[a-z]+_([a-z]+\d+)[a-z]?_")
+
+#: Resolved endpoint addresses, kept for the life of the process.
+_endpoint_cache: dict[str, str | None] = {}
+
+
+def gcp_region(shard: str) -> str:
+    """The Google Cloud region a shard is running in, or "" if unrecognised."""
+    match = _SHARD_REGION_RE.match(shard)
+    return _GCP_REGIONS.get(match.group(1), "") if match else ""
+
+
+def region_endpoint(shard: str) -> str | None:
+    """An address in the shard's own region that answers ping, if there is one."""
+    region = gcp_region(shard)
+    if not region:
+        return None
+    if region not in _endpoint_cache:
+        try:
+            _endpoint_cache[region] = socket.gethostbyname(
+                _REGION_ENDPOINT.format(region))
+        except OSError:
+            _endpoint_cache[region] = None
+    return _endpoint_cache[region]
 
 
 # --- ICMP ----------------------------------------------------------------
@@ -212,14 +263,6 @@ def established_peers(pid: int, remote_port: int = 443) -> list[str]:
 _JOIN_RE = re.compile(r"<Join PU> address\[([0-9.]+)\] port\[(\d+)\] shard\[([a-z0-9_]+)\]")
 
 
-def region_of(shard: str) -> str:
-    body = shard.split("_", 1)[1] if "_" in shard else shard  # drop the "pub_" tag
-    for prefix, name in _REGIONS:
-        if body.startswith(prefix):
-            return name
-    return "unknown"
-
-
 class JoinReader:
     """Follows Game.log for <Join PU> lines, reading only newly appended bytes.
 
@@ -282,6 +325,10 @@ class NetStats:
     shard: str = ""
     region: str = ""
     target: str = ""
+    #: True when the target is an endpoint in the shard's own cloud region, so
+    #: the figure tracks the server's distance. False when it fell back to a
+    #: CIG host, which reads much the same wherever the shard is.
+    target_is_region: bool = False
     #: (age seconds, rtt ms), oldest first, for plotting.
     history: list[tuple[float, float]] = field(default_factory=list)
 
@@ -300,6 +347,7 @@ class NetMonitor(threading.Thread):
         self._join_reader = JoinReader()
         self._server = self._shard = self._region = ""
         self._target = ""
+        self._target_is_region = False
         self._target_checked = 0.0
         self._log_checked = 0.0
         self._pid = 0
@@ -356,21 +404,33 @@ class NetMonitor(threading.Thread):
         if joined is None:
             return
         ip, port, shard = joined
+        if shard != self._shard:
+            # A new shard may well be a new region, and the old endpoint would
+            # keep reporting the distance to wherever we used to be.
+            self._target = ""
+            self._samples.clear()
         self._server, self._shard = f"{ip}:{port}", shard
         self._region = region_of(shard)
 
     def _pick_target(self, pid: int) -> None:
-        """Choose a reachable CIG host to ping - the sim server never answers.
+        """Choose something to ping that moves when the shard's region does.
 
-        Prefer Google Cloud ranges (34./35.), where the game's servers live, so
-        latency reflects the game region rather than a Cloudflare CDN edge that
-        also happens to answer.
+        First choice is Google's endpoint for the region the shard names, since
+        that is the only reachable thing whose distance tracks the server's.
+        Failing that - an unrecognised region, or no DNS - fall back to a CIG
+        host the game is connected to, which at least proves the link is alive
+        even though it will read much the same from anywhere.
         """
+        endpoint = region_endpoint(self._shard) if self._shard else None
+        if endpoint and self._pinger.ping(endpoint, timeout_ms=1500) is not None:
+            self._target, self._target_is_region = endpoint, True
+            return
+
         peers = list(dict.fromkeys(established_peers(pid)))  # dedupe, keep order
         peers.sort(key=lambda ip: 0 if ip.split(".")[0] in ("34", "35") else 1)
         for ip in peers:
             if self._pinger.ping(ip, timeout_ms=800) is not None:
-                self._target = ip
+                self._target, self._target_is_region = ip, False
                 return
 
     # -- snapshot ---------------------------------------------------------
@@ -380,8 +440,10 @@ class NetMonitor(threading.Thread):
         with self._lock:
             samples = list(self._samples)
             server, shard, region, target = self._server, self._shard, self._region, self._target
+            regional = self._target_is_region
 
-        base = NetStats(server=server, shard=shard, region=region, target=target)
+        base = NetStats(server=server, shard=shard, region=region, target=target,
+                        target_is_region=regional)
         if not samples:
             base.status = STATUS_NO_GAME
             return base

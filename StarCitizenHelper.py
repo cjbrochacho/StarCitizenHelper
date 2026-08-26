@@ -444,8 +444,9 @@ class App(tk.Tk):
         tk.Label(frame, text='Performance & Server', bg='#101722', fg='#eef6ff',
                  font=('Segoe UI Semibold', 13)).pack(anchor='w', padx=18, pady=(16, 2))
         tk.Label(frame, text='Frame rate comes from RivaTuner Statistics Server. Latency is '
-                             'measured to the datacenter the game connects to - the sim server itself '
-                             'answers no probes.',
+                             'measured to the cloud region the shard is running in - the sim server '
+                             'itself answers no probes, so this is the distance to its datacenter '
+                             'rather than to the machine.',
                  bg='#101722', fg='#91a7bd', wraplength=760, justify='left'
                  ).pack(anchor='w', padx=18, pady=(0, 12))
 
@@ -530,8 +531,9 @@ class App(tk.Tk):
                 self.perf_rows['Shard'].config(text=net_stats.shard or '--')
                 self.perf_rows['Region'].config(text=net_stats.region or '--')
                 self.perf_rows['Latency'].config(
-                    text=('%.2f ms  (avg %.2f, %.0f%% loss)'
-                          % (net_stats.ping_ms, net_stats.average, net_stats.loss_pct))
+                    text=('%.2f ms  (avg %.2f, %.0f%% loss)%s'
+                          % (net_stats.ping_ms, net_stats.average, net_stats.loss_pct,
+                             '' if net_stats.target_is_region else '  — region unknown, not comparable'))
                     if net_ok else '--')
                 self.perf_rows['Jitter'].config(
                     text=('%.2f ms' % net_stats.jitter) if net_ok else '--')

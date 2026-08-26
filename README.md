@@ -257,9 +257,27 @@ starts — it hooks a game as the game launches and cannot attach to one already
 is installed but not running the graph says so, and the Performance tab offers a **Start
 RivaTuner** button. RTSS needs administrator rights, so expect a UAC prompt.
 
-**Latency** is measured to the datacenter the game is connected to. The sim server itself answers
-nothing — not ICMP, not TCP on any port — so the ping goes to the backend host the game holds a
-live connection to, in the same cloud region. No elevation needed.
+**Latency** is measured to the cloud region the shard is running in. No elevation needed.
+
+Getting there took ruling two things out. The sim server answers nothing — not ICMP, not TCP on
+any port — and it cannot be reached indirectly either: a TTL walk towards one dies at Google's
+peering edge, and every region from Frankfurt to Sydney comes back as the *same* router at the
+*same* few milliseconds, because Google's backbone stops reporting TTL once traffic is on it.
+Pinging the host the game holds a TLS connection to is no better: those are CIG's platform
+services, they sit in one fixed region, and the number barely moves when the shard moves to the
+other side of the planet — which is the single thing this figure exists to show.
+
+What works is that the shard name *is* a Google Cloud region with the punctuation removed:
+`pub_euw1b` is `europe-west1`, zone b; `pub_apse2a` is `asia-southeast2`. Google publishes a
+per-region endpoint that does answer ICMP, so the ping goes there. Measured across seven regions
+from one machine, that reads 39 ms to `us-east1`, 116 ms to `europe-west1` and 235 ms to
+`asia-southeast2` — the spread you would expect from a map.
+
+This is a **proxy, and it is labelled as one**: it is the distance to the shard's datacenter, not
+to the shard's machine. The last hop inside Google's network is not included, but that is small
+next to an ocean. If the shard is in a region the table does not recognise, it falls back to
+pinging a CIG host and says `region unknown, not comparable` next to the reading, rather than
+quietly showing you a number that means something else.
 
 It is timed around the call rather than read from the reply's round-trip field, which reports
 whole milliseconds only: too coarse for a decimal, and too coarse for jitter, which varies by less
@@ -393,8 +411,8 @@ RivaTuner has to start *before* Star Citizen. Start RTSS, then restart the game.
 either way.
 
 **Latency shows `--`.**
-The ping targets a backend host the game itself is connected to, so there is no target until the
-game is running and signed in.
+The target comes from the shard named in the game's log, so there is nothing to ping until the
+game is running and has joined a server.
 
 **KeepRunning stops the moment it starts.**
 A physical keypress cancels it. Release the toggle combo fully first — the 350 ms arming delay
