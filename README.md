@@ -10,7 +10,7 @@ connection are actually doing — all from one window that sits behind the game.
 - **Macros** — your own hotkeys, each tapping a sequence of keys
 - **Performance HUD** — frame rate, latency, CPU and GPU clocks, and which server you are on
 - **Server history** — the last ten shards you were on, so a crash cannot lose your ship
-- **Alt+F4 guard** — swallows Alt+F4 while the game has focus
+- **Alt+F4 guard** — swallows Alt+F4 while the game has focus, with a button to switch it off
 
 ---
 
@@ -306,6 +306,13 @@ mis-hit cannot close the game. The header shows its state:
 - **INACTIVE** — `StarCitizen.exe` is not running
 - **ARMED** — running, but not in front
 - **ACTIVE** — in front, and Alt+F4 is being blocked
+- **OFF** — the guard is switched off and Alt+F4 will close the game
+
+**Enable Alt+F4** next to that line switches the guard off, for when closing the game is
+exactly what you want; the button then reads **Block Alt+F4** to put it back. The choice is
+saved, so it survives a restart. Switching it off removes the keyboard hook rather than
+leaving one in place that passes everything through — off means the app is not touching the
+keyboard at all.
 
 ---
 
@@ -318,6 +325,7 @@ mis-hit cannot close the game. The header shows its state:
 {
   "keepalive_enabled":  true,
   "keepalive_key":      "tab",
+  "altf4_guard":        true,
   "scan_toggle":        "ctrl+alt+page up",
   "scan_interval":      2,
   "hold_start":         "shift+w+page up",

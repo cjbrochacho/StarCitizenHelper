@@ -32,6 +32,7 @@ _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
 DEFAULTS = {
     'keepalive_enabled':  True,
     'keepalive_key':      'tab',
+    'altf4_guard':        True,
     'scan_toggle':        'ctrl+alt+page up',
     'scan_interval':      2,
     'hold_start':         'shift+w+page up',
@@ -192,6 +193,7 @@ class App(tk.Tk):
         self.game_check_at = 0
         self.guard_last_log = 0
         self.keep_active = bool(self.cfg.get('keepalive_enabled', True))
+        self.guard_active = bool(self.cfg.get('altf4_guard', True))
         self.scan_active = False
         self.hold_active = False
         self.held_keys = []
@@ -215,7 +217,12 @@ class App(tk.Tk):
         self._register_hotkeys()
 
         # Suppressing hook: callback must return True to let a key through, False to block it.
-        self._alt_hook = keyboard.hook(self._alt_f4_guard, suppress=True)
+        # Only installed while the guard is on, so switching it off leaves the
+        # app with no say over the keyboard at all rather than a hook that
+        # happens to pass everything through.
+        self._alt_hook = None
+        if self.guard_active:
+            self._alt_hook = keyboard.hook(self._alt_f4_guard, suppress=True)
         keyboard.on_press(self._on_key_press)
 
         threading.Thread(target=self._automation_loop, daemon=True).start()
@@ -297,12 +304,19 @@ class App(tk.Tk):
                 chip.bind('<Button-1>', lambda e, n=name: self._toggle_automation(n))
             self.chips[name] = chip
 
+        guard_row = tk.Frame(panel, bg='#192433')
+        guard_row.pack(fill='x', padx=14, pady=(0, 10))
+        self.guard_button = tk.Button(
+            guard_row, text='', command=self._toggle_altf4_guard,
+            bg='#466f91', fg='white', relief='flat', padx=10, pady=3,
+            font=('Segoe UI Semibold', 9), width=14)
+        self.guard_button.pack(side='left', padx=(0, 10))
         self.guard_label = tk.Label(
-            panel,
+            guard_row,
             text='Alt+F4 protection: checking for StarCitizen.exe…',
             bg='#192433', fg='#9ebee0', font=('Segoe UI Semibold', 10),
         )
-        self.guard_label.pack(anchor='w', padx=14, pady=(0, 10))
+        self.guard_label.pack(side='left')
 
         self.status_var = tk.StringVar(value='Waiting for input…')
         tk.Label(self, textvariable=self.status_var, bg='#101722', fg='#b5c9dc').pack(
@@ -780,6 +794,8 @@ class App(tk.Tk):
 
     def _alt_f4_guard(self, event):
         # keyboard suppresses an event when this callback returns False.
+        if not self.guard_active:
+            return True
         if (event.event_type == keyboard.KEY_DOWN
                 and event.name == 'f4'
                 and keyboard.is_pressed('alt')
@@ -871,11 +887,37 @@ class App(tk.Tk):
     def _remember_keepalive(self):
         """Persist the on/off state, so a deliberate 'off' survives a restart."""
         self.cfg['keepalive_enabled'] = self.keep_active
+        self._persist()
+
+    def _persist(self):
+        """Write settings.json, quietly - a failed save must not stop the app."""
         try:
             with open(_SETTINGS_FILE, 'w', encoding='utf-8') as f:
                 json.dump(self.cfg, f, indent=2)
         except OSError:
             pass
+
+    def _toggle_altf4_guard(self):
+        """Let Alt+F4 through, or start swallowing it again.
+
+        The hook is added and removed rather than left in place returning
+        True, so 'off' means the app is not touching the keyboard at all.
+        """
+        self.guard_active = not self.guard_active
+        if self.guard_active and self._alt_hook is None:
+            self._alt_hook = keyboard.hook(self._alt_f4_guard, suppress=True)
+        elif not self.guard_active and self._alt_hook is not None:
+            try:
+                keyboard.unhook(self._alt_hook)
+            except Exception:
+                pass
+            self._alt_hook = None
+        self.cfg['altf4_guard'] = self.guard_active
+        self._persist()
+        self.log_queue.put('Alt+F4 protection ' +
+                           ('on - Alt+F4 is blocked while the game is in front.'
+                            if self.guard_active else
+                            'off - Alt+F4 will close the game.'))
 
     def _toggle_scan(self):
         self.scan_active = not self.scan_active
@@ -1022,7 +1064,15 @@ class App(tk.Tk):
             self.game_foreground = self.game_running and foreground_is('StarCitizen.exe')
             self.game_check_at = now + 1
 
-        if not self.game_running:
+        self.guard_button.config(
+            text='Enable Alt+F4' if self.guard_active else 'Block Alt+F4',
+            bg='#466f91' if self.guard_active else '#a65a46')
+
+        if not self.guard_active:
+            self.guard_label.config(
+                text='Alt+F4 protection: OFF — Alt+F4 will close the game',
+                fg='#e0a0a8')
+        elif not self.game_running:
             self.guard_label.config(
                 text='Alt+F4 protection: INACTIVE — StarCitizen.exe not detected',
                 fg='#9ebee0')
@@ -1089,7 +1139,8 @@ class App(tk.Tk):
         self.keep_active = False
         self._emergency()
         try:
-            keyboard.unhook(self._alt_hook)
+            if self._alt_hook is not None:
+                keyboard.unhook(self._alt_hook)
         except Exception:
             pass
         try:
