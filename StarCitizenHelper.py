@@ -32,7 +32,6 @@ _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
 DEFAULTS = {
     'keepalive_enabled':  True,
     'keepalive_key':      'tab',
-    'keepalive_snap':     'off',
     'scan_toggle':        'ctrl+alt+page up',
     'scan_interval':      2,
     'hold_start':         'shift+w+page up',
@@ -340,9 +339,8 @@ class App(tk.Tk):
             'keyboard and mouse have been still for a minute. F13-F24 and Scroll Lock are unbound in '
             'Star Citizen, so they keep you active without firing the scanner the way Tab '
             'does. Snap focus brings the game forward for the tap and hands focus straight '
-            'back, so keepalive still works while you are in another window.',
-            [('Key to send',          'keepalive_key',      'tab'),
-             ('Snap focus (on/off)',  'keepalive_snap',     'off')],
+            'back, so it keeps working while you are in another window.',
+            [('Key to send',          'keepalive_key',      'tab')],
             extra_button=('Toggle Keepalive', self._toggle_keepalive))
 
         self._add_settings_tab(notebook, 'Scan Ships', 'Ship Scan',
@@ -996,11 +994,9 @@ class App(tk.Tk):
                 self._release()
                 self.log_queue.put('KeepRunning auto-paused (Star Citizen not foreground)')
 
-            # Keepalive normally waits for the game to be in front. With snap
-            # focus on it only needs the game to be running.
-            snapping = str(self.cfg.get('keepalive_snap', 'off')) == 'on'
-            reachable = self.game_foreground or (snapping and self.game_running)
-            if (self.keep_active and reachable
+            # Snap focus means keepalive only needs the game to be running,
+            # not to be in front - being in another window is the usual case.
+            if (self.keep_active and self.game_running
                     and self.idle.seconds() >= IDLE_SECONDS
                     and now >= self.next_keepalive):
                 self._send_keepalive()

@@ -118,7 +118,6 @@ clock keeps running across them.
 | Field | Default | Description |
 |---|---|---|
 | Key to send | `tab` | See below |
-| Snap focus (on/off) | `off` | Keep working while you are in another window |
 
 It waits for **a minute** of no keyboard or mouse, then sends a key every **30 seconds to 3
 minutes** — a fresh gap drawn each time — while you stay away. These live as constants at the
@@ -147,12 +146,12 @@ happening. No amount of jitter makes an otherwise silent session look like someo
 Automation is against the spirit of most games' rules whatever the timing, which is why the note
 at the bottom of this file says what it says.
 
-**Snap focus.** Normally keepalive only fires while Star Citizen is the active window, so it does
-nothing while you are in a browser. Switch this on and it pulls the game forward for the tap and
-hands focus straight back, about a tenth of a second. Injected keys only ever reach the focused
-window, so this is the only way to reach the game from another app without elevation. Invisible
-while you are genuinely away; disruptive if you are typing, and jarring if the game runs in
-exclusive fullscreen rather than borderless.
+**Snap focus** is how it reaches the game from another window, and it is not optional — being
+in a browser instead of the game is the case keepalive exists for. It pulls the game forward for
+the tap and hands focus straight back, about a tenth of a second. Injected keys only ever reach
+the *focused* window, so short of elevation there is no other way in. The minute of idle before
+anything fires is what keeps this invisible: you are only ever interrupted when you were not
+there. It is still jarring if the game runs in exclusive fullscreen rather than borderless.
 
 **How long the key is held** varies between roughly 28 and 52 ms rather than being the same
 every time — a keypress held for exactly the same duration on every repeat is not something a
@@ -319,7 +318,6 @@ mis-hit cannot close the game. The header shows its state:
 {
   "keepalive_enabled":  true,
   "keepalive_key":      "tab",
-  "keepalive_snap":     "off",
   "scan_toggle":        "ctrl+alt+page up",
   "scan_interval":      2,
   "hold_start":         "shift+w+page up",
@@ -374,8 +372,8 @@ run it again.
 
 **Hotkeys do nothing in-game.**
 Star Citizen has to be the active window. Ship Scan, KeepRunning and keepalive are all paused
-while another window has focus — the exception is keepalive with **snap focus** on, which is
-built to work while you are elsewhere.
+while another window has focus — the exception is keepalive, which uses snap focus and is built
+to work while you are elsewhere.
 
 **Keys register in Notepad but not in the game.**
 The press may be too short for the game's frame cadence to catch. `KEY_HOLD_MS` near the top of
