@@ -17,9 +17,12 @@ is running, and NVIDIA's driver ships nvidia-smi which will answer in about
 from __future__ import annotations
 
 import ctypes
+import hashlib
+import os
 import re
 import struct
 import subprocess
+import sys
 import threading
 import winreg
 from ctypes import wintypes
@@ -191,6 +194,81 @@ def _nvidia_core_clock() -> tuple[str, float]:
         return parts[0].strip(), float(parts[1])
     except ValueError:
         return parts[0].strip(), 0.0
+
+
+# --- the machine, once ----------------------------------------------------
+
+class _MemoryStatus(ctypes.Structure):
+    _fields_ = [("dwLength", wintypes.DWORD), ("dwMemoryLoad", wintypes.DWORD),
+                ("ullTotalPhys", ctypes.c_ulonglong),
+                ("ullAvailPhys", ctypes.c_ulonglong),
+                ("ullTotalPageFile", ctypes.c_ulonglong),
+                ("ullAvailPageFile", ctypes.c_ulonglong),
+                ("ullTotalVirtual", ctypes.c_ulonglong),
+                ("ullAvailVirtual", ctypes.c_ulonglong),
+                ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+
+
+def ram_mb() -> int:
+    status = _MemoryStatus()
+    status.dwLength = ctypes.sizeof(_MemoryStatus)
+    if not kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+        return 0
+    return int(status.ullTotalPhys / (1024 * 1024))
+
+
+def screen_size() -> str:
+    """The primary display as WxH.
+
+    Resolution drives GPU load, so it belongs beside the card whenever one
+    machine's frame rate is compared with another's.
+    """
+    width, height = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+    return f"{width}x{height}" if width and height else ""
+
+
+#: Windows' own per-installation identifier. Readable without elevation, and
+#: stable across reboots and reinstalls of this app.
+_CRYPTO_KEY = r"SOFTWARE\Microsoft\Cryptography"
+
+#: Mixed into the hash so the result cannot be matched against another
+#: product's hash of the same GUID. It is not a secret; it is a namespace.
+_ID_SALT = b"star-citizen-helper/telemetry/v1"
+
+
+def machine_id() -> str:
+    """A stable, non-reversible id for this PC.
+
+    The raw values are hashed rather than sent. A machine GUID in the clear is
+    a durable handle that joins against anything else holding the same number,
+    and unlike the random client id it is not something a person can reset -
+    so what leaves here is a salted digest and never the identifier itself.
+    """
+    parts = []
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, _CRYPTO_KEY, 0,
+                            winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
+            parts.append(str(winreg.QueryValueEx(key, "MachineGuid")[0]))
+    except OSError:
+        pass
+    # Without the GUID this is weak, but it still separates most machines.
+    parts.extend([cpu_name(), gpu_name(), str(os.cpu_count() or 0)])
+    digest = hashlib.sha256(_ID_SALT + "|".join(parts).encode("utf-8"))
+    return digest.hexdigest()[:16]
+
+
+def machine_profile() -> dict:
+    """What this PC is. Fixed for a session, so it is read once and reused."""
+    return {
+        "machine_id": machine_id(),
+        "cpu": cpu_name(),
+        "cpu_mhz_nominal": cpu_nominal_mhz(),
+        "cores": os.cpu_count() or 0,
+        "gpu": gpu_name(),
+        "ram_mb": ram_mb(),
+        "screen": screen_size(),
+        "os_build": str(getattr(sys.getwindowsversion(), "build", "")),
+    }
 
 
 # --- the monitor ----------------------------------------------------------
