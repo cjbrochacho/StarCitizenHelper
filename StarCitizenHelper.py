@@ -1085,8 +1085,6 @@ class App(tk.Tk):
                 text='Alt+F4 protection: ARMED — StarCitizen.exe detected; activates when it is foreground',
                 fg='#f3cf7a')
 
-        paused = ' (paused)' if not self.game_foreground else ''
-
         def update_chip(name, on, suffix=''):
             self.chips[name].config(
                 text=name + ': ' + ('ON' if on else 'OFF') + suffix,
@@ -1094,13 +1092,13 @@ class App(tk.Tk):
                 fg='#effff5' if on else '#b6c5d5',
             )
 
-        update_chip('Keepalive', self.keep_active, paused)
-        update_chip('Ship Scan', self.scan_active, paused)
+        update_chip('Keepalive', self.keep_active)
+        update_chip('Ship Scan', self.scan_active)
         hold_on = self.hold_active or self.hold_pending
         hold_suffix = ''
         if hold_on:
             hold_suffix = ' (' + ('+'.join(self.held_keys) if self.hold_active else 'arming') + ')'
-        update_chip('KeepRunning', hold_on, hold_suffix + paused)
+        update_chip('KeepRunning', hold_on, hold_suffix)
         update_chip('Macro', bool(self.running_macro),
                     ' (' + self.running_macro + ')' if self.running_macro else '')
 

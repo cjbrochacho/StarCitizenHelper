@@ -379,9 +379,9 @@ by hand from [python.org](https://www.python.org/downloads/), tick "Add python.e
 run it again.
 
 **Hotkeys do nothing in-game.**
-Star Citizen has to be the active window. Ship Scan, KeepRunning and keepalive are all paused
-while another window has focus — the exception is keepalive, which uses snap focus and is built
-to work while you are elsewhere.
+Star Citizen has to be the active window: Ship Scan and KeepRunning both stop while another
+window has focus. Keepalive is the exception — it uses snap focus and is built to run while you
+are somewhere else.
 
 **Keys register in Notepad but not in the game.**
 The press may be too short for the game's frame cadence to catch. `KEY_HOLD_MS` near the top of
