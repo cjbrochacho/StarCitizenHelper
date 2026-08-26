@@ -5,6 +5,7 @@ import time
 import threading
 import queue
 import random
+import uuid
 import ctypes
 from ctypes import wintypes
 
@@ -20,9 +21,11 @@ from helper.brand import BrandMark, WordMark
 from helper.fps import FpsMonitor, rtss_executable, start_rtss
 from helper.hud import HudGraph
 from helper.idle import IdleWatcher, note_injection, tick
-from helper.hardware import HardwareMonitor
+from helper.hardware import HardwareMonitor, machine_profile
 from helper.history import collect as collect_history
 from helper.net import NetMonitor, find_game_log, process_pid
+from helper.telemetry import (CONTEXT_FIELDS, PROFILE_FIELDS, ROW_FIELDS,
+                              SUMMARY_FIELDS, Spool, TelemetryCollector)
 from helper.window import (apply_window_icon, force_foreground, foreground_hwnd,
                            set_app_id, window_for_pid)
 
@@ -40,6 +43,9 @@ DEFAULTS = {
     'macros':             [],
     'hud_enabled':        True,
     'auto_update':        True,
+    'telemetry_enabled':  True,
+    'telemetry_client_id': '',
+    'telemetry_notice_seen': False,
 }
 
 # ── Win32 process helpers ─────────────────────────────────────────────────────
@@ -204,6 +210,7 @@ class App(tk.Tk):
         self.fps_monitor = FpsMonitor()
         self.net_monitor = NetMonitor()
         self.hardware = HardwareMonitor()
+        self.telemetry = self._build_telemetry()
         self.hud = None
         self._rtss_attempt = 0.0
 
@@ -230,6 +237,9 @@ class App(tk.Tk):
         self.fps_monitor.start()
         self.net_monitor.start()
         self.hardware.start()
+        self.telemetry.start()
+        # Asked after the window exists, so it cannot be missed behind it.
+        self.after(1200, self._show_telemetry_notice)
         self.after(100, self._drain_log_queue)
         self.after(200, self._refresh_dashboard)
         self.after(100, self._refresh_hud)
@@ -371,6 +381,7 @@ class App(tk.Tk):
 
         self._build_macros_tab(notebook)
         self._build_perf_tab(notebook)
+        self._build_telemetry_tab(notebook)
         self._build_history_tab(notebook)
         self._build_log_tab(notebook)
 
@@ -434,6 +445,159 @@ class App(tk.Tk):
                   bg='#a65a46', fg='white', relief='flat', padx=14, pady=7).pack(
                       anchor='w', padx=20, pady=(6, 14))
         self._refresh_macro_list()
+
+    # -- Telemetry ------------------------------------------------------------
+
+    def _build_telemetry(self):
+        """The collector. Runs from launch; the enabled check is live.
+
+        Passing a callable rather than a flag means switching it off in the UI
+        takes effect on the next sample instead of at the next restart.
+        """
+        client_id = str(self.cfg.get('telemetry_client_id') or '')
+        if not client_id:
+            client_id = uuid.uuid4().hex
+            self.cfg['telemetry_client_id'] = client_id
+            self._persist()
+        log = find_game_log()
+        return TelemetryCollector(
+            Spool(os.path.join(_DIR, 'assets', 'telemetry')),
+            fps_stats=self.fps_monitor.stats,
+            net_stats=self.net_monitor.stats,
+            hardware=self.hardware.readings,
+            machine=machine_profile(),
+            log_path=find_game_log,
+            live_dir=(lambda: log.parent if log else None),
+            client_id=client_id,
+            enabled=(lambda: bool(self.cfg.get('telemetry_enabled', True))),
+        )
+
+    def _show_telemetry_notice(self):
+        """Say what is being collected, once, before any of it has gone anywhere.
+
+        Sending is on by default, which is only defensible if nobody has to go
+        looking to find that out - so this appears unprompted on the first run
+        after the feature arrives, with the off switch in the dialog rather
+        than buried in a tab.
+        """
+        if self.cfg.get('telemetry_notice_seen'):
+            return
+        self.cfg['telemetry_notice_seen'] = True
+        self._persist()
+        keep = messagebox.askyesno(
+            'Star Citizen Helper - performance data',
+            'This build records how the game performs on your PC: frame rate, '
+            'frame times, latency, your graphics settings and hardware, and '
+            'which part of the game you were in.\n\n'
+            'It never records your handle, your account, your position, or any '
+            'raw line from your logs - only the fields listed in the Telemetry '
+            'tab, where you can also read everything it has written.\n\n'
+            'It is on by default. Keep it on?',
+            default='yes', icon='question')
+        if not keep:
+            self.cfg['telemetry_enabled'] = False
+            self._persist()
+        self.log_queue.put('Telemetry ' + ('on.' if keep else 'off.'))
+        self._refresh_telemetry_tab()
+
+    def _build_telemetry_tab(self, notebook):
+        frame = tk.Frame(notebook, bg='#101722')
+        notebook.add(frame, text='Telemetry')
+
+        tk.Label(frame, text='Performance data', bg='#101722', fg='#eef6ff',
+                 font=('Segoe UI Semibold', 13)).pack(anchor='w', padx=18, pady=(16, 2))
+        tk.Label(frame, text='Anonymous measurements of how the game runs, so that slow '
+                             'places and slow hardware can be found. Batched once a '
+                             'minute into assets/telemetry - you can open and read every '
+                             'byte of it below.',
+                 bg='#101722', fg='#91a7bd', wraplength=760, justify='left'
+                 ).pack(anchor='w', padx=18, pady=(0, 12))
+
+        self.telemetry_status = tk.Label(frame, text='', bg='#101722', fg='#eef6ff',
+                                         font=('Consolas', 10), justify='left')
+        self.telemetry_status.pack(anchor='w', padx=18)
+
+        row = tk.Frame(frame, bg='#101722')
+        row.pack(anchor='w', padx=18, pady=(14, 6))
+        self.telemetry_button = tk.Button(row, text='', command=self._toggle_telemetry,
+                                          bg='#466f91', fg='white', relief='flat',
+                                          padx=14, pady=6, width=16)
+        self.telemetry_button.pack(side='left', padx=(0, 8))
+        for label, command in (('Open my data', self._open_telemetry_folder),
+                               ('Reset my ID', self._reset_telemetry_id)):
+            tk.Button(row, text=label, command=command, bg='#253448', fg='#eef6ff',
+                      activebackground='#2a4661', relief='flat', padx=14, pady=6
+                      ).pack(side='left', padx=(0, 8))
+
+        tk.Label(frame, text='Everything that is collected', bg='#101722', fg='#91a7bd',
+                 font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=18, pady=(10, 2))
+        fields = tk.Text(frame, height=10, bg='#0f1721', fg='#b5c9dc', relief='flat',
+                         font=('Consolas', 8), wrap='word', padx=10, pady=8)
+        fields.pack(fill='x', padx=18, pady=(0, 14))
+        fields.insert('1.0',
+                      'machine       ' + ', '.join(PROFILE_FIELDS) + '\n\n'
+                      'graphics      every SysSpec_ quality tier, plus Upscaling, '
+                      'UpscalingModel, UpscalingTechnique, VSync, MotionBlur, '
+                      'Sharpening, FOV, Gamma, Resolution\n\n'
+                      'where         ' + ', '.join(CONTEXT_FIELDS) + '\n\n'
+                      'each second   ' + ', '.join(ROW_FIELDS) + '\n\n'
+                      'per batch     ' + ', '.join(SUMMARY_FIELDS) + '\n\n'
+                      'Never collected: your handle, account id, player id, position, '
+                      'IP address, file paths, or any raw line from the game log.')
+        fields.config(state='disabled')
+        self._tick_telemetry_tab()
+
+    def _tick_telemetry_tab(self):
+        """Its own slow cadence: the counts come from stat(), which has no
+        business running on the hundred-millisecond HUD loop."""
+        if self.stop_event.is_set():
+            return
+        self._refresh_telemetry_tab()
+        self.after(2000, self._tick_telemetry_tab)
+
+    def _refresh_telemetry_tab(self):
+        if getattr(self, 'telemetry_status', None) is None:
+            return
+        on = bool(self.cfg.get('telemetry_enabled', True))
+        try:
+            files = self.telemetry.spool.files()
+            size = sum(f.stat().st_size for f in files)
+        except OSError:
+            files, size = [], 0
+        self.telemetry_status.config(
+            text='Sending:  %s\nBatches:  %d this session\nOn disk:  %d file%s, %.1f KB\n'
+                 'Your ID:  %s'
+                 % ('ON' if on else 'OFF', self.telemetry.batches_written,
+                    len(files), '' if len(files) == 1 else 's', size / 1024.0,
+                    str(self.cfg.get('telemetry_client_id', ''))[:12] + '...'))
+        self.telemetry_button.config(text='Turn it off' if on else 'Turn it on',
+                                     bg='#a65a46' if on else '#466f91')
+
+    def _toggle_telemetry(self):
+        on = not bool(self.cfg.get('telemetry_enabled', True))
+        self.cfg['telemetry_enabled'] = on
+        self._persist()
+        if not on:
+            self.telemetry.flush()      # keep what was already measured
+        self.log_queue.put('Telemetry ' + ('on.' if on else 'off.'))
+        self._refresh_telemetry_tab()
+
+    def _open_telemetry_folder(self):
+        folder = self.telemetry.spool.directory
+        try:
+            os.makedirs(folder, exist_ok=True)
+            os.startfile(folder)
+        except OSError as exc:
+            messagebox.showerror('Star Citizen Helper',
+                                 'Could not open %s\n%s' % (folder, exc))
+
+    def _reset_telemetry_id(self):
+        """A new id, unlinked from everything sent under the old one."""
+        self.cfg['telemetry_client_id'] = uuid.uuid4().hex
+        self._persist()
+        self.telemetry.client = self.cfg['telemetry_client_id']
+        self.log_queue.put('Telemetry ID reset.')
+        self._refresh_telemetry_tab()
 
     # ── Performance HUD ───────────────────────────────────────────────────────
 
@@ -1134,6 +1298,7 @@ class App(tk.Tk):
             self.fps_monitor.shutdown()
             self.net_monitor.shutdown()
             self.hardware.shutdown()
+            self.telemetry.shutdown()
         except Exception:
             pass
         self.scan_active = False

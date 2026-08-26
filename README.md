@@ -11,6 +11,7 @@ connection are actually doing — all from one window that sits behind the game.
 - **Performance HUD** — frame rate, latency, CPU and GPU clocks, and which server you are on
 - **Server history** — the last ten shards you were on, so a crash cannot lose your ship
 - **Alt+F4 guard** — swallows Alt+F4 while the game has focus, with a button to switch it off
+- **Performance data** — anonymous measurements of how the game runs, on by default, one click off
 
 ---
 
@@ -334,6 +335,42 @@ keyboard at all.
 
 ---
 
+## Performance data
+
+The tool records how the game runs — frame rate, frame times, latency, your graphics
+settings and hardware, and which part of the 'verse you were in — so that slow places and
+slow hardware can be found across many players rather than guessed at from one.
+
+**It is on by default, and it says so.** The first launch after this arrives shows a notice
+with the off switch in the dialog, not buried behind it. The **Telemetry** tab lists every
+field that is collected, counts what has been written, and has **Open my data** — the files
+are gzipped JSON and you can read every byte of them.
+
+Nothing is uploaded. Batches are written to `assets/telemetry/` and pruned after a fortnight
+or 32 MB, whichever comes first.
+
+**What is never collected:** your handle, account id, player id, position, IP address, file
+paths, or any raw line from the game log. That last one is the point of the design — payloads
+are assembled field by field from an allowlist rather than filtered, so a field can only be
+sent because someone added it by name. It matters because the log line that best identifies
+where you are also carries your handle, and `attributes.xml` holds 143 entries including your
+key bindings.
+
+Two identifiers travel with the data. `client` is a random id made on first run, which
+**Reset my ID** replaces with a new one that cannot be linked to anything sent before it.
+`machine_id` is a salted digest of Windows' machine GUID — stable across reinstalls so one PC
+is counted once, hashed because nobody can reset their hardware, and salted so it will not
+match another product's hash of the same number.
+
+Measurements are aggregated on your PC before they are written: a second of frames becomes one
+row, and percentiles are computed once per batch, because a 1% low over sixty frames is one
+frame rather than a percentile.
+
+Set `"telemetry_enabled": false` in `settings.json`, or press **Turn it off**, and it stops
+within a second.
+
+---
+
 ## Updating
 
 The launcher brings the install up to date before it starts the app, so there is nothing to
@@ -380,6 +417,7 @@ Set `"auto_update": false` in `settings.json` to pin the version you have.
   "hold_keys":          "shift+w",
   "hud_enabled":        true,
   "auto_update":        true,
+  "telemetry_enabled":  true,
   "macros": [
     {
       "name":    "Countermeasures",
@@ -404,7 +442,10 @@ helper/
   fps.py                 frame data from the RTSS shared memory block
   net.py                 latency, and server/shard/region from the game's log
   hardware.py            CPU and GPU model, and their current clocks
+  gamecfg.py             the game's graphics settings, and what the driver did
   history.py             past shards, read out of the game logs
+  location.py            where in the 'verse you are, as a rollup path
+  telemetry.py           one-second windows batched to disk
   update.py              fetches and applies the newest commit at launch
   hud.py                 the header graph and its readout
   idle.py                desktop-wide idle detection
