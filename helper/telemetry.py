@@ -314,7 +314,10 @@ class TelemetryCollector(threading.Thread):
 
         self.client = client_id or uuid.uuid4().hex
         self.session = uuid.uuid4().hex[:16]
-        self._stop = threading.Event()
+        # Named _stopping, not _stop: threading.Thread has a private _stop()
+        # that join() calls, and shadowing it with an Event makes join() raise
+        # TypeError on a perfectly ordinary Thread.
+        self._stopping = threading.Event()
         self._lock = threading.Lock()
         self._reader = LocationReader()
         self._seconds: list[Second] = []
@@ -330,17 +333,17 @@ class TelemetryCollector(threading.Thread):
     # -- lifecycle ---------------------------------------------------------
 
     def run(self) -> None:
-        while not self._stop.is_set():
+        while not self._stopping.is_set():
             started = time.monotonic()
             try:
                 self.tick(time.time(), time.monotonic())
             except Exception:            # noqa: BLE001 - never take the app down
                 pass
-            self._stop.wait(max(0.0, SAMPLE_SECONDS - (time.monotonic() - started)))
+            self._stopping.wait(max(0.0, SAMPLE_SECONDS - (time.monotonic() - started)))
         self.flush()
 
     def shutdown(self) -> None:
-        self._stop.set()
+        self._stopping.set()
         self.flush()
 
     # -- one sample --------------------------------------------------------

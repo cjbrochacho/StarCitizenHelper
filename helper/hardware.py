@@ -278,7 +278,10 @@ class HardwareMonitor(threading.Thread):
 
     def __init__(self) -> None:
         super().__init__(name="hardware-monitor", daemon=True)
-        self._stop = threading.Event()
+        # Named _stopping, not _stop: threading.Thread has a private _stop()
+        # that join() calls, and shadowing it with an Event makes join() raise
+        # TypeError on a perfectly ordinary Thread.
+        self._stopping = threading.Event()
         self._lock = threading.Lock()
         self._cpu = CpuClock()
         self.cpu_name = cpu_name()
@@ -289,7 +292,7 @@ class HardwareMonitor(threading.Thread):
         self._ticks = 0
 
     def run(self) -> None:
-        while not self._stop.is_set():
+        while not self._stopping.is_set():
             cpu = self._cpu.mhz()
             gpu = _afterburner_core_clock()
             if not gpu and self._nvidia_ok and self._ticks % _NVIDIA_EVERY == 0:
@@ -303,11 +306,11 @@ class HardwareMonitor(threading.Thread):
             self._ticks += 1
             with self._lock:
                 self._cpu_mhz, self._gpu_mhz = cpu, gpu
-            self._stop.wait(POLL_SECONDS)
+            self._stopping.wait(POLL_SECONDS)
         self._cpu.close()
 
     def shutdown(self) -> None:
-        self._stop.set()
+        self._stopping.set()
 
     def readings(self) -> tuple[int, float]:
         with self._lock:

@@ -280,20 +280,23 @@ class FpsMonitor(threading.Thread):
         #: (when, frame time in ms) for every frame drawn in the window.
         self._frames: deque[tuple[float, float]] = deque()
         self._lock = threading.Lock()
-        self._stop = threading.Event()
+        # Named _stopping, not _stop: threading.Thread has a private _stop()
+        # that join() calls, and shadowing it with an Event makes join() raise
+        # TypeError on a perfectly ordinary Thread.
+        self._stopping = threading.Event()
         self._status = STATUS_NO_RTSS
         self._last_seen = 0.0
 
     def run(self) -> None:
-        while not self._stop.is_set():
+        while not self._stopping.is_set():
             started = time.monotonic()
             self._poll()
-            if self._stop.wait(max(0.0, POLL_SECONDS - (time.monotonic() - started))):
+            if self._stopping.wait(max(0.0, POLL_SECONDS - (time.monotonic() - started))):
                 break
         self._memory.disconnect()
 
     def shutdown(self) -> None:
-        self._stop.set()
+        self._stopping.set()
 
     def _poll(self) -> None:
         now = time.monotonic()

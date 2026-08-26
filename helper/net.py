@@ -341,7 +341,10 @@ class NetMonitor(threading.Thread):
         self._pinger = Pinger()
         self._samples: deque[tuple[float, float | None]] = deque()
         self._lock = threading.Lock()
-        self._stop = threading.Event()
+        # Named _stopping, not _stop: threading.Thread has a private _stop()
+        # that join() calls, and shadowing it with an Event makes join() raise
+        # TypeError on a perfectly ordinary Thread.
+        self._stopping = threading.Event()
 
         self._log_path: Path | None = None
         self._join_reader = JoinReader()
@@ -355,17 +358,17 @@ class NetMonitor(threading.Thread):
 
     def run(self) -> None:
         self._log_path = find_game_log()
-        while not self._stop.is_set():
+        while not self._stopping.is_set():
             started = time.monotonic()
             self._tick()
             # A round trip takes tens of milliseconds; sleeping the full
             # interval on top of that would stretch the cadence past it.
-            if self._stop.wait(max(0.0, PING_INTERVAL - (time.monotonic() - started))):
+            if self._stopping.wait(max(0.0, PING_INTERVAL - (time.monotonic() - started))):
                 break
         self._pinger.close()
 
     def shutdown(self) -> None:
-        self._stop.set()
+        self._stopping.set()
 
     # -- work -------------------------------------------------------------
 

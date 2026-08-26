@@ -26,6 +26,7 @@ from helper.history import collect as collect_history
 from helper.net import NetMonitor, find_game_log, process_pid
 from helper.telemetry import (CONTEXT_FIELDS, PROFILE_FIELDS, ROW_FIELDS,
                               SUMMARY_FIELDS, Spool, TelemetryCollector)
+from helper.upload import Uploader
 from helper.window import (apply_window_icon, force_foreground, foreground_hwnd,
                            set_app_id, window_for_pid)
 
@@ -46,6 +47,7 @@ DEFAULTS = {
     'telemetry_enabled':  True,
     'telemetry_client_id': '',
     'telemetry_notice_seen': False,
+    'telemetry_url':      '',
 }
 
 # ── Win32 process helpers ─────────────────────────────────────────────────────
@@ -211,6 +213,12 @@ class App(tk.Tk):
         self.net_monitor = NetMonitor()
         self.hardware = HardwareMonitor()
         self.telemetry = self._build_telemetry()
+        self.uploader = Uploader(
+            self.telemetry.spool, _DIR,
+            url_provider=(lambda: self.cfg.get('telemetry_url', '')),
+            enabled=(lambda: bool(self.cfg.get('telemetry_enabled', True))),
+            on_stop=self._telemetry_stopped_by_server,
+        )
         self.hud = None
         self._rtss_attempt = 0.0
 
@@ -238,6 +246,7 @@ class App(tk.Tk):
         self.net_monitor.start()
         self.hardware.start()
         self.telemetry.start()
+        self.uploader.start()
         # Asked after the window exists, so it cannot be missed behind it.
         self.after(1200, self._show_telemetry_notice)
         self.after(100, self._drain_log_queue)
@@ -529,6 +538,23 @@ class App(tk.Tk):
                       activebackground='#2a4661', relief='flat', padx=14, pady=6
                       ).pack(side='left', padx=(0, 8))
 
+        endpoint = tk.Frame(frame, bg='#101722')
+        endpoint.pack(anchor='w', fill='x', padx=18, pady=(4, 2))
+        tk.Label(endpoint, text='Send to', bg='#101722', fg='#91a7bd',
+                 font=('Segoe UI', 9), width=9, anchor='w').pack(side='left')
+        self.telemetry_url_var = tk.StringVar(value=str(self.cfg.get('telemetry_url', '')))
+        entry = tk.Entry(endpoint, textvariable=self.telemetry_url_var, bg='#0f1721',
+                         fg='#eaf4ff', insertbackground='#eaf4ff', relief='flat',
+                         font=('Consolas', 9))
+        entry.pack(side='left', fill='x', expand=True, padx=(0, 8))
+        tk.Button(endpoint, text='Save', command=self._save_telemetry_url,
+                  bg='#253448', fg='#eef6ff', activebackground='#2a4661',
+                  relief='flat', padx=12, pady=3).pack(side='left')
+        tk.Label(frame, text='Leave this empty and nothing is sent anywhere - measurements '
+                             'are still written locally where you can read them.',
+                 bg='#101722', fg='#6f8398', font=('Segoe UI', 8),
+                 wraplength=760, justify='left').pack(anchor='w', padx=18, pady=(0, 10))
+
         tk.Label(frame, text='Everything that is collected', bg='#101722', fg='#91a7bd',
                  font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=18, pady=(10, 2))
         fields = tk.Text(frame, height=10, bg='#0f1721', fg='#b5c9dc', relief='flat',
@@ -564,14 +590,48 @@ class App(tk.Tk):
             size = sum(f.stat().st_size for f in files)
         except OSError:
             files, size = [], 0
+        up = self.uploader.snapshot()
+        if not str(self.cfg.get('telemetry_url', '')).strip():
+            upload_line = 'local only, no endpoint set'
+        elif up['status'] == 'waiting' and up['waiting'] > 0:
+            upload_line = 'retrying in %ds  (%d sent, %d failed)' % (
+                round(up['waiting']), up['sent'], up['failures'])
+        elif up['status'] == 'stopped':
+            upload_line = 'stopped by the server'
+        else:
+            upload_line = '%s  (%d sent, %d failed)' % (up['status'], up['sent'],
+                                                        up['failures'])
         self.telemetry_status.config(
-            text='Sending:  %s\nBatches:  %d this session\nOn disk:  %d file%s, %.1f KB\n'
-                 'Your ID:  %s'
+            text='Collecting:  %s\nBatches:     %d this session\nOn disk:     %d file%s, %.1f KB\n'
+                 'Uploading:   %s\nYour ID:     %s'
                  % ('ON' if on else 'OFF', self.telemetry.batches_written,
                     len(files), '' if len(files) == 1 else 's', size / 1024.0,
+                    upload_line,
                     str(self.cfg.get('telemetry_client_id', ''))[:12] + '...'))
         self.telemetry_button.config(text='Turn it off' if on else 'Turn it on',
                                      bg='#a65a46' if on else '#466f91')
+
+    def _save_telemetry_url(self):
+        """Where batches are posted. Empty means nowhere, which is the default."""
+        url = self.telemetry_url_var.get().strip()
+        if url and not url.startswith(('http://', 'https://')):
+            messagebox.showerror('Star Citizen Helper',
+                                 'That needs to start with http:// or https://')
+            return
+        self.cfg['telemetry_url'] = url
+        self._persist()
+        self.log_queue.put('Telemetry endpoint ' + (url or 'cleared - nothing is sent.'))
+        self._refresh_telemetry_tab()
+
+    def _telemetry_stopped_by_server(self):
+        """The server asked every client to stand down, so this one does.
+
+        Written to settings rather than held in memory: if the server is
+        refusing data there is no sense resuming the moment the app restarts.
+        """
+        self.cfg['telemetry_enabled'] = False
+        self._persist()
+        self.log_queue.put('Telemetry stopped at the server\'s request.')
 
     def _toggle_telemetry(self):
         on = not bool(self.cfg.get('telemetry_enabled', True))
@@ -1299,6 +1359,7 @@ class App(tk.Tk):
             self.net_monitor.shutdown()
             self.hardware.shutdown()
             self.telemetry.shutdown()
+            self.uploader.shutdown()
         except Exception:
             pass
         self.scan_active = False

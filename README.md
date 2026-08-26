@@ -346,8 +346,22 @@ with the off switch in the dialog, not buried behind it. The **Telemetry** tab l
 field that is collected, counts what has been written, and has **Open my data** — the files
 are gzipped JSON and you can read every byte of them.
 
-Nothing is uploaded. Batches are written to `assets/telemetry/` and pruned after a fortnight
-or 32 MB, whichever comes first.
+Batches are written to `assets/telemetry/` and pruned after a fortnight or 32 MB, whichever
+comes first.
+
+**Nothing is sent anywhere until you set an endpoint.** `telemetry_url` is empty by default, and
+with it empty the measurements only ever exist on your own disk. Set it in the Telemetry tab and
+batches are posted once every 30 seconds.
+
+The spool is the queue, so an outage costs nothing: if the server is unreachable the batches stay
+on disk and go later, and a cursor records how far along each file has been sent. Being wrong
+about that cursor is survivable too — the server identifies a batch by who sent it and when it
+started, so a batch sent twice is stored once. There is a test that wipes the cursor and re-sends
+everything, and the row count does not move.
+
+The server can also switch a client off: if it answers `stop`, collection is turned off and the
+choice is written to settings, because a server refusing data has no reason to start receiving it
+again at the next restart.
 
 **What is never collected:** your handle, account id, player id, position, IP address, file
 paths, or any raw line from the game log. That last one is the point of the design — payloads
@@ -418,6 +432,7 @@ Set `"auto_update": false` in `settings.json` to pin the version you have.
   "hud_enabled":        true,
   "auto_update":        true,
   "telemetry_enabled":  true,
+  "telemetry_url":      "",
   "macros": [
     {
       "name":    "Countermeasures",
@@ -446,6 +461,7 @@ helper/
   history.py             past shards, read out of the game logs
   location.py            where in the 'verse you are, as a rollup path
   telemetry.py           one-second windows batched to disk
+  upload.py              posts the spool, and survives not being able to
   update.py              fetches and applies the newest commit at launch
   hud.py                 the header graph and its readout
   idle.py                desktop-wide idle detection
