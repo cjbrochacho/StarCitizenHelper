@@ -67,6 +67,13 @@ if errorlevel 1 (
     )
 )
 
+rem ── Update ────────────────────────────────────────────────────────────────
+rem Before the app starts, not after: with nothing loaded yet the files can be
+rem replaced cleanly, and what launches a moment later is already the new one.
+rem Never fatal - no network just means no update, and the app still runs.
+if not exist "%~dp0assets" mkdir "%~dp0assets" >nul 2>&1
+%PY_CMD% -m helper.update
+
 rem ── Icon and desktop shortcut ─────────────────────────────────────────────
 rem Both are generated rather than shipped, because a .lnk stores absolute
 rem paths and an icon is a build artefact. Made once, then left alone.
@@ -90,6 +97,14 @@ rem the windowed interpreter and exit. Staying attached would leave this
 rem console in the taskbar alongside the app for the whole session.
 call :find_pythonw
 start "" %PYW_CMD% "%~dp0StarCitizenHelper.py"
+
+rem An update cannot rewrite this file while it is running: cmd reads a batch
+rem by file offset as it goes, so replacing it underneath makes it run whatever
+rem now sits at that offset. The updater leaves a new one in assets/ and it is
+rem swapped in here, on a single line, as the very last thing that happens -
+rem the line is already in memory, and nothing is read after it.
+if exist "%~dp0assets\pending.bat" (copy /y "%~dp0assets\pending.bat" "%~f0" >nul & del "%~dp0assets\pending.bat" >nul) & exit /b 0
+
 exit /b 0
 
 

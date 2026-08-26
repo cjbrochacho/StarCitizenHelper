@@ -39,6 +39,7 @@ DEFAULTS = {
     'hold_keys':          'shift+w',
     'macros':             [],
     'hud_enabled':        True,
+    'auto_update':        True,
 }
 
 # ── Win32 process helpers ─────────────────────────────────────────────────────

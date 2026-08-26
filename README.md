@@ -334,6 +334,36 @@ keyboard at all.
 
 ---
 
+## Updating
+
+The launcher brings the install up to date before it starts the app, so there is nothing to
+download by hand and no reason to visit GitHub again after the first time.
+
+It asks GitHub for the newest commit on `main`, and if that is not what is installed it fetches
+the source archive and writes it over the install. `settings.json` is never touched, and neither
+is anything in `assets/` — your icon, your shortcut marker and the record of which commit you are
+on all survive. Files that were removed upstream are removed locally too, so a renamed module
+cannot linger and get imported by mistake.
+
+Two things it deliberately will not do:
+
+- **Overwrite the launcher while it is running.** `cmd.exe` reads a `.bat` by file offset as it
+  goes, so replacing one mid-run makes it execute whatever now sits at that offset. A new launcher
+  is left in `assets/pending.bat` and swapped in as the very last line of the script, after the app
+  has already started.
+- **Touch a git checkout.** If there is a `.git` directory it does nothing at all, because
+  overwriting a working copy with the tip of `main` would throw away uncommitted work. Git is
+  already handling updates there.
+
+Nothing here can stop the app starting. No network, GitHub unreachable, a truncated download, an
+archive that does not look like this project — each one means "no update today" and the app runs
+anyway. Files are written to a temporary name and renamed into place, so an update interrupted
+half way leaves the old file rather than a broken one.
+
+Set `"auto_update": false` in `settings.json` to pin the version you have.
+
+---
+
 ## Settings file
 
 `settings.json` sits next to the app and loads at startup. Edit it by hand or use
@@ -349,6 +379,7 @@ keyboard at all.
   "hold_start":         "shift+w+page up",
   "hold_keys":          "shift+w",
   "hud_enabled":        true,
+  "auto_update":        true,
   "macros": [
     {
       "name":    "Countermeasures",
@@ -374,6 +405,7 @@ helper/
   net.py                 latency, and server/shard/region from the game's log
   hardware.py            CPU and GPU model, and their current clocks
   history.py             past shards, read out of the game logs
+  update.py              fetches and applies the newest commit at launch
   hud.py                 the header graph and its readout
   idle.py                desktop-wide idle detection
   window.py              finds the game window; snap focus; taskbar icon
