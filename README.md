@@ -353,6 +353,10 @@ comes first.
 with it empty the measurements only ever exist on your own disk. Set it in the Telemetry tab and
 batches are posted once every 30 seconds.
 
+The thing on the other end — the ingestor, the store and the dashboard — is a separate project
+and is never installed here. The two halves share one HTTP endpoint and nothing else, which is
+what lets a player update this without anybody redeploying that.
+
 The spool is the queue, so an outage costs nothing: if the server is unreachable the batches stay
 on disk and go later, and a cursor records how far along each file has been sent. Being wrong
 about that cursor is survivable too — the server identifies a batch by who sent it and when it
