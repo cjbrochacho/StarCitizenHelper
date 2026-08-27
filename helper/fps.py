@@ -1,21 +1,41 @@
-"""Live frame statistics for the game, read from RivaTuner Statistics Server.
+"""Live frame statistics for the game, measured from outside it.
 
-RTSS publishes a shared memory block describing every application it has
-hooked, including a rolling frame count and the most recent frame time. Reading
-it needs no elevation and puts no code of ours inside the game - RTSS has
-already done the hooking, and we are only a reader.
+RivaTuner got its numbers by loading itself into the game: on a Vulkan title
+like Star Citizen it registers an implicit layer, and the game's own log lists
+it at startup as VK_LAYER_RTSS. That is what the game's instability warning is
+about, and when the layer fails to initialise the game does not start at all.
 
-The alternative is ETW frame tracing (what PresentMon does), which sees every
-single present but needs administrator rights. This route trades that for
-sampling: polling ten times a second catches roughly one frame in ten, so the
-averages are solid while the percentile lows are an approximation drawn from
-sampled frames rather than from every frame.
+PresentMon asks Windows instead. Every present goes through the graphics
+kernel, which reports it over ETW, so frames can be counted without touching
+the game process. Nothing is loaded, nothing is hooked, and a crash in here
+cannot take the game down with it. It also reports how long the GPU was busy
+in each frame, which the shared-memory route could not see at all.
+
+Two things about this are worth knowing before changing any of it.
+
+*Permission.* Opening an ETW session normally wants administrator. Membership
+of the Performance Log Users group is enough instead, and the installers for
+NVIDIA FrameView and PresentMon itself both grant it, so on many machines it is
+already there and no prompt is ever needed. `can_capture()` reports whether it
+is, without starting anything.
+
+*Display tracking.* By default PresentMon follows each frame all the way to the
+screen, and a game sitting behind another window never confirms - which is
+exactly when this tool is in front of it. It does not withhold those rows, it
+just leaves the display columns as NA: measured over eight seconds with the
+game in the background, 362 of 720 rows had no MsUntilDisplayed while every
+single one carried MsBetweenPresents and MsGPUBusy. So the fix is not to turn
+display tracking off - that would cost the GPU figures, which 2.3.1 refuses to
+collect without it - but simply never to read a display-tracked column.
 """
 
 from __future__ import annotations
 
+import atexit
+import csv
 import ctypes
-import os
+import io
+import subprocess
 import threading
 import time
 from collections import deque
@@ -23,97 +43,184 @@ from ctypes import wintypes
 from dataclasses import dataclass, field
 from pathlib import Path
 
-kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-kernel32.OpenFileMappingW.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR)
-kernel32.OpenFileMappingW.restype = wintypes.HANDLE
-kernel32.MapViewOfFile.argtypes = (wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD,
-                                   wintypes.DWORD, ctypes.c_size_t)
-kernel32.MapViewOfFile.restype = wintypes.LPVOID
-kernel32.UnmapViewOfFile.argtypes = (wintypes.LPVOID,)
-kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+from .net import process_pid
 
-shell32 = ctypes.WinDLL("shell32", use_last_error=True)
-shell32.ShellExecuteW.argtypes = (wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR,
-                                  wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.c_int)
-shell32.ShellExecuteW.restype = ctypes.c_ssize_t
+advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
 
-SW_SHOWNORMAL = 1
-SE_ERR_ACCESSDENIED = 5
-ERROR_CANCELLED = 1223
-#: ShellExecute reports success as anything above this.
-_SHELL_SUCCESS = 32
-
-FILE_MAP_READ = 0x0004
-MAPPING_NAME = "RTSSSharedMemoryV2"
-
-#: RTSS stores its signature as the C multi-character constant 'RTSS', which
-#: lands in memory little-endian - so the bytes read back as "SSTR". Both
-#: spellings are accepted rather than betting on one.
-_SIGNATURES = (b"SSTR", b"RTSS")
-
-# Header: nine DWORDs.
-_OFF_APP_ENTRY_SIZE, _OFF_APP_ARR_OFFSET, _OFF_APP_ARR_SIZE = 8, 12, 16
-_HEADER_SIZE = 36
-
-# Fields within one application entry.
-_APP_PROCESS_ID, _APP_NAME = 0, 4
-_APP_NAME_LENGTH = 260
-_APP_TIME0, _APP_TIME1, _APP_FRAMES, _APP_FRAME_TIME = 268, 272, 276, 280
-_APP_ENTRY_MINIMUM = 284
-
-# RTSS keeps the last 1024 frame times, in microseconds, for its own on-screen
-# frametime graph - a running counter of frames drawn, then the ring itself and
-# the slot it will write next. Reading it gives every frame rather than the one
-# that happened to be current when we looked, which is the difference between
-# a real 1% low and an estimate of one.
-_APP_FRAME_COUNTER = 920
-_APP_FRAME_RING = 924
-_APP_FRAME_RING_LEN = 1024
-_APP_FRAME_RING_POS = 5020
-_APP_ENTRY_WITH_RING = _APP_FRAME_RING_POS + 4
-
-#: How long a reading stays meaningful before the game counts as gone.
-_STALE_SECONDS = 2.5
-
-# While RTSS is attaching to a game it briefly reports a stale measurement
-# window - a frame count against a span of minutes - which works out as a
-# fraction of a frame per second and drags the average down for the next
-# minute. RTSS's real window is about a second, so anything wildly longer,
-# or a frame rate no running game would produce, is discarded.
-_MAX_WINDOW_MS = 5000
-_MIN_PLAUSIBLE_FPS = 1.0
-
+#: How often the supervisor checks that a capture is running and healthy. The
+#: frames themselves arrive on their own thread as PresentMon writes them, so
+#: this cadence costs nothing and is not the resolution of anything.
+POLL_SECONDS = 0.25
 WINDOW_SECONDS = 60.0
-POLL_SECONDS = 0.1
 
-STATUS_NO_RTSS = "no_rtss"
-STATUS_NO_GAME = "no_game"
+#: Our own ETW session name. Fixed rather than random so that a previous run
+#: killed off without cleanup can be found and stopped on the next start.
+SESSION_NAME = "StarCitizenHelper"
+
+STATUS_NO_SOURCE = "no_source"      # PresentMon binary not found
+STATUS_NO_ACCESS = "no_access"      # found, but not allowed to trace
+STATUS_NO_GAME = "no_game"          # tracing, but the game is not presenting
 STATUS_OK = "ok"
 
+#: A capture that has produced nothing for this long is treated as idle.
+_STALE_SECONDS = 4.0
+#: PresentMon needs a moment to open its session. Past this with nothing to
+#: show, the capture is silently dead and worth restarting once.
+_SILENT_SECONDS = 12.0
+_MAX_RETRIES = 2
 
-def _u32(buffer: bytes, offset: int) -> int:
-    return int.from_bytes(buffer[offset:offset + 4], "little")
+#: Backstop on the frame buffer. The window cutoff is what normally bounds it;
+#: this only matters if a frame rate turns up that nobody expected.
+_MAX_FRAMES = 40000
+
+CREATE_NO_WINDOW = 0x08000000
 
 
-@dataclass
-class Reading:
-    fps: float
-    frame_time_ms: float
-    #: Frame times, in ms, drawn since the previous read - oldest first.
-    frames: list[float] = field(default_factory=list)
+# --- may we trace? --------------------------------------------------------
 
+class _SidIdentifierAuthority(ctypes.Structure):
+    _fields_ = [("Value", ctypes.c_byte * 6)]
+
+
+advapi32.AllocateAndInitializeSid.argtypes = (
+    ctypes.POINTER(_SidIdentifierAuthority), ctypes.c_byte,
+    wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD,
+    wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD,
+    ctypes.POINTER(ctypes.c_void_p))
+advapi32.AllocateAndInitializeSid.restype = wintypes.BOOL
+advapi32.CheckTokenMembership.argtypes = (wintypes.HANDLE, ctypes.c_void_p,
+                                          ctypes.POINTER(wintypes.BOOL))
+advapi32.CheckTokenMembership.restype = wintypes.BOOL
+advapi32.FreeSid.argtypes = (ctypes.c_void_p,)
+
+_SECURITY_NT_AUTHORITY = 5
+_SECURITY_BUILTIN_DOMAIN_RID = 0x20
+_DOMAIN_ALIAS_RID_ADMINS = 0x220            # BUILTIN\Administrators
+_DOMAIN_ALIAS_RID_PERFLOG_USERS = 0x22F     # BUILTIN\Performance Log Users
+
+
+def _in_builtin_group(rid: int) -> bool:
+    """Is the caller's *effective* token a member of a BUILTIN alias?
+
+    Effective is the point. An administrator running unelevated carries the
+    group deny-only, and cannot open a trace session; CheckTokenMembership
+    accounts for that and says no, which is the honest answer. Asked this way
+    rather than by parsing `whoami /groups`, whose text is localised.
+    """
+    authority = _SidIdentifierAuthority((ctypes.c_byte * 6)(0, 0, 0, 0, 0,
+                                                            _SECURITY_NT_AUTHORITY))
+    sid = ctypes.c_void_p()
+    if not advapi32.AllocateAndInitializeSid(ctypes.byref(authority), 2,
+                                             _SECURITY_BUILTIN_DOMAIN_RID, rid,
+                                             0, 0, 0, 0, 0, 0, ctypes.byref(sid)):
+        return False
+    try:
+        member = wintypes.BOOL()
+        if not advapi32.CheckTokenMembership(None, sid, ctypes.byref(member)):
+            return False
+        return bool(member.value)
+    finally:
+        advapi32.FreeSid(sid)
+
+
+_can_capture: bool | None = None
+
+
+def can_capture() -> bool:
+    """Whether this account may open an ETW session, without starting one.
+
+    Checked up front so the UI can say what is wrong before anything gets
+    spawned, rather than showing a capture that quietly produces nothing.
+    Answered once and kept: a token's group membership cannot change under a
+    running process, which is why the fix for it ends in "sign out and back in".
+    """
+    global _can_capture
+    if _can_capture is None:
+        _can_capture = (_in_builtin_group(_DOMAIN_ALIAS_RID_PERFLOG_USERS)
+                        or _in_builtin_group(_DOMAIN_ALIAS_RID_ADMINS))
+    return _can_capture
+
+
+# --- finding the binary ---------------------------------------------------
+
+ROOT = Path(__file__).resolve().parent.parent
+
+#: Ours first - see vendor/README.md. The rest are where a PresentMon build is
+#: commonly already installed, which keeps the tool working from a checkout
+#: that has no vendored binary. They are a fallback for finding Intel's
+#: executable, not a dependency on the program that shipped it.
+_SEARCH = (
+    ROOT / "vendor" / "PresentMon.exe",
+    Path(r"C:\Program Files (x86)\RivaTuner Statistics Server\Plugins\Client"
+         r"\PresentMonDataProvider\PresentMon-2.3.1-x64.exe"),
+    Path(r"C:\Program Files (x86)\RivaTuner Statistics Server\Plugins\Client"
+         r"\PresentMonDataProvider\PresentMon-1.10.0-x64.exe"),
+)
+
+
+def presentmon_executable() -> Path | None:
+    for candidate in _SEARCH:
+        try:
+            if candidate.is_file():
+                return candidate
+        except OSError:
+            continue
+    return None
+
+
+# --- leftover sessions ----------------------------------------------------
+
+# EVENT_TRACE_PROPERTIES is 120 bytes on x64 (a 48 byte WNODE_HEADER, then
+# fifteen ULONGs, an 8 byte aligned HANDLE, and two name offsets). The logger
+# name is written straight after it, and LoggerNameOffset - the last field,
+# at byte 116 - points back at it.
+_ETP_SIZE = 120
+_ETP_LOGGER_NAME_OFFSET = 116
+_EVENT_TRACE_CONTROL_STOP = 1
+
+advapi32.ControlTraceW.argtypes = (ctypes.c_uint64, wintypes.LPCWSTR,
+                                   ctypes.c_void_p, wintypes.DWORD)
+advapi32.ControlTraceW.restype = wintypes.DWORD
+
+
+def stop_trace_session(name: str = SESSION_NAME) -> bool:
+    """Stop an ETW session left behind by a capture that was killed.
+
+    A trace session outlives the process that made it, and while ours is still
+    running a new capture silently records nothing - no error, no output, just
+    an empty stream. Clearing it first is what makes a hard shutdown
+    recoverable rather than needing a reboot.
+    """
+    buffer = ctypes.create_string_buffer(_ETP_SIZE + 2 * (len(name) + 1))
+    fields = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_uint32))
+    fields[0] = len(buffer)                              # Wnode.BufferSize
+    fields[_ETP_LOGGER_NAME_OFFSET // 4] = _ETP_SIZE     # LoggerNameOffset
+    ctypes.memmove(ctypes.addressof(buffer) + _ETP_SIZE,
+                   ctypes.create_unicode_buffer(name), 2 * (len(name) + 1))
+    return advapi32.ControlTraceW(0, name, buffer, _EVENT_TRACE_CONTROL_STOP) == 0
+
+
+# A session of ours left running stops every PresentMon capture on the machine
+# without so much as an error, so this is worth a belt as well as braces.
+atexit.register(stop_trace_session)
+
+
+# --- the numbers ----------------------------------------------------------
 
 @dataclass
 class Stats:
     """A snapshot of the last minute, safe to read from the GUI thread."""
 
-    status: str = STATUS_NO_RTSS
+    status: str = STATUS_NO_SOURCE
     fps: float = 0.0
     average: float = 0.0
     low_1: float = 0.0
     minimum: float = 0.0
     frame_time_ms: float = 0.0
     #: True when the figures come from every frame rather than from samples.
+    #: PresentMon reports every one, so this holds whenever there is enough of
+    #: a window to say anything at all. Kept because the telemetry and the
+    #: Performance tab both label the figures with where they came from.
     per_frame: bool = False
     #: Mean gap between one frame's time and the next - micro-stutter, the
     #: kind that never shows up as a big spike. Zero when unknown.
@@ -123,252 +230,276 @@ class Stats:
     swing_pct: float = 0.0
     #: Share of frames taking more than twice the median - discrete hitches.
     stutter_pct: float = 0.0
+    #: Mean milliseconds the GPU was busy per frame. Next to the frame time it
+    #: says whether the GPU or the CPU is the limit.
+    gpu_busy_ms: float = 0.0
     #: (age in seconds, frame time in ms), oldest first - same axis as history.
     frame_times: list[tuple[float, float]] = field(default_factory=list)
     #: (age in seconds, fps), oldest first, for plotting.
     history: list[tuple[float, float]] = field(default_factory=list)
 
 
-class RtssSharedMemory:
-    """Reader for the RTSS block. Re-opens itself if RTSS restarts."""
-
-    def __init__(self, mapping_name: str = MAPPING_NAME) -> None:
-        self.mapping_name = mapping_name
-        self._handle = None
-        self._view = None
-        self._last_counter = None
-
-    @property
-    def open(self) -> bool:
-        return self._view is not None
-
-    def connect(self) -> bool:
-        if self._view is not None:
-            return True
-        handle = kernel32.OpenFileMappingW(FILE_MAP_READ, False, self.mapping_name)
-        if not handle:
-            return False
-        view = kernel32.MapViewOfFile(handle, FILE_MAP_READ, 0, 0, 0)
-        if not view:
-            kernel32.CloseHandle(handle)
-            return False
-        self._handle, self._view = handle, view
-        return True
-
-    def disconnect(self) -> None:
-        if self._view:
-            kernel32.UnmapViewOfFile(self._view)
-        if self._handle:
-            kernel32.CloseHandle(self._handle)
-        self._handle = self._view = None
-
-    def _new_frames(self, raw: bytes) -> list[float]:
-        """Frame times drawn since the last read, in ms, oldest first.
-
-        The running frame counter says how many are new; anything more than the
-        ring holds has been overwritten and is simply gone.
-        """
-        counter = _u32(raw, _APP_FRAME_COUNTER)
-        previous, self._last_counter = self._last_counter, counter
-        if previous is None or counter < previous:
-            return []                                  # first look, or restarted
-        fresh = min(counter - previous, _APP_FRAME_RING_LEN)
-        if not fresh:
-            return []
-        ordered = _ring_frames(raw)[-fresh:]
-        return [value / 1000.0 for value in ordered if value]
-
-    def read(self, process_name: str) -> Reading | None:
-        """Latest reading for one executable, or None if RTSS has no entry."""
-        if not self.connect():
-            return None
-
-        header = ctypes.string_at(self._view, _HEADER_SIZE)
-        if header[:4] not in _SIGNATURES:
-            self.disconnect()
-            return None
-
-        entry_size = _u32(header, _OFF_APP_ENTRY_SIZE)
-        array_offset = _u32(header, _OFF_APP_ARR_OFFSET)
-        count = _u32(header, _OFF_APP_ARR_SIZE)
-        if entry_size < _APP_ENTRY_MINIMUM or not count:
-            return None
-
-        wanted = process_name.lower()
-        for index in range(count):
-            # Only the head of each entry is interesting. RTSS entries run to
-            # 12KB apiece across 256 slots, so copying them whole would mean
-            # shifting megabytes on every poll.
-            raw = ctypes.string_at(self._view + array_offset + index * entry_size,
-                                   _APP_ENTRY_MINIMUM)
-            if not _u32(raw, _APP_PROCESS_ID):
-                continue
-            name = raw[_APP_NAME:_APP_NAME + _APP_NAME_LENGTH].split(b"\x00")[0]
-            # RTSS stores a full path, so match on the executable at the end.
-            if not name.decode("latin-1").lower().endswith(wanted):
-                continue
-
-            start, end = _u32(raw, _APP_TIME0), _u32(raw, _APP_TIME1)
-            frames = _u32(raw, _APP_FRAMES)
-            frame_time_us = _u32(raw, _APP_FRAME_TIME)
-
-            window = end - start
-            if window <= 0 or window > _MAX_WINDOW_MS or not frames or not frame_time_us:
-                return None
-            fps = frames * 1000.0 / window
-            if fps < _MIN_PLAUSIBLE_FPS:
-                return None
-
-            drawn = []
-            if entry_size >= _APP_ENTRY_WITH_RING:
-                base = self._view + array_offset + index * entry_size
-                drawn = self._new_frames(ctypes.string_at(base, _APP_ENTRY_WITH_RING))
-            return Reading(fps=fps, frame_time_ms=frame_time_us / 1000.0, frames=drawn)
-        return None
+#: Frames behind the "right now" reading. Enough to be steady, few enough to
+#: still move when the frame rate does.
+_RECENT_FRAMES = 30
 
 
-def _ring_frames(raw: bytes) -> list[int]:
-    """The ring unrolled oldest-first, in microseconds."""
-    position = _u32(raw, _APP_FRAME_RING_POS) % _APP_FRAME_RING_LEN
-    values = [_u32(raw, _APP_FRAME_RING + i * 4) for i in range(_APP_FRAME_RING_LEN)]
-    return values[position:] + values[:position]
+def summarise(frames: list[tuple[float, float, float]], status: str,
+              now: float) -> Stats:
+    """Turn (when, frame ms, gpu ms) into the figures the HUD shows."""
+    if len(frames) < 2:
+        return Stats(status=status)
+
+    times = [ms for _, ms, _ in frames]
+    gpu = [busy for _, _, busy in frames if busy > 0]
+    slowest_first = sorted(times, reverse=True)
+
+    # The 1% low is the mean of the worst one percent of frame times, reported
+    # the way benchmarks do it: as the frame rate they represent.
+    worst_count = max(1, len(slowest_first) // 100)
+    worst_mean = sum(slowest_first[:worst_count]) / worst_count
+    mean_frame = sum(times) / len(times)
+
+    gaps = [abs(b - a) for a, b in zip(times, times[1:])]
+    swing = sum(gaps) / len(gaps) if gaps else 0.0
+    middle = sorted(times)[len(times) // 2]
+    stutter = 100.0 * sum(1 for ms in times if ms > 2 * middle) / len(times)
+
+    # One point per second of wall clock rather than one per frame, so a
+    # 200fps minute plots as the same number of points as a 40fps one.
+    history: list[tuple[float, float]] = []
+    bucket: list[float] = []
+    mark = frames[0][0]
+    for stamp, ms, _ in frames:
+        if stamp - mark >= 1.0 and bucket:
+            history.append((now - mark, 1000.0 * len(bucket) / sum(bucket)))
+            bucket, mark = [], stamp
+        bucket.append(ms)
+    if bucket:
+        history.append((now - mark, 1000.0 * len(bucket) / sum(bucket)))
+
+    recent = times[-_RECENT_FRAMES:]
+    recent_total = sum(recent)
+    return Stats(
+        status=status,
+        fps=1000.0 * len(recent) / recent_total if recent_total else 0.0,
+        average=1000.0 / mean_frame if mean_frame else 0.0,
+        low_1=1000.0 / worst_mean if worst_mean else 0.0,
+        minimum=1000.0 / slowest_first[0] if slowest_first[0] else 0.0,
+        frame_time_ms=recent_total / len(recent) if recent else 0.0,
+        per_frame=True,
+        swing_ms=swing,
+        swing_pct=100.0 * swing / mean_frame if mean_frame else 0.0,
+        stutter_pct=stutter,
+        gpu_busy_ms=sum(gpu) / len(gpu) if gpu else 0.0,
+        frame_times=[(now - stamp, ms) for stamp, ms, _ in frames],
+        history=history,
+    )
 
 
-def rtss_executable() -> Path | None:
-    """Where RTSS is installed, if it is."""
-    candidates = [
-        Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"))
-        / "RivaTuner Statistics Server" / "RTSS.exe",
-        Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
-        / "RivaTuner Statistics Server" / "RTSS.exe",
-    ]
-    return next((path for path in candidates if path.exists()), None)
-
-
-def start_rtss() -> str | None:
-    """Launch RTSS. Returns None on success, or why it failed.
-
-    RTSS ships a manifest demanding administrator rights, so CreateProcess -
-    what subprocess uses - refuses outright with ERROR_ELEVATION_REQUIRED (740)
-    rather than asking. ShellExecute is the call that knows how to raise a UAC
-    prompt, so it is the one to use here.
-
-    Only ever called when the user explicitly asks for it.
-    """
-    executable = rtss_executable()
-    if executable is None:
-        return "RivaTuner Statistics Server is not installed"
-
-    result = shell32.ShellExecuteW(None, "open", str(executable), None,
-                                   str(executable.parent), SW_SHOWNORMAL)
-    if result > _SHELL_SUCCESS:
-        return None
-    if result in (SE_ERR_ACCESSDENIED, ERROR_CANCELLED):
-        return "RivaTuner needs administrator rights and the prompt was declined"
-    return f"Windows refused to start RivaTuner (ShellExecute code {result})"
-
+# --- the capture ----------------------------------------------------------
 
 class FpsMonitor(threading.Thread):
-    """Polls RTSS on a timer and keeps the last minute of readings."""
+    """Runs PresentMon while the game is up and keeps the last minute."""
 
-    def __init__(self, process_name: str = "StarCitizen.exe",
-                 mapping_name: str = MAPPING_NAME) -> None:
+    def __init__(self, process_name: str = "StarCitizen.exe") -> None:
         super().__init__(name="fps-monitor", daemon=True)
         self.process_name = process_name
-        self._memory = RtssSharedMemory(mapping_name)
-        self._samples: deque[tuple[float, float, float]] = deque()
-        #: (when, frame time in ms) for every frame drawn in the window.
-        self._frames: deque[tuple[float, float]] = deque()
+        self._frames: deque[tuple[float, float, float]] = deque(maxlen=_MAX_FRAMES)
         self._lock = threading.Lock()
+        self._capture_lock = threading.Lock()
         # Named _stopping, not _stop: threading.Thread has a private _stop()
         # that join() calls, and shadowing it with an Event makes join() raise
         # TypeError on a perfectly ordinary Thread.
         self._stopping = threading.Event()
-        self._status = STATUS_NO_RTSS
-        self._last_seen = 0.0
+        self._proc: subprocess.Popen | None = None
+        # Settled before the first tick so the Performance tab never flashes
+        # a missing-binary message on the way to the real one.
+        self._status = self._idle_status()
+        self._last_frame = 0.0
+        self._started_at = 0.0
+        self._retries = 0
+
+    # -- lifecycle ---------------------------------------------------------
 
     def run(self) -> None:
         while not self._stopping.is_set():
-            started = time.monotonic()
-            self._poll()
-            if self._stopping.wait(max(0.0, POLL_SECONDS - (time.monotonic() - started))):
-                break
-        self._memory.disconnect()
+            self._tick()
+            self._stopping.wait(POLL_SECONDS)
+        self._stop_capture()
 
     def shutdown(self) -> None:
-        self._stopping.set()
+        """Tear the capture down here rather than leaving it to the thread.
 
-    def _poll(self) -> None:
+        Only setting the flag would leave the cleanup to a daemon thread that
+        the interpreter is about to kill, which is how a session gets orphaned.
+        """
+        self._stopping.set()
+        self._stop_capture()
+
+    def _tick(self) -> None:
+        """Keep a capture running exactly while the game is."""
+        running = bool(process_pid(self.process_name))
+        alive = self._proc is not None and self._proc.poll() is None
         now = time.monotonic()
-        reading = self._memory.read(self.process_name)
+
+        if running and not alive:
+            self._start_capture()
+        elif not running and alive:
+            self._stop_capture()
+            self._retries = 0
+            with self._lock:
+                self._frames.clear()
+                self._status = self._idle_status()
+        elif not running:
+            with self._lock:
+                self._status = self._idle_status()
+        elif (alive and not self._last_frame
+              and now - self._started_at > _SILENT_SECONDS
+              and self._retries < _MAX_RETRIES):
+            # Running but mute. Almost always a stale trace session swallowing
+            # the events, so drop it and try once more before giving up.
+            self._retries += 1
+            self._stop_capture()
+            self._start_capture()
 
         with self._lock:
-            if reading is not None:
-                self._status = STATUS_OK
-                self._last_seen = now
-                self._samples.append((now, reading.fps, reading.frame_time_ms))
-                self._frames.extend((now, ms) for ms in reading.frames)
-            elif not self._memory.open:
-                self._status = STATUS_NO_RTSS
-                self._samples.clear()
-            elif now - self._last_seen > _STALE_SECONDS:
-                # RTSS is running but has nothing for the game right now.
-                self._status = STATUS_NO_GAME
-
             cutoff = now - WINDOW_SECONDS
-            while self._samples and self._samples[0][0] < cutoff:
-                self._samples.popleft()
             while self._frames and self._frames[0][0] < cutoff:
                 self._frames.popleft()
+            if self._status == STATUS_OK and now - self._last_frame > _STALE_SECONDS:
+                self._status = STATUS_NO_GAME
+
+    def _idle_status(self) -> str:
+        """What to report while the game is not running.
+
+        A missing binary or a missing permission is worth saying now rather
+        than at launch: before the game is up is exactly when there is time to
+        do something about it.
+        """
+        if presentmon_executable() is None:
+            return STATUS_NO_SOURCE
+        return STATUS_NO_GAME if can_capture() else STATUS_NO_ACCESS
+
+    def _start_capture(self) -> None:
+        executable = presentmon_executable()
+        if executable is None:
+            with self._lock:
+                self._status = STATUS_NO_SOURCE
+            return
+        if not can_capture():
+            with self._lock:
+                self._status = STATUS_NO_ACCESS
+            return
+
+        with self._capture_lock:
+            if self._proc is not None and self._proc.poll() is None:
+                return
+            # Anything left over from a run that was killed would silently
+            # swallow this capture, so clear it before asking for a new one.
+            stop_trace_session()
+            try:
+                # Display tracking is left on. It cannot complete while the
+                # game is behind another window, but it does not hold rows
+                # back either - and turning it off would take the GPU figures
+                # with it. See the module docstring.
+                self._proc = subprocess.Popen(
+                    [str(executable), "--output_stdout", "--no_console_stats",
+                     "--no_track_input",
+                     "--process_name", self.process_name,
+                     "--session_name", SESSION_NAME, "--stop_existing_session"],
+                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                    creationflags=CREATE_NO_WINDOW)
+            except OSError:
+                self._proc = None
+                with self._lock:
+                    self._status = STATUS_NO_SOURCE
+                return
+            self._started_at = time.monotonic()
+            self._last_frame = 0.0
+            proc = self._proc
+
+        with self._lock:
+            self._status = STATUS_NO_GAME
+        threading.Thread(target=self._read, args=(proc,),
+                         name="frame-reader", daemon=True).start()
+
+    def _stop_capture(self) -> None:
+        with self._capture_lock:
+            proc, self._proc = self._proc, None
+        if proc is not None:
+            try:
+                proc.terminate()
+                proc.wait(timeout=3)
+            except (OSError, subprocess.TimeoutExpired):
+                try:
+                    proc.kill()
+                except OSError:
+                    pass
+        # terminate() gives PresentMon no chance to close its trace session,
+        # and a stale one blocks every later capture, so always clear it.
+        stop_trace_session()
+
+    # -- reading -----------------------------------------------------------
+
+    def _read(self, proc: subprocess.Popen) -> None:
+        """Consume PresentMon's CSV on its own thread; it arrives in bursts."""
+        stream = io.TextIOWrapper(proc.stdout, encoding="utf-8-sig",
+                                  errors="replace")
+        header = stream.readline()
+        if not header:
+            return                            # died before saying anything
+        column = {name: index
+                  for index, name in enumerate(header.strip().split(","))}
+        try:
+            frame_at = column["MsBetweenPresents"]
+            time_at = column["TimeInMs"]
+        except KeyError:
+            # A build whose columns we do not recognise. Say so rather than
+            # guessing at positions - see vendor/README.md.
+            with self._lock:
+                self._status = STATUS_NO_SOURCE
+            return
+        gpu_at = column.get("MsGPUBusy", -1)
+        widest = max(frame_at, time_at, gpu_at)
+
+        # PresentMon timestamps from the start of its own capture. Pinning
+        # that to our clock once keeps each frame at its true spacing rather
+        # than bunching a whole batch at the moment it was handed over.
+        origin = 0.0
+        while not self._stopping.is_set():
+            line = stream.readline()
+            if not line:
+                break
+            try:
+                row = next(csv.reader([line]))
+                if len(row) <= widest:
+                    continue                  # a row still being written
+                elapsed = float(row[time_at]) / 1000.0
+                frame_ms = float(row[frame_at])
+            except (ValueError, StopIteration, IndexError):
+                continue
+            if frame_ms <= 0.0:
+                continue
+            gpu_ms = 0.0
+            if gpu_at >= 0:
+                try:
+                    gpu_ms = float(row[gpu_at])
+                except ValueError:
+                    gpu_ms = 0.0              # PresentMon writes NA early on
+            now = time.monotonic()
+            if not origin:
+                origin = now - elapsed
+            with self._lock:
+                self._frames.append((origin + elapsed, frame_ms, gpu_ms))
+                self._last_frame = now
+                self._status = STATUS_OK
+
+    # -- reading out -------------------------------------------------------
 
     def stats(self) -> Stats:
         now = time.monotonic()
         with self._lock:
             status = self._status
-            samples = list(self._samples)
-            frame_pairs = list(self._frames)
-
-        if not samples:
-            return Stats(status=status)
-
-        frame_rates = [fps for _, fps, _ in samples]
-
-        # Percentiles come from every frame when RTSS gives us its ring, and
-        # from the sampled frame times only as a fallback - one frame in ten
-        # cannot show a stutter that lasted one frame.
-        frames = [ms for _, ms in frame_pairs]
-        per_frame = len(frames) > 20
-        pool = frames if per_frame else [ft for _, _, ft in samples]
-        slowest_first = sorted(pool, reverse=True)
-
-        # The 1% low is the mean of the worst one percent of frame times,
-        # reported the way benchmarks do it: as the frame rate they represent.
-        worst_count = max(1, len(slowest_first) // 100)
-        worst_mean = sum(slowest_first[:worst_count]) / worst_count
-
-        # Consistency only means anything frame by frame. Across samples
-        # taken ten times a second the interesting variation has already been
-        # averaged away, so these stay at zero rather than inventing a figure.
-        swing = swing_pct = stutter = 0.0
-        if per_frame and len(frames) > 2:
-            gaps = [abs(b - a) for a, b in zip(frames, frames[1:])]
-            swing = sum(gaps) / len(gaps)
-            mean_frame = sum(frames) / len(frames)
-            swing_pct = 100.0 * swing / mean_frame if mean_frame else 0.0
-            middle = sorted(frames)[len(frames) // 2]
-            stutter = 100.0 * sum(1 for ms in frames if ms > 2 * middle) / len(frames)
-
-        return Stats(
-            status=status,
-            fps=frame_rates[-1],
-            average=sum(frame_rates) / len(frame_rates),
-            low_1=1000.0 / worst_mean if worst_mean else 0.0,
-            minimum=1000.0 / slowest_first[0] if slowest_first[0] else 0.0,
-            frame_time_ms=samples[-1][2],
-            per_frame=per_frame,
-            swing_ms=swing,
-            swing_pct=swing_pct,
-            stutter_pct=stutter,
-            frame_times=[(now - stamp, ms) for stamp, ms in frame_pairs],
-            history=[(now - stamp, fps) for stamp, fps, _ in samples],
-        )
+            frames = list(self._frames)
+        return summarise(frames, status, now)

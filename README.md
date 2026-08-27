@@ -8,7 +8,8 @@ connection are actually doing — all from one window that sits behind the game.
 - **Ship Scan** — repeats Tab on a timer for cycling scan contacts
 - **KeepRunning** — holds Shift+W (or any keys) down so you keep moving
 - **Macros** — your own hotkeys, each tapping a sequence of keys
-- **Performance HUD** — frame rate, latency, CPU and GPU clocks, and which server you are on
+- **Performance HUD** — frame rate, GPU busy, latency, CPU and GPU clocks, and which server you
+  are on — measured from outside the game, with nothing loaded into it
 - **Server history** — the last ten shards you were on, so a crash cannot lose your ship
 - **Alt+F4 guard** — swallows Alt+F4 while the game has focus, with a button to switch it off
 - **Performance data** — anonymous measurements of how the game runs, on by default, one click off
@@ -35,9 +36,12 @@ Then **launch Star Citizen**. The app finds `StarCitizen.exe` on its own.
 
 - Windows 10 or 11
 - Python 3.8+ — installed for you if missing, per-user, so no administrator prompt
-- *Optional:* [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/)
-  for the frame-rate half of the HUD. You already have it if you use MSI Afterburner.
-  Everything else works without it.
+- *For the frame-rate half of the HUD:* membership of the Windows **Performance Log
+  Users** group. Many machines already have it — the NVIDIA FrameView and PresentMon
+  installers both grant it. The Performance tab says so if yours does not, and how to
+  fix it. Everything else works without it.
+
+Nothing has to be installed alongside the game, and nothing is loaded into it.
 
 The only third-party package is `keyboard`. Everything else is the Python standard library.
 
@@ -229,8 +233,8 @@ independently. Both are read **every 100 ms**, so the two move together:
 so "all good" reads as two lines hugging opposite edges. Underneath sits the current server:
 `IP:port • shard • region`. Readouts are to two decimal places.
 
-The **Performance** tab breaks the same figures out in full: frame rate, frame time, 1% low,
-frame swing, stutter, server, shard, region, latency and jitter.
+The **Performance** tab breaks the same figures out in full: frame rate, frame time, GPU busy,
+1% low, frame swing, stutter, server, shard, region, latency and jitter.
 
 Two of those are about *consistency* rather than speed, which is a different question from how
 fast the game is running:
@@ -240,23 +244,49 @@ fast the game is running:
 | **Frame swing** | How much each frame differs from the one before, as a time and as a share of the average frame. This is micro-stutter: a run of 8 ms, 14 ms, 8 ms, 14 ms averages out to a healthy frame rate and a healthy 1% low, and still feels rough. Under about 10% is smooth; 25% and up is where the alternation becomes visible. |
 | **Stutter** | The share of frames taking more than twice the median — discrete hitches rather than steady unevenness. A frame rate can look excellent with a fraction of a percent here and still catch your eye. |
 
-Both need every frame to mean anything, so they show `--` if the figures are coming from
-samples rather than from RivaTuner's per-frame ring.
+Both need every frame to mean anything, so they show `--` if the figures are ever coming from
+samples rather than from every frame.
 
 Behind the two lines sit **frame time bars** — one per pixel column, showing the worst frame in
 that column, on the same time axis as the lines. The frame rate line is an average over each
-sample, so a single slow frame barely dents it; the bars come from every frame RivaTuner drew,
-so a stutter shows up as a spike. The worst frame is drawn rather than the mean, because
-averaging is what hides it. The faint dashed line marks the 1% low.
+second, so a single slow frame barely dents it; the bars come from every frame the game
+presented, so a stutter shows up as a spike. The worst frame is drawn rather than the mean,
+because averaging is what hides it. The faint dashed line marks the 1% low.
 
-Frame times come from RivaTuner's own per-frame ring buffer, so **every frame is counted** — the
-1% low and the minimum are real percentiles over thousands of frames rather than estimates from
-periodic samples. The Performance tab says which it is using.
+**Every frame is counted**, so the 1% low and the minimum are real percentiles over thousands of
+frames rather than estimates from periodic samples.
 
-**Frame rate** comes from RivaTuner's shared memory. RTSS has to be running *before* Star Citizen
-starts — it hooks a game as the game launches and cannot attach to one already running. If RTSS
-is installed but not running the graph says so, and the Performance tab offers a **Start
-RivaTuner** button. RTSS needs administrator rights, so expect a UAC prompt.
+### Where the frame data comes from
+
+Not from inside the game. Every present goes through the Windows graphics kernel, which reports
+it over ETW; [PresentMon](https://github.com/GameTechDev/PresentMon) reads those events and this
+app reads PresentMon. Nothing is injected, nothing is hooked, and a crash in the measuring
+cannot take the game with it.
+
+That last part is the whole reason for it. The obvious alternative is an overlay — RivaTuner,
+Afterburner, Steam, Discord, GeForce Experience — and they all measure a game by loading
+themselves into it. On a Vulkan title like Star Citizen that means registering an implicit
+layer, which the game's own log lists at startup and its instability warning is about. When such
+a layer fails to initialise, the game does not start at all.
+
+The cost is a permission. Opening an ETW session normally wants administrator, but membership of
+the **Performance Log Users** group is enough instead, and the NVIDIA FrameView and PresentMon
+installers both grant it — so on many machines it is already there and nothing ever prompts. If
+yours is not, the Performance tab says so and tells you where to fix it (`compmgmt.msc` → Local
+Users and Groups → Groups → Performance Log Users, then sign out and back in). It is not
+something this app can grant itself, and it does not ask for elevation to try.
+
+One wrinkle worth recording, because it looks like a bug: PresentMon normally follows each frame
+all the way to the screen, and a game sitting behind another window never confirms — which is
+exactly when you are looking at this tool. It does not withhold those frames, it just leaves the
+display-tracked columns empty, so this reads present-to-present timing and never touches them.
+Measured over eight seconds with the game in the background, 362 of 720 frames had no display
+timestamp and all 720 had the frame time and the GPU time.
+
+**GPU busy** is the one figure an overlay could not give: milliseconds the GPU actually spent on
+each frame. Next to the frame time it answers the question the frame rate never does — a 8.6 ms
+frame with 3.3 ms of GPU work is a machine waiting on its CPU, and no graphics setting will fix
+it.
 
 **Latency** is measured to the cloud region the shard is running in. No elevation needed.
 
@@ -458,7 +488,7 @@ StarCitizenHelper.bat    the only thing you run: sets up if needed, then launche
 
 helper/
   __init__.py            marks the package
-  fps.py                 frame data from the RTSS shared memory block
+  fps.py                 frame data from PresentMon, out of process
   net.py                 latency, and server/shard/region from the game's log
   hardware.py            CPU and GPU model, and their current clocks
   gamecfg.py             the game's graphics settings, and what the driver did
@@ -474,11 +504,16 @@ helper/
   theme.py               colour palette
   shortcut.py            draws the icon and writes the .lnk
 
+vendor/
+  PresentMon.exe         Intel PresentMon, MIT - where the frame data comes from
+  LICENSE-PresentMon.txt its licence, kept with it
+
 assets/                  generated icon and shortcut marker (git-ignored)
 settings.json            written on first save (git-ignored)
 ```
 
-Everything under `helper/` is standard library plus `ctypes`.
+Everything under `helper/` is standard library plus `ctypes`. The one binary is
+`vendor/PresentMon.exe`, which is run as a child process and never loaded into anything.
 
 ---
 
@@ -499,9 +534,15 @@ The press may be too short for the game's frame cadence to catch. `KEY_HOLD_MS` 
 `StarCitizenHelper.py` sets how long keys are held; raising it to around 80 gives the game more
 of a window.
 
-**The frame-rate line is blank, or says "waiting for the game".**
-RivaTuner has to start *before* Star Citizen. Start RTSS, then restart the game. Latency works
-either way.
+**The frame-rate line says "waiting for the game".**
+Nothing to do — the capture starts and stops with `StarCitizen.exe` and takes a couple of
+seconds to produce its first frames. Unlike an overlay it does not have to be running before the
+game, so launching them in either order is fine.
+
+**The frame-rate line says "not allowed to measure frames".**
+Your account is not in the **Performance Log Users** group. Run `compmgmt.msc` as administrator,
+add yourself under Local Users and Groups → Groups → Performance Log Users, then sign out and
+back in. Everything except the frame-rate figures works without it.
 
 **Latency shows `--`.**
 The target comes from the shard named in the game's log, so there is nothing to ping until the

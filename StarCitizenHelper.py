@@ -14,11 +14,11 @@ from tkinter import ttk, messagebox, filedialog
 
 import keyboard
 
-# Performance HUD: frame rate (via RivaTuner) and latency/server details.
+# Performance HUD: frame rate (via PresentMon/ETW) and latency/server details.
 # Pure stdlib + ctypes - these add no new requirements.
 from helper import theme
 from helper.brand import BrandMark, WordMark
-from helper.fps import FpsMonitor, rtss_executable, start_rtss
+from helper.fps import FpsMonitor, presentmon_executable
 from helper.hud import HudGraph
 from helper.idle import IdleWatcher, note_injection, tick
 from helper.hardware import HardwareMonitor, machine_profile
@@ -220,7 +220,6 @@ class App(tk.Tk):
             on_stop=self._telemetry_stopped_by_server,
         )
         self.hud = None
-        self._rtss_attempt = 0.0
 
         # Windows tracks desktop-wide idle time for us; our own taps are
         # filtered out of it so they cannot look like the user coming back.
@@ -300,7 +299,7 @@ class App(tk.Tk):
                                       fg=theme.MUTED, font=('Consolas', 8),
                                       anchor='e', justify='right')
             self.gpu_label.pack(fill='x', pady=(0, 3))
-            self.hud = HudGraph(hud_box, on_start_rtss=self._start_rtss)
+            self.hud = HudGraph(hud_box)
             self.hud.configure(width=460)
             self.hud.pack(fill='x', expand=True)
             self.server_label = tk.Label(hud_box, text='', bg=theme.BG,
@@ -668,17 +667,19 @@ class App(tk.Tk):
 
         tk.Label(frame, text='Performance & Server', bg='#101722', fg='#eef6ff',
                  font=('Segoe UI Semibold', 13)).pack(anchor='w', padx=18, pady=(16, 2))
-        tk.Label(frame, text='Frame rate comes from RivaTuner Statistics Server. Latency is '
-                             'measured to the cloud region the shard is running in - the sim server '
-                             'itself answers no probes, so this is the distance to its datacenter '
-                             'rather than to the machine.',
+        tk.Label(frame, text='Frame rate is measured from outside the game: every present goes '
+                             'through the graphics kernel, which reports it over ETW, so nothing '
+                             'is loaded into Star Citizen to count them. Latency is measured to '
+                             'the cloud region the shard is running in - the sim server itself '
+                             'answers no probes, so this is the distance to its datacenter rather '
+                             'than to the machine.',
                  bg='#101722', fg='#91a7bd', wraplength=760, justify='left'
                  ).pack(anchor='w', padx=18, pady=(0, 12))
 
         self.perf_rows = {}
         grid = tk.Frame(frame, bg='#101722')
         grid.pack(anchor='w', padx=18, fill='x')
-        for row, label in enumerate(('Frame rate', 'Frame time', '1% low',
+        for row, label in enumerate(('Frame rate', 'Frame time', 'GPU busy', '1% low',
                                      'Frame swing', 'Stutter',
                                      'Server', 'Shard', 'Region', 'Latency', 'Jitter')):
             tk.Label(grid, text=label, bg='#101722', fg='#91a7bd',
@@ -689,24 +690,12 @@ class App(tk.Tk):
             value.grid(row=row, column=1, sticky='w', pady=2)
             self.perf_rows[label] = value
 
-        self.rtss_button = tk.Button(frame, text='Start RivaTuner', command=self._start_rtss,
-                                     bg='#253448', fg='#eef6ff', activebackground='#2a4661',
-                                     relief='flat', padx=14, pady=6)
-        self.rtss_button.pack(anchor='w', padx=18, pady=(16, 4))
-        self.rtss_note = tk.Label(frame, text='', bg='#101722', fg='#91a7bd',
-                                  wraplength=760, justify='left')
-        self.rtss_note.pack(anchor='w', padx=18)
-
-    def _start_rtss(self):
-        """RivaTuner needs administrator rights, so this raises a UAC prompt."""
-        if time.monotonic() - self._rtss_attempt < 8.0:
-            return  # it takes a moment to appear; do not stack UAC prompts
-        self._rtss_attempt = time.monotonic()
-        problem = start_rtss()
-        if problem is None:
-            self.log_queue.put('Starting RivaTuner - approve the administrator prompt if asked.')
-        else:
-            self.log_queue.put('RivaTuner: ' + problem)
+        # No button here on purpose: the capture starts and stops itself with
+        # the game. The only thing that can need a human is the group
+        # membership below, and that is not something this app may grant.
+        self.capture_note = tk.Label(frame, text='', bg='#101722', fg='#91a7bd',
+                                     wraplength=760, justify='left')
+        self.capture_note.pack(anchor='w', padx=18, pady=(16, 4))
 
     def _refresh_hud(self):
         """Feed the header graph and the Performance tab, ten times a second."""
@@ -741,6 +730,11 @@ class App(tk.Tk):
                     text=('%.2f fps  (avg %.2f)' % (fps_stats.fps, fps_stats.average)) if fps_ok else '--')
                 self.perf_rows['Frame time'].config(
                     text=('%.2f ms' % fps_stats.frame_time_ms) if fps_ok else '--')
+                self.perf_rows['GPU busy'].config(
+                    text=('%.2f ms  (%.0f%% of frame)'
+                          % (fps_stats.gpu_busy_ms,
+                             100.0 * fps_stats.gpu_busy_ms / fps_stats.frame_time_ms))
+                    if fps_ok and fps_stats.gpu_busy_ms and fps_stats.frame_time_ms else '--')
                 self.perf_rows['1% low'].config(
                     text=('%.2f fps  (%s)' % (fps_stats.low_1,
                           'every frame' if fps_stats.per_frame else 'sampled'))
@@ -763,20 +757,25 @@ class App(tk.Tk):
                 self.perf_rows['Jitter'].config(
                     text=('%.2f ms' % net_stats.jitter) if net_ok else '--')
 
-            if getattr(self, 'rtss_note', None):
-                if fps_stats.status == 'no_rtss':
-                    self.rtss_note.config(
-                        text='RivaTuner is not running, so there is no frame data. It must be '
-                             'started before Star Citizen to hook the game.'
-                        if rtss_executable() else
-                        'RivaTuner Statistics Server is not installed - frame rate unavailable.')
-                    self.rtss_button.config(state='normal' if rtss_executable() else 'disabled')
+            if getattr(self, 'capture_note', None):
+                if fps_stats.status == 'no_access':
+                    self.capture_note.config(
+                        text='Windows will not let this account measure frames. It needs to be a '
+                             'member of the "Performance Log Users" group: run compmgmt.msc as '
+                             'administrator, add your account under Local Users and Groups → '
+                             'Groups → Performance Log Users, then sign out and back in. '
+                             'Everything else on this tab works without it.')
+                elif fps_stats.status == 'no_source':
+                    self.capture_note.config(
+                        text='PresentMon is missing from the vendor folder, so there is no frame '
+                             'data. Reinstalling or updating the app puts it back.'
+                        if presentmon_executable() is None else
+                        'PresentMon is not reporting the columns this version reads - frame rate '
+                             'unavailable.')
                 elif fps_stats.status == 'no_game':
-                    self.rtss_note.config(text='RivaTuner is running; waiting for the game.')
-                    self.rtss_button.config(state='disabled')
+                    self.capture_note.config(text='Waiting for Star Citizen.')
                 else:
-                    self.rtss_note.config(text='')
-                    self.rtss_button.config(state='disabled')
+                    self.capture_note.config(text='')
         except Exception as exc:               # never let the HUD kill the UI loop
             self.log_queue.put('HUD error: %s' % exc)
         self.after(100, self._refresh_hud)

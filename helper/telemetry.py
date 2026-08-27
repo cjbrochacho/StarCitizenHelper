@@ -364,8 +364,11 @@ class TelemetryCollector(threading.Thread):
             self._build = game_build(self._log_path() if callable(self._log_path)
                                      else self._log_path)
         place = self._read_place(mono)
+        # Provenance, kept as a field rather than assumed: rows measured
+        # through RivaTuner's shared memory went up tagged "rtss", and these
+        # are a different instrument, so they must not be pooled blindly.
         context = build_context(place, net, self._build,
-                                "rtss" if getattr(fps, "per_frame", False) else "sampled")
+                                "presentmon" if getattr(fps, "per_frame", False) else "sampled")
 
         with self._lock:
             if self._context is not None and context != self._context:

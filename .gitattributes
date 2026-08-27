@@ -1,2 +1,7 @@
 # Windows-only project: keep line endings consistent for everyone.
 * text=auto eol=crlf
+
+# text=auto would detect these as binary anyway, but a vendored executable is
+# not something to leave to a heuristic - a stray CRLF rewrite corrupts it.
+*.exe binary
+*.ico binary

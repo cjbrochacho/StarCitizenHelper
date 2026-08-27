@@ -8,11 +8,10 @@ each other numerically. The readout on the right names each with its colour.
 from __future__ import annotations
 
 import tkinter as tk
-from typing import Callable
 
-from . import fps as fps_module
-from .fps import STATUS_NO_RTSS, STATUS_OK, WINDOW_SECONDS, Stats
-from .net import STATUS_NO_TARGET, NetStats
+from .fps import (STATUS_NO_ACCESS, STATUS_NO_SOURCE, STATUS_OK, WINDOW_SECONDS,
+                  Stats)
+from .net import NetStats
 from .net import STATUS_OK as NET_OK
 from .theme import ACCENT, BG, FPS_LOW, GRID, LAT, MUTED, WARN
 
@@ -37,15 +36,12 @@ class HudGraph(tk.Canvas):
     second for nothing.
     """
 
-    def __init__(self, parent: tk.Misc, on_start_rtss: Callable[[], None] | None = None) -> None:
+    def __init__(self, parent: tk.Misc) -> None:
         super().__init__(parent, width=MIN_PLOT_WIDTH + READOUT_WIDTH, height=HEIGHT,
                          bg=BG, highlightthickness=0, bd=0)
-        self._on_start_rtss = on_start_rtss
         self._fps_top = 120.0
         self._ms_top = 60.0
         self._width = MIN_PLOT_WIDTH + READOUT_WIDTH
-        self._rtss_hint = False
-        self.bind("<Button-1>", self._clicked)
         self.bind("<Configure>", self._resized)
 
         # plot: two sparklines plus a faint FPS 1%-low reference
@@ -96,12 +92,6 @@ class HudGraph(tk.Canvas):
         self.coords(self._ping_sub, right, 65)
         self.coords(self._message, self._plot_width // 2, HEIGHT // 2)
 
-    # -- interaction ------------------------------------------------------
-
-    def _clicked(self, _event: tk.Event) -> None:
-        if self._on_start_rtss is not None and self._rtss_hint:
-            self._on_start_rtss()
-
     # -- public -----------------------------------------------------------
 
     def update(self, fps_stats: Stats, net_stats: NetStats) -> None:
@@ -115,10 +105,10 @@ class HudGraph(tk.Canvas):
     def _draw_frame_bars(self, stats: Stats) -> None:
         """Worst frame time per pixel column, as bars off the bottom.
 
-        The frame rate line is an average over each sample, so a single slow
-        frame barely dents it. These come from every frame RivaTuner drew, and
-        the tallest bar in a column is the worst frame in it - averaging them
-        would hide the stutter that makes them worth drawing.
+        The frame rate line is an average over each second, so a single slow
+        frame barely dents it. These come from every frame the game presented,
+        and the tallest bar in a column is the worst frame in it - averaging
+        them would hide the stutter that makes them worth drawing.
         """
         frames = stats.frame_times
         if not frames:
@@ -222,22 +212,18 @@ class HudGraph(tk.Canvas):
         have_fps = fps_stats.status == STATUS_OK and fps_stats.history
         have_ping = net_stats.status == NET_OK and net_stats.history
         if have_fps or have_ping:
-            self._rtss_hint = False
             self.itemconfig(self._message, text="")
             return
 
         # Nothing to plot yet - explain the more actionable of the two gaps.
-        if fps_stats.status == STATUS_NO_RTSS:
-            if fps_module.rtss_executable():
-                self._rtss_hint = True
-                self.itemconfig(self._message, text="click to start RivaTuner for FPS", fill=WARN)
-                return
-            self.itemconfig(self._message, text="RivaTuner not installed - FPS unavailable", fill=MUTED)
-        elif net_stats.status == STATUS_NO_TARGET:
-            self.itemconfig(self._message, text="waiting for the game", fill=MUTED)
+        # Both of these are settled on the Performance tab, which is where the
+        # long version of the explanation lives.
+        if fps_stats.status == STATUS_NO_ACCESS:
+            self.itemconfig(self._message, text="not allowed to measure frames", fill=WARN)
+        elif fps_stats.status == STATUS_NO_SOURCE:
+            self.itemconfig(self._message, text="frame capture unavailable", fill=MUTED)
         else:
             self.itemconfig(self._message, text="waiting for the game", fill=MUTED)
-        self._rtss_hint = False
 
 
 def _ease(current: float, history, steps, floor_value: float) -> float:
