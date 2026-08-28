@@ -327,10 +327,14 @@ class FpsMonitor(threading.Thread):
         self._last_frame = 0.0
         self._started_at = 0.0
         self._retries = 0
-        #: Why the capture was last restarted, for the Activity Log. A capture
+        #: Why the capture was last restarted, and how many times. A capture
         #: that quietly stops is the hard kind of fault to report, so when one
-        #: is noticed it gets said out loud rather than just fixed.
+        #: is noticed it gets said out loud rather than just fixed. The count
+        #: matters as much as the reason: reporting only on a *change* of
+        #: reason hides a restart that keeps happening for the same cause,
+        #: which is exactly the shape a recurring fault has.
         self.last_reset = ""
+        self.resets = 0
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -357,6 +361,10 @@ class FpsMonitor(threading.Thread):
         now = time.monotonic()
 
         if running and not alive:
+            # A first start is not a restart; a process that was there and is
+            # now gone is, and it went unreported until now.
+            if self._proc is not None:
+                self._note_reset("the capture process exited")
             self._start_capture()
         elif not running and alive:
             self._stop_capture()
@@ -371,7 +379,7 @@ class FpsMonitor(threading.Thread):
             stalled = self._stall_reason(now, reading)
             if stalled is not None and self._retries < _MAX_RETRIES:
                 self._retries += 1
-                self.last_reset = stalled
+                self._note_reset(stalled)
                 self._stop_capture()
                 self._start_capture()
 
@@ -384,6 +392,11 @@ class FpsMonitor(threading.Thread):
                     self._status = STATUS_NO_GAME
                 else:
                     self._retries = 0          # delivering again; budget restored
+
+    def _note_reset(self, reason: str) -> None:
+        """Record a restart so the app can report every one, not just the first."""
+        self.last_reset = reason
+        self.resets += 1
 
     def _stall_reason(self, now: float, reading: bool) -> str | None:
         """Why a live capture should be torn down and started again.

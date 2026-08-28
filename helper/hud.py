@@ -183,7 +183,20 @@ class HudGraph(tk.Canvas):
         self.coords(self._bars, *points)
 
     def _draw_fps(self, stats: Stats) -> None:
-        if stats.status == STATUS_OK and stats.history:
+        """Draw the history whenever there is history; the plot is not a
+        health indicator.
+
+        This used to require the capture to be reporting *right now*, so any
+        pause - a streaming hitch, a capture restart, the game briefly not
+        presenting - blanked the whole minute even though every sample of it
+        was still held. The window came back intact a moment later, which is
+        the tell: the data was never gone, only hidden. A measured minute stays
+        worth looking at while frames are momentarily not arriving.
+
+        The live readout is the one thing that does go quiet, because a number
+        labelled as current when nothing is arriving would be a lie.
+        """
+        if stats.history:
             band = self._fps_band
             self._fps_top = _ease(self._fps_top, stats.history, _FPS_STEPS, 30.0)
             self._plot(self._fps_line, stats.history, self._fps_top, band)
@@ -193,12 +206,16 @@ class HudGraph(tk.Canvas):
                 self.itemconfig(self._fps_low, state="normal")
             else:
                 self.itemconfig(self._fps_low, state="hidden")
-            self.itemconfig(self._fps_val, text=f"{stats.fps:.2f}")
-            self.itemconfig(self._fps_sub, text=f"{stats.average:.2f} avg  {stats.frame_time_ms:.2f}ms")
         else:
             self._hide(self._fps_line, self._fps_low, self._bars)
-            self.itemconfig(self._fps_val, text="--")
-            self.itemconfig(self._fps_sub, text="")
+
+        live = stats.status == STATUS_OK
+        self.itemconfig(self._fps_val, text=f"{stats.fps:.2f}" if live else "--",
+                        fill=ACCENT if live else MUTED)
+        self.itemconfig(
+            self._fps_sub,
+            text=(f"{stats.average:.2f} avg  {stats.frame_time_ms:.2f}ms" if live
+                  else ("no frames arriving" if stats.history else "")))
 
     # -- ping -------------------------------------------------------------
 
@@ -255,7 +272,10 @@ class HudGraph(tk.Canvas):
     # -- centre message ---------------------------------------------------
 
     def _draw_message(self, fps_stats: Stats, net_stats: NetStats) -> None:
-        have_fps = fps_stats.status == STATUS_OK and fps_stats.history
+        # Having something drawn is what settles this, not whether the source
+        # is reporting this instant - otherwise the centre text says "waiting
+        # for the game" over a plot of the last minute of it.
+        have_fps = bool(fps_stats.history)
         have_ping = net_stats.status == NET_OK and net_stats.history
         if have_fps or have_ping:
             self.itemconfig(self._message, text="")

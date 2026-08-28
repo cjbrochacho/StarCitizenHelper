@@ -210,7 +210,7 @@ class App(tk.Tk):
         self.hold_token = 0
         self.injected_until = 0        # suppresses KeepRunning cancel during bot keypresses
         self.fps_monitor = FpsMonitor()
-        self._fps_reset_seen = ''
+        self._fps_reset_seen = 0
         self.net_monitor = NetMonitor()
         self.hardware = HardwareMonitor()
         self.telemetry = self._build_telemetry()
@@ -709,10 +709,11 @@ class App(tk.Tk):
             # A capture that stops and silently restarts is the fault that is
             # hardest to report, because by the time it is noticed the evidence
             # has aged out of the window. Say it happened, and why.
-            reset = getattr(self.fps_monitor, 'last_reset', '')
-            if reset and reset != self._fps_reset_seen:
-                self._fps_reset_seen = reset
-                self.log_queue.put('Frame capture restarted: %s' % reset)
+            resets = getattr(self.fps_monitor, 'resets', 0)
+            if resets != self._fps_reset_seen:
+                self._fps_reset_seen = resets
+                self.log_queue.put('Frame capture restarted (%d): %s' % (
+                    resets, getattr(self.fps_monitor, 'last_reset', '')))
 
             if self.hud is not None:
                 self.hud.update(fps_stats, net_stats)
