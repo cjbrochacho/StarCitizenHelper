@@ -24,6 +24,17 @@ READOUT_WIDTH = 122
 HEIGHT = 76
 PADDING = 6
 
+#: Each series owns a horizontal band rather than the whole plot. The two
+#: ceilings were always eased independently, but drawing both into one box
+#: meant a step in either one swung its line across the full height - and a
+#: line moving the width of the chart reads as the chart rescaling, for both
+#: series at once. Separate bands make the independence visible: neither line
+#: can enter the other's space, whatever its scale does.
+BAND_GAP = 5
+#: Frame rate takes the larger share; it carries the frame-time bars and the
+#: 1% low reference as well as its own line.
+FPS_BAND_SHARE = 0.58
+
 _FPS_STEPS = (30, 60, 90, 120, 144, 165, 240, 360)
 _MS_STEPS = (20, 40, 60, 100, 150, 200, 300, 500)
 
@@ -45,9 +56,13 @@ class HudGraph(tk.Canvas):
         self.bind("<Configure>", self._resized)
 
         # plot: two sparklines plus a faint FPS 1%-low reference
-        # Drawn first so it sits behind both lines. One item, not one per bar:
-        # the path runs along the baseline and spikes up for each column, which
-        # is cheap enough to redraw ten times a second.
+        # The band divider goes down first of all, so everything else sits on
+        # top of it. It is the only cue that the two halves are separate
+        # scales rather than one plot.
+        self._divider = self.create_line(0, 0, 0, 0, fill=GRID, width=1)
+        # Drawn before the lines so it sits behind both. One item, not one per
+        # bar: the path runs along the baseline and spikes up for each column,
+        # which is cheap enough to redraw ten times a second.
         self._bars = self.create_line(0, 0, 0, 0, fill=FRAME_BAR, width=1)
         self._fps_low = self.create_line(0, 0, 0, 0, fill=FPS_LOW, dash=(1, 5), width=1)
         self._fps_line = self.create_line(0, 0, 0, 0, fill=ACCENT, width=1)
@@ -81,9 +96,30 @@ class HudGraph(tk.Canvas):
         self._width = event.width
         self._layout()
 
+    @property
+    def _fps_band(self) -> tuple[float, float]:
+        """(floor, ceiling) for frame rate - the upper band, growing upward."""
+        ceiling = float(PADDING)
+        floor = PADDING + (HEIGHT - 2 * PADDING - BAND_GAP) * FPS_BAND_SHARE
+        return floor, ceiling
+
+    @property
+    def _ping_band(self) -> tuple[float, float]:
+        """(floor, ceiling) for latency - the lower band, also growing upward.
+
+        Both bands grow up from their own floor, which keeps the reading the
+        header was designed around: frame rate rides high when it is good,
+        latency sits low when it is good, so healthy still shows as two lines
+        hugging opposite edges - now without either being able to reach the
+        other's half.
+        """
+        return float(HEIGHT - PADDING), self._fps_band[0] + BAND_GAP
+
     def _layout(self) -> None:
         left = self._plot_width + PADDING
         right = self._width - PADDING
+        split = self._fps_band[0] + BAND_GAP / 2
+        self.coords(self._divider, PADDING, split, self._plot_width - PADDING, split)
         self.coords(self._fps_tag, left, 11)
         self.coords(self._fps_val, right, 15)
         self.coords(self._fps_sub, right, 29)
@@ -117,11 +153,13 @@ class HudGraph(tk.Canvas):
 
         left, right = PADDING, self._plot_width - PADDING
         span = max(1, right - left)
-        floor = HEIGHT - PADDING
-        # Scaled so the worst frame in view reaches a little over half height,
-        # leaving the lines above it readable.
+        # Bars belong to the frame rate, so they live in its band and rise from
+        # its floor - never into the latency half below.
+        floor, ceiling = self._fps_band
+        # Scaled so the worst frame in view reaches a little over half the
+        # band, leaving the line above it readable.
         worst = max(ms for _, ms in frames) or 1.0
-        reach = (HEIGHT - 2 * PADDING) * 0.55
+        reach = (floor - ceiling) * 0.55
 
         # Placed by age, on the same axis as the lines, so a spike sits under
         # the moment it happened rather than being spread across the window.
@@ -146,9 +184,10 @@ class HudGraph(tk.Canvas):
 
     def _draw_fps(self, stats: Stats) -> None:
         if stats.status == STATUS_OK and stats.history:
+            band = self._fps_band
             self._fps_top = _ease(self._fps_top, stats.history, _FPS_STEPS, 30.0)
-            self._plot(self._fps_line, stats.history, self._fps_top)
-            low_y = self._value_y(stats.low_1, self._fps_top) if stats.low_1 > 0 else None
+            self._plot(self._fps_line, stats.history, self._fps_top, band)
+            low_y = self._value_y(stats.low_1, self._fps_top, band) if stats.low_1 > 0 else None
             if low_y is not None:
                 self.coords(self._fps_low, PADDING, low_y, self._plot_width - PADDING, low_y)
                 self.itemconfig(self._fps_low, state="normal")
@@ -166,7 +205,7 @@ class HudGraph(tk.Canvas):
     def _draw_ping(self, stats: NetStats) -> None:
         if stats.status == NET_OK and stats.history:
             self._ms_top = _ease(self._ms_top, stats.history, _MS_STEPS, 20.0)
-            self._plot(self._ping_line, stats.history, self._ms_top)
+            self._plot(self._ping_line, stats.history, self._ms_top, self._ping_band)
             self.itemconfig(self._ping_val, text=f"{stats.ping_ms:.2f}")
             loss = f"  {stats.loss_pct:.0f}%loss" if stats.loss_pct >= 1 else ""
             self.itemconfig(self._ping_sub, text=f"{stats.jitter:.2f} jit{loss}")
@@ -177,11 +216,17 @@ class HudGraph(tk.Canvas):
 
     # -- shared plot ------------------------------------------------------
 
-    def _value_y(self, value: float, top: float) -> float:
-        floor, ceiling = HEIGHT - PADDING, PADDING
+    def _value_y(self, value: float, top: float, band: tuple[float, float]) -> float:
+        """Project a value onto its own band. `top` scales it, `band` places it.
+
+        Passing both means a series can only ever be drawn where it belongs -
+        there is no shared floor left for one scale to move under the other.
+        """
+        floor, ceiling = band
         return floor - (floor - ceiling) * min(value / top, 1.0)
 
-    def _plot(self, line_item: int, history, top: float) -> None:
+    def _plot(self, line_item: int, history, top: float,
+              band: tuple[float, float]) -> None:
         left, right = PADDING, self._plot_width - PADDING
         span = right - left
         # One point per pixel column keeps the redraw cost flat regardless of
@@ -194,7 +239,8 @@ class HudGraph(tk.Canvas):
         points: list[float] = []
         for column in sorted(columns):
             values = columns[column]
-            points.extend((left + column, self._value_y(sum(values) / len(values), top)))
+            points.extend((left + column,
+                           self._value_y(sum(values) / len(values), top, band)))
 
         if len(points) < 4:
             self.itemconfig(line_item, state="hidden")
