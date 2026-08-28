@@ -193,6 +193,12 @@ class _MibTcpRowOwnerPid(ctypes.Structure):
 
 TH32CS_SNAPPROCESS = 2
 _INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
+#: CreateToolhelp32Snapshot fails with this when the process list changes while
+#: it is being taken. Microsoft's guidance is to retry rather than to treat it
+#: as an answer - and the wrong answer here is "the game is gone", which throws
+#: away a minute of collected frames.
+_ERROR_BAD_LENGTH = 24
+_SNAPSHOT_RETRIES = 4
 
 
 class PROCESSENTRY32W(ctypes.Structure):
@@ -205,28 +211,50 @@ class PROCESSENTRY32W(ctypes.Structure):
     ]
 
 
+_toolhelp = ctypes.WinDLL("kernel32", use_last_error=True)
+# Without these the handle comes back through a 32 bit signed int, so the
+# INVALID_HANDLE_VALUE test below can never match and a failed snapshot is
+# walked as though it were a real one.
+_toolhelp.CreateToolhelp32Snapshot.argtypes = (wintypes.DWORD, wintypes.DWORD)
+_toolhelp.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+_toolhelp.Process32FirstW.argtypes = (wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W))
+_toolhelp.Process32FirstW.restype = wintypes.BOOL
+_toolhelp.Process32NextW.argtypes = (wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W))
+_toolhelp.Process32NextW.restype = wintypes.BOOL
+_toolhelp.CloseHandle.argtypes = (wintypes.HANDLE,)
+
+
 def process_pid(exe: str) -> int:
     """PID of a running executable by name, or 0.
 
     Enumerating processes beats looking the game up by window: it still works
     when the window cannot be found, and it cannot be fooled by another window
     that happens to have "Star Citizen" in its title.
+
+    A false 0 is not a harmless miss - callers read it as "the game exited" -
+    so a snapshot that fails because the process list moved under it is retried
+    rather than reported as an answer.
     """
-    kernel32 = ctypes.windll.kernel32
-    snapshot = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
-    if snapshot == _INVALID_HANDLE_VALUE:
-        return 0
-    try:
-        entry = PROCESSENTRY32W()
-        entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
-        wanted = exe.casefold()
-        found = kernel32.Process32FirstW(snapshot, ctypes.byref(entry))
-        while found:
-            if entry.szExeFile.casefold() == wanted:
-                return entry.th32ProcessID
-            found = kernel32.Process32NextW(snapshot, ctypes.byref(entry))
-    finally:
-        kernel32.CloseHandle(snapshot)
+    wanted = exe.casefold()
+    for _ in range(_SNAPSHOT_RETRIES):
+        snapshot = _toolhelp.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+        if not snapshot or snapshot == _INVALID_HANDLE_VALUE:
+            if ctypes.get_last_error() == _ERROR_BAD_LENGTH:
+                continue                    # the list moved; ask again
+            return 0
+        try:
+            entry = PROCESSENTRY32W()
+            entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
+            found = _toolhelp.Process32FirstW(snapshot, ctypes.byref(entry))
+            if not found and ctypes.get_last_error() == _ERROR_BAD_LENGTH:
+                continue
+            while found:
+                if entry.szExeFile.casefold() == wanted:
+                    return entry.th32ProcessID
+                found = _toolhelp.Process32NextW(snapshot, ctypes.byref(entry))
+        finally:
+            _toolhelp.CloseHandle(snapshot)
+        return 0                            # walked the whole list; really absent
     return 0
 
 

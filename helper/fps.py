@@ -63,10 +63,17 @@ STATUS_NO_GAME = "no_game"          # tracing, but the game is not presenting
 STATUS_OK = "ok"
 
 #: A capture that has produced nothing for this long is treated as idle.
+#: Row arrivals are bursty - PresentMon flushes about once a second, measured
+#: median 1.00s and p95 1.11s - so this needs headroom over that, not over the
+#: frame rate.
 _STALE_SECONDS = 4.0
-#: PresentMon needs a moment to open its session. Past this with nothing to
-#: show, the capture is silently dead and worth restarting once.
+#: Tear a running capture down and start it again once it has gone this long
+#: without delivering a row. Deliberately well under WINDOW_SECONDS: a stall
+#: that outlives the window drains it to empty, which is the one failure the
+#: user actually sees.
 _SILENT_SECONDS = 12.0
+#: Consecutive restarts before giving up. Reset as soon as frames flow again,
+#: so a bad minute cannot exhaust the budget for the rest of the session.
 _MAX_RETRIES = 2
 
 #: Backstop on the frame buffer. The window cutoff is what normally bounds it;
@@ -313,12 +320,17 @@ class FpsMonitor(threading.Thread):
         # TypeError on a perfectly ordinary Thread.
         self._stopping = threading.Event()
         self._proc: subprocess.Popen | None = None
+        self._reader: threading.Thread | None = None
         # Settled before the first tick so the Performance tab never flashes
         # a missing-binary message on the way to the real one.
         self._status = self._idle_status()
         self._last_frame = 0.0
         self._started_at = 0.0
         self._retries = 0
+        #: Why the capture was last restarted, for the Activity Log. A capture
+        #: that quietly stops is the hard kind of fault to report, so when one
+        #: is noticed it gets said out loud rather than just fixed.
+        self.last_reset = ""
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -341,6 +353,7 @@ class FpsMonitor(threading.Thread):
         """Keep a capture running exactly while the game is."""
         running = bool(process_pid(self.process_name))
         alive = self._proc is not None and self._proc.poll() is None
+        reading = self._reader is not None and self._reader.is_alive()
         now = time.monotonic()
 
         if running and not alive:
@@ -354,21 +367,40 @@ class FpsMonitor(threading.Thread):
         elif not running:
             with self._lock:
                 self._status = self._idle_status()
-        elif (alive and not self._last_frame
-              and now - self._started_at > _SILENT_SECONDS
-              and self._retries < _MAX_RETRIES):
-            # Running but mute. Almost always a stale trace session swallowing
-            # the events, so drop it and try once more before giving up.
-            self._retries += 1
-            self._stop_capture()
-            self._start_capture()
+        elif alive:
+            stalled = self._stall_reason(now, reading)
+            if stalled is not None and self._retries < _MAX_RETRIES:
+                self._retries += 1
+                self.last_reset = stalled
+                self._stop_capture()
+                self._start_capture()
 
         with self._lock:
             cutoff = now - WINDOW_SECONDS
             while self._frames and self._frames[0][0] < cutoff:
                 self._frames.popleft()
-            if self._status == STATUS_OK and now - self._last_frame > _STALE_SECONDS:
-                self._status = STATUS_NO_GAME
+            if self._status == STATUS_OK:
+                if now - self._last_frame > _STALE_SECONDS:
+                    self._status = STATUS_NO_GAME
+                else:
+                    self._retries = 0          # delivering again; budget restored
+
+    def _stall_reason(self, now: float, reading: bool) -> str | None:
+        """Why a live capture should be torn down and started again.
+
+        This used to ask only whether a capture had *never* produced a row
+        (`not self._last_frame`), which left the worse case uncovered: a reader
+        that dies after frames have been flowing. PresentMon stays alive and
+        the game stays running, so no branch fired and nothing restarted it -
+        the window then drained to empty over the following minute and the
+        graph came back blank whenever the capture eventually recycled.
+        """
+        if not reading:
+            return "the reader stopped"
+        since = now - (self._last_frame or self._started_at)
+        if since > _SILENT_SECONDS:
+            return f"no frames for {since:.0f}s"
+        return None
 
     def _idle_status(self) -> str:
         """What to report while the game is not running.
@@ -421,12 +453,17 @@ class FpsMonitor(threading.Thread):
 
         with self._lock:
             self._status = STATUS_NO_GAME
-        threading.Thread(target=self._read, args=(proc,),
-                         name="frame-reader", daemon=True).start()
+        # Held onto so _tick can notice if it dies. Assigned before start()
+        # only because the monitor thread is the one calling this, so no tick
+        # can observe the gap.
+        self._reader = threading.Thread(target=self._read, args=(proc,),
+                                        name="frame-reader", daemon=True)
+        self._reader.start()
 
     def _stop_capture(self) -> None:
         with self._capture_lock:
             proc, self._proc = self._proc, None
+            self._reader = None
         if proc is not None:
             try:
                 proc.terminate()
@@ -443,6 +480,21 @@ class FpsMonitor(threading.Thread):
     # -- reading -----------------------------------------------------------
 
     def _read(self, proc: subprocess.Popen) -> None:
+        """Guard the reader, because a silent death is the expensive failure.
+
+        Anything escaping here ends the thread, and with it every future frame,
+        while PresentMon and the game both carry on looking healthy. Swallowing
+        it is safe only because _tick watches whether this thread is still
+        alive and restarts the capture when it is not - the alternative is a
+        graph that empties over a minute and never refills. `readline` on a
+        pipe whose process is being torn down is the usual way in.
+        """
+        try:
+            self._consume(proc)
+        except Exception:
+            return
+
+    def _consume(self, proc: subprocess.Popen) -> None:
         """Consume PresentMon's CSV on its own thread; it arrives in bursts."""
         stream = io.TextIOWrapper(proc.stdout, encoding="utf-8-sig",
                                   errors="replace")
