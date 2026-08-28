@@ -19,6 +19,19 @@ NVIDIA FrameView and PresentMon itself both grant it, so on many machines it is
 already there and no prompt is ever needed. `can_capture()` reports whether it
 is, without starting anything.
 
+*Filtering.* PresentMon is never asked to select the game for us. Star Citizen
+runs under EasyAntiCheat, which blocks an unelevated process from querying it,
+and PresentMon decides what to record at the moment it discovers a process: if
+it cannot read the name then, the process is `<unknown>` and neither
+`--process_name` nor `--process_id` will ever match it - it simply records
+nothing, with no error. Both were measured doing exactly that while an
+unfiltered capture of the same game at the same moment returned 541 rows in 15
+seconds, correctly labelled `StarCitizen.exe`. It also explains the
+intermittency that led here: the filter works when PresentMon happens to be
+tracing before the game starts, because then it learns the name from the
+process-start event instead of having to ask. So the capture is unfiltered and
+rows are matched on ProcessID here, which is always known and never guessed.
+
 *Display tracking.* By default PresentMon follows each frame all the way to the
 screen, and a game sitting behind another window never confirms - which is
 exactly when this tool is in front of it. It does not withhold those rows, it
@@ -63,15 +76,24 @@ STATUS_NO_GAME = "no_game"          # tracing, but the game is not presenting
 STATUS_OK = "ok"
 
 #: A capture that has produced nothing for this long is treated as idle.
-#: Row arrivals are bursty - PresentMon flushes about once a second, measured
-#: median 1.00s and p95 1.11s - so this needs headroom over that, not over the
-#: frame rate.
-_STALE_SECONDS = 4.0
+#:
+#: This has to clear how unevenly PresentMon hands rows over, which is not the
+#: same as how often the game presents. At 120fps the gaps measured a tidy
+#: median of 1.00s, but in a stuttering session presenting around 22fps the
+#: same capture delivered 1 row at 7s, 99 by 22s and 738 by 51s - bursts with
+#: many seconds of nothing between them. The old 4s was inside that, so an
+#: ordinary gap read as "the game is gone", and the HUD blanked a minute of
+#: perfectly good frames every time it happened.
+_STALE_SECONDS = 15.0
 #: Tear a running capture down and start it again once it has gone this long
-#: without delivering a row. Deliberately well under WINDOW_SECONDS: a stall
-#: that outlives the window drains it to empty, which is the one failure the
-#: user actually sees.
-_SILENT_SECONDS = 12.0
+#: without delivering a row.
+#:
+#: The floor here is PresentMon's own startup: measured 7.16s from launch to
+#: the CSV header, before any row. A watchdog shorter than that kills captures
+#: that were merely slow to open and restarts them into the same delay, which
+#: is a capture that can never deliver. The ceiling is WINDOW_SECONDS, since a
+#: stall outlasting the window drains it to empty. Sit well clear of both.
+_SILENT_SECONDS = 45.0
 #: Consecutive restarts before giving up. Reset as soon as frames flow again,
 #: so a bad minute cannot exhaust the budget for the rest of the session.
 _MAX_RETRIES = 2
@@ -321,6 +343,9 @@ class FpsMonitor(threading.Thread):
         self._stopping = threading.Event()
         self._proc: subprocess.Popen | None = None
         self._reader: threading.Thread | None = None
+        #: Which process the reader keeps rows for. 0 accepts nothing, which
+        #: is the right answer before the game has been found.
+        self._game_pid = 0
         # Settled before the first tick so the Performance tab never flashes
         # a missing-binary message on the way to the real one.
         self._status = self._idle_status()
@@ -355,7 +380,12 @@ class FpsMonitor(threading.Thread):
 
     def _tick(self) -> None:
         """Keep a capture running exactly while the game is."""
-        running = bool(process_pid(self.process_name))
+        pid = process_pid(self.process_name)
+        running = bool(pid)
+        if running:
+            # Kept current so the reader can pick this process out of an
+            # unfiltered capture; a relaunched game gets a new one.
+            self._game_pid = pid
         alive = self._proc is not None and self._proc.poll() is None
         reading = self._reader is not None and self._reader.is_alive()
         now = time.monotonic()
@@ -448,10 +478,12 @@ class FpsMonitor(threading.Thread):
                 # game is behind another window, but it does not hold rows
                 # back either - and turning it off would take the GPU figures
                 # with it. See the module docstring.
+                # No --process_name / --process_id: see the module docstring.
+                # Everything presenting is captured and the rows for this pid
+                # are picked out below.
                 self._proc = subprocess.Popen(
                     [str(executable), "--output_stdout", "--no_console_stats",
                      "--no_track_input",
-                     "--process_name", self.process_name,
                      "--session_name", SESSION_NAME, "--stop_existing_session"],
                     stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                     creationflags=CREATE_NO_WINDOW)
@@ -519,6 +551,7 @@ class FpsMonitor(threading.Thread):
         try:
             frame_at = column["MsBetweenPresents"]
             time_at = column["TimeInMs"]
+            pid_at = column["ProcessID"]
         except KeyError:
             # A build whose columns we do not recognise. Say so rather than
             # guessing at positions - see vendor/README.md.
@@ -526,7 +559,7 @@ class FpsMonitor(threading.Thread):
                 self._status = STATUS_NO_SOURCE
             return
         gpu_at = column.get("MsGPUBusy", -1)
-        widest = max(frame_at, time_at, gpu_at)
+        widest = max(frame_at, time_at, gpu_at, pid_at)
 
         # PresentMon timestamps from the start of its own capture. Pinning
         # that to our clock once keeps each frame at its true spacing rather
@@ -540,6 +573,8 @@ class FpsMonitor(threading.Thread):
                 row = next(csv.reader([line]))
                 if len(row) <= widest:
                     continue                  # a row still being written
+                if int(row[pid_at]) != self._game_pid:
+                    continue                  # some other window presenting
                 elapsed = float(row[time_at]) / 1000.0
                 frame_ms = float(row[frame_at])
             except (ValueError, StopIteration, IndexError):
