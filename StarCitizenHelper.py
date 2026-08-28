@@ -33,6 +33,37 @@ from helper.window import (apply_window_icon, force_foreground, foreground_hwnd,
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
 
+
+def current_revision():
+    """Short, human-showable id for what's actually running.
+
+    A git checkout is never touched by the self-updater (see helper.update),
+    so .version there would just be whatever was installed before the clone
+    and never again after - HEAD is read directly instead. Everywhere else,
+    .version is the commit the updater last applied, which is exactly what
+    is on disk since nothing else writes to this install.
+    """
+    git_dir = os.path.join(_DIR, '.git')
+    if os.path.isdir(git_dir):
+        try:
+            with open(os.path.join(git_dir, 'HEAD'), encoding='utf-8') as f:
+                head = f.read().strip()
+            if head.startswith('ref:'):
+                with open(os.path.join(git_dir, head.split(' ', 1)[1]), encoding='utf-8') as f:
+                    sha = f.read().strip()
+            else:
+                sha = head
+            if sha:
+                return sha[:7] + ' (dev)'
+        except OSError:
+            pass
+    try:
+        with open(os.path.join(_DIR, 'assets', '.version'), encoding='utf-8') as f:
+            sha = f.read().strip()
+        return sha[:7] if sha else 'unreleased'
+    except OSError:
+        return 'unreleased'
+
 DEFAULTS = {
     'keepalive_enabled':  True,
     'keepalive_key':      'tab',
@@ -49,6 +80,21 @@ DEFAULTS = {
     'telemetry_notice_seen': False,
     'telemetry_url':      '',
 }
+
+# Keys whose value must round-trip as a real JSON boolean, never as the
+# string "true"/"false" (which Python's bool() always reads as truthy).
+BOOLEAN_KEYS = (
+    'keepalive_enabled', 'altf4_guard', 'hud_enabled', 'auto_update',
+    'telemetry_enabled', 'telemetry_notice_seen',
+)
+
+# Settings edited as free-text Entry fields via _add_settings_tab. Booleans
+# and the Telemetry tab's own fields (telemetry_url, telemetry_client_id)
+# are persisted through their own toggle/save handlers instead, so they must
+# stay out of field_vars or a later "Save Settings" click clobbers them.
+EDITABLE_FIELD_KEYS = (
+    'keepalive_key', 'scan_toggle', 'scan_interval', 'hold_start', 'hold_keys',
+)
 
 # ── Win32 process helpers ─────────────────────────────────────────────────────
 
@@ -134,7 +180,60 @@ KEEPALIVE_MAX_SECONDS = 180
 KEY_HOLD_MS = 40
 KEY_HOLD_JITTER_MS = 12
 
+
+def summarize_sessions(records, limit=10):
+    """Roll telemetry batches up into one row per session, newest first.
+
+    A session is one run of the app (helper.telemetry gives each launch its
+    own id). Frame counts weight the average, since a batch that ran for the
+    full 60 seconds says more about the session than one cut short by a
+    location change. The per-session low_1/stutter figures this produces are
+    an average of already-summarised per-minute batches, not a true
+    percentile over the session's raw frames - those individual frame times
+    are never written to disk, only their per-batch summary is.
+    """
+    sessions = {}
+    for rec in records:
+        if rec.get('type') != 'batch':
+            continue
+        session = rec.get('session')
+        summary = rec.get('sum') or {}
+        frames = summary.get('frames') or 0
+        if not session or frames <= 0:
+            continue
+        rows = rec.get('rows') or []
+        entry = sessions.setdefault(session, {
+            'session': session, 't0_min': None, 't0_max': None,
+            'frames': 0, 'fps_weighted': 0.0, 'low1_weighted': 0.0,
+            'stutter_weighted': 0.0,
+        })
+        t0 = rec.get('t0') or 0
+        t_end = t0 + len(rows)
+        entry['t0_min'] = t0 if entry['t0_min'] is None else min(entry['t0_min'], t0)
+        entry['t0_max'] = t_end if entry['t0_max'] is None else max(entry['t0_max'], t_end)
+        entry['frames'] += frames
+        entry['fps_weighted'] += summary.get('fps_avg', 0.0) * frames
+        entry['low1_weighted'] += summary.get('low_1', 0.0) * frames
+        entry['stutter_weighted'] += summary.get('stutter_pct', 0.0) * frames
+
+    out = []
+    for entry in sessions.values():
+        frames = entry['frames']
+        out.append({
+            'session': entry['session'],
+            't0': entry['t0_min'],
+            'duration_s': max(0, entry['t0_max'] - entry['t0_min']),
+            'frames': frames,
+            'fps_avg': round(entry['fps_weighted'] / frames, 1),
+            'low_1': round(entry['low1_weighted'] / frames, 1),
+            'stutter_pct': round(entry['stutter_weighted'] / frames, 2),
+        })
+    out.sort(key=lambda s: s['t0'], reverse=True)
+    return out[:limit]
+
+
 CRASH_LOG = os.path.join(_DIR, 'assets', 'crash.log')
+CRASH_LOG_MAX_BYTES = 2 * 1024 * 1024
 
 
 def _report_crash(exc_type, exc, tb):
@@ -146,6 +245,8 @@ def _report_crash(exc_type, exc, tb):
     import traceback
     try:
         os.makedirs(os.path.dirname(CRASH_LOG), exist_ok=True)
+        if os.path.exists(CRASH_LOG) and os.path.getsize(CRASH_LOG) > CRASH_LOG_MAX_BYTES:
+            os.replace(CRASH_LOG, CRASH_LOG + '.old')
         with open(CRASH_LOG, 'a', encoding='utf-8') as handle:
             handle.write(time.strftime('\n=== %Y-%m-%d %H:%M:%S ===\n'))
             traceback.print_exception(exc_type, exc, tb, file=handle)
@@ -192,6 +293,8 @@ class App(tk.Tk):
             pass
         if not isinstance(self.cfg.get('macros'), list):
             self.cfg['macros'] = []
+        for k in BOOLEAN_KEYS:
+            self.cfg[k] = str(self.cfg.get(k, DEFAULTS[k])).strip().lower() not in ('false', '0', '')
 
         # Automation state
         self.log_queue = queue.Queue()
@@ -226,8 +329,10 @@ class App(tk.Tk):
         # filtered out of it so they cannot look like the user coming back.
         self.idle = IdleWatcher()
         self.next_keepalive = 0
+        self.last_keepalive_at = None
         self.next_scan = 0
         self.running_macro = ''
+        self.revision = current_revision()
 
         self._build_ui()
         self._register_hotkeys()
@@ -285,7 +390,7 @@ class App(tk.Tk):
         BrandMark(title_box, size=46, background='#101722').pack(side='left',
                                                                  anchor='n', padx=(0, 12))
         WordMark(title_box, 'STAR CITIZEN HELPER',
-                 'Automation status and hotkey controls',
+                 'Automation status and hotkey controls  •  rev ' + self.revision,
                  background='#101722', title_fill='#eef6ff',
                  subtitle_fill='#91a7bd').pack(side='left', anchor='nw')
 
@@ -360,9 +465,8 @@ class App(tk.Tk):
 
         # Tab notebook
         self.field_vars = {
-            k: tk.StringVar(value=str(v))
-            for k, v in self.cfg.items()
-            if k != 'macros'
+            k: tk.StringVar(value=str(self.cfg[k]))
+            for k in EDITABLE_FIELD_KEYS
         }
         notebook = ttk.Notebook(self)
         notebook.pack(fill='both', expand=True, padx=22, pady=(0, 10))
@@ -394,6 +498,29 @@ class App(tk.Tk):
         self._build_history_tab(notebook)
         self._build_log_tab(notebook)
 
+    def _add_checkbox(self, parent, label, key, note=''):
+        """A boolean setting that persists itself immediately on click.
+
+        Kept out of field_vars/_sync_fields_to_cfg entirely, so it can never
+        be corrupted into a string the way the old free-text fields were.
+        """
+        var = tk.BooleanVar(value=bool(self.cfg.get(key)))
+
+        def _on_toggle():
+            self.cfg[key] = var.get()
+            self._persist()
+
+        row = tk.Frame(parent, bg=parent['bg'])
+        row.pack(anchor='w', padx=18, pady=4)
+        tk.Checkbutton(row, text=label, variable=var, command=_on_toggle,
+                       bg=parent['bg'], fg='#eef6ff', selectcolor='#0f1721',
+                       activebackground=parent['bg'], activeforeground='#eef6ff',
+                       relief='flat', anchor='w').pack(side='left')
+        if note:
+            tk.Label(row, text=note, bg=parent['bg'], fg='#6f8398',
+                     font=('Segoe UI', 8)).pack(side='left', padx=(6, 0))
+        return var
+
     def _add_settings_tab(self, notebook, tab_name, title, desc, fields, extra_button=None):
         frame = tk.Frame(notebook, bg='#192433')
         notebook.add(frame, text=tab_name)
@@ -421,9 +548,11 @@ class App(tk.Tk):
         tk.Label(frame, text='Tap Macros', bg='#192433', fg='#eef6ff',
                  font=('Segoe UI Semibold', 14)).pack(anchor='w', padx=20, pady=(18, 4))
         tk.Label(frame,
-                 text='Create a global-hotkey macro that taps actions in order. '
+                 text='Create a global-hotkey macro that runs actions in order. '
                       'Use comma-separated actions such as:  1, 2, tab, shift+w. '
-                      'Each action is pressed and released.',
+                      'Each is pressed and released, except two special forms: '
+                      'wait:1.5 pauses for 1.5s, and hold:shift+w:2.0 holds shift+w '
+                      'down for 2.0s before releasing.',
                  bg='#192433', fg='#9eb2c6', wraplength=820, justify='left').pack(
                      anchor='w', padx=20, pady=(0, 12))
 
@@ -450,10 +579,73 @@ class App(tk.Tk):
         self.macro_listbox = tk.Listbox(frame, bg='#0f1721', fg='#d9eafa',
                                         selectbackground='#2a6f9e', relief='flat', height=7)
         self.macro_listbox.pack(fill='both', expand=True, padx=20, pady=4)
-        tk.Button(frame, text='Remove selected macro', command=self._remove_macro,
+        macro_btn_row = tk.Frame(frame, bg='#192433')
+        macro_btn_row.pack(anchor='w', padx=20, pady=(6, 14))
+        tk.Button(macro_btn_row, text='Remove selected macro', command=self._remove_macro,
                   bg='#a65a46', fg='white', relief='flat', padx=14, pady=7).pack(
-                      anchor='w', padx=20, pady=(6, 14))
+                      side='left', padx=(0, 8))
+        tk.Button(macro_btn_row, text='Export selected macro', command=self._export_macro,
+                  bg='#253448', fg='#eef6ff', relief='flat', padx=14, pady=7).pack(
+                      side='left', padx=(0, 8))
+        tk.Button(macro_btn_row, text='Import macro', command=self._import_macro,
+                  bg='#253448', fg='#eef6ff', relief='flat', padx=14, pady=7).pack(side='left')
         self._refresh_macro_list()
+
+    def _export_macro(self):
+        sel = self.macro_listbox.curselection()
+        if not sel:
+            messagebox.showinfo('Export macro', 'Select a macro to export first.')
+            return
+        macro = self.cfg['macros'][sel[0]]
+        path = filedialog.asksaveasfilename(
+            title='Export macro',
+            initialdir=self._documents_folder(),
+            initialfile=macro['name'] + '.json',
+            defaultextension='.json',
+            filetypes=[('JSON files', '*.json')],
+        )
+        if not path:
+            return
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(macro, f, indent=2)
+            self._log('Macro exported: ' + path)
+            messagebox.showinfo('Macro exported', 'Saved to:\n' + path)
+        except OSError as e:
+            messagebox.showerror('Could not export macro', str(e))
+
+    def _import_macro(self):
+        path = filedialog.askopenfilename(
+            title='Import macro',
+            initialdir=self._documents_folder(),
+            filetypes=[('JSON files', '*.json'), ('All files', '*.*')],
+        )
+        if not path:
+            return
+        try:
+            with open(path, encoding='utf-8') as f:
+                data = json.load(f)
+            macros = data if isinstance(data, list) else [data]
+            imported = []
+            for m in macros:
+                if not isinstance(m, dict) or not all(k in m for k in ('name', 'hotkey', 'actions')):
+                    raise ValueError('A macro entry is missing its name, hotkey, or actions.')
+                imported.append({
+                    'name': str(m['name']),
+                    'hotkey': str(m['hotkey']).strip().lower(),
+                    'actions': str(m['actions']).strip().lower(),
+                    'delay': float(m.get('delay', 0.1)),
+                })
+            self.cfg['macros'].extend(imported)
+            self._refresh_macro_list()
+            self._save()
+            self._log('Imported %d macro%s from: %s'
+                      % (len(imported), '' if len(imported) == 1 else 's', path))
+            messagebox.showinfo('Macro imported',
+                                'Imported %d macro%s.'
+                                % (len(imported), '' if len(imported) == 1 else 's'))
+        except (OSError, json.JSONDecodeError, ValueError) as e:
+            messagebox.showerror('Could not import macro', str(e))
 
     # -- Telemetry ------------------------------------------------------------
 
@@ -698,6 +890,70 @@ class App(tk.Tk):
                                      wraplength=760, justify='left')
         self.capture_note.pack(anchor='w', padx=18, pady=(16, 4))
 
+        tk.Label(frame, text='Preferences', bg='#101722', fg='#91a7bd',
+                 font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=18, pady=(14, 2))
+        self._add_checkbox(frame, 'Show performance HUD in header', 'hud_enabled',
+                           note='(restart required)')
+        self._add_checkbox(frame, 'Automatically update on launch', 'auto_update')
+
+        tk.Label(frame, text='Session history', bg='#101722', fg='#91a7bd',
+                 font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=18, pady=(16, 2))
+        tk.Label(frame, text='One row per past run of this app, from the telemetry already '
+                             'being recorded on this PC. FPS/1% low/stutter here are an average '
+                             'of that session\'s per-minute batches, not a single precise reading.',
+                 bg='#101722', fg='#6f8398', font=('Segoe UI', 8),
+                 wraplength=760, justify='left').pack(anchor='w', padx=18, pady=(0, 6))
+
+        style = ttk.Style(self)
+        style.configure('PerfHistory.Treeview', background='#0f1721', foreground='#eaf4ff',
+                        fieldbackground='#0f1721', borderwidth=0, rowheight=24)
+        style.configure('PerfHistory.Treeview.Heading', background='#1c2938',
+                        foreground='#9eb2c6', borderwidth=0,
+                        font=('Segoe UI Semibold', 9))
+        columns = ('when', 'duration', 'frames', 'fps_avg', 'low_1', 'stutter')
+        headings = ('When', 'Duration', 'Frames', 'Avg FPS', '1% low', 'Stutter %')
+        widths = (150, 90, 90, 90, 90, 90)
+        self.perf_history_view = ttk.Treeview(frame, columns=columns, show='headings',
+                                              style='PerfHistory.Treeview', height=6)
+        for name, heading, width in zip(columns, headings, widths):
+            self.perf_history_view.heading(name, text=heading)
+            self.perf_history_view.column(name, width=width, anchor='w' if name == 'when' else 'e')
+        self.perf_history_view.pack(fill='x', padx=18)
+
+        history_row = tk.Frame(frame, bg='#101722')
+        history_row.pack(fill='x', padx=18, pady=(8, 14))
+        tk.Button(history_row, text='Refresh', command=self._refresh_perf_history,
+                 bg='#2a6f9e', fg='white', relief='flat', padx=14, pady=6).pack(side='left')
+        self.perf_history_note = tk.Label(history_row, text='', bg='#101722', fg='#8ca2b9')
+        self.perf_history_note.pack(side='left', padx=(12, 0))
+
+        self.after(600, self._refresh_perf_history)
+
+    def _refresh_perf_history(self):
+        view = getattr(self, 'perf_history_view', None)
+        if view is None:
+            return
+        for item in view.get_children():
+            view.delete(item)
+        try:
+            records = self.telemetry.spool.read_all()
+        except Exception as exc:
+            self.perf_history_note.config(text='Could not read telemetry: %s' % exc)
+            return
+        sessions = summarize_sessions(records, limit=10)
+        for s in sessions:
+            view.insert('', 'end', values=(
+                time.strftime('%a %d %b  %H:%M', time.localtime(s['t0'])),
+                '%dm' % max(1, round(s['duration_s'] / 60)),
+                s['frames'],
+                '%.1f' % s['fps_avg'],
+                '%.1f' % s['low_1'],
+                '%.2f' % s['stutter_pct'],
+            ))
+        self.perf_history_note.config(
+            text=('%d sessions' % len(sessions)) if sessions
+            else 'No sessions recorded yet.')
+
     def _refresh_hud(self):
         """Feed the header graph and the Performance tab, ten times a second."""
         if self.stop_event.is_set():
@@ -831,6 +1087,9 @@ class App(tk.Tk):
                   fg='white', relief='flat', padx=16, pady=6).pack(side='left')
         tk.Button(row, text='Copy selected', command=self._copy_history_row, bg='#253448',
                   fg='#eef6ff', relief='flat', padx=16, pady=6).pack(side='left', padx=(8, 0))
+        tk.Button(row, text='Copy for support ticket', command=self._copy_history_for_support,
+                 bg='#253448', fg='#eef6ff', relief='flat', padx=16, pady=6).pack(
+                     side='left', padx=(8, 0))
         self.history_note = tk.Label(row, text='', bg='#192433', fg='#8ca2b9')
         self.history_note.pack(side='left', padx=(12, 0))
 
@@ -877,6 +1136,26 @@ class App(tk.Tk):
         self.clipboard_clear()
         self.clipboard_append(text)
         self.history_note.config(text='Copied: ' + values[2])
+
+    def _copy_history_for_support(self):
+        """Server info plus the current Performance tab readout, one paste."""
+        view = getattr(self, 'history_view', None)
+        selected = view.selection() if view else ()
+        if not selected:
+            self.history_note.config(text='Pick a row first.')
+            return
+        values = view.item(selected[0], 'values')
+        shard = getattr(self, '_history_shards', {}).get(selected[0], '')
+        lines = ['%s  -  %s  (%s, joined %s)' % (values[2], shard, values[3], values[0])]
+        perf_rows = getattr(self, 'perf_rows', None) or {}
+        for label in ('Frame rate', 'Frame time', 'GPU busy', '1% low',
+                     'Frame swing', 'Stutter', 'Latency', 'Jitter'):
+            row = perf_rows.get(label)
+            if row is not None:
+                lines.append('%s: %s' % (label, row.cget('text')))
+        self.clipboard_clear()
+        self.clipboard_append('\n'.join(lines))
+        self.history_note.config(text='Copied session + performance report.')
 
     def _build_log_tab(self, notebook):
         frame = tk.Frame(notebook, bg='#192433')
@@ -990,6 +1269,8 @@ class App(tk.Tk):
                 if k in imported:
                     imported[k] = int(imported[k])
             self.cfg.update(imported)
+            for k in BOOLEAN_KEYS:
+                self.cfg[k] = str(self.cfg.get(k, DEFAULTS[k])).strip().lower() not in ('false', '0', '')
             for k, var in self.field_vars.items():
                 var.set(str(self.cfg[k]))
             self._refresh_macro_list()
@@ -1186,14 +1467,36 @@ class App(tk.Tk):
         try:
             for action in m['actions'].split(','):
                 action = action.strip()
-                if action:
+                if not action:
+                    continue
+                kind, _, rest = action.partition(':')
+                if kind == 'wait' and rest:
+                    time.sleep(max(0.0, float(rest)))
+                elif kind == 'hold' and ':' in rest:
+                    self._hold_action(rest)
+                else:
                     self._tap(action)
-                    time.sleep(float(m.get('delay', 0.1)))
+                time.sleep(float(m.get('delay', 0.1)))
             self.log_queue.put('Macro finished: ' + m['name'])
         except Exception as e:
             self.log_queue.put('Macro error (' + m['name'] + '): ' + str(e))
         finally:
             self.running_macro = ''
+
+    def _hold_action(self, spec):
+        """A macro step that holds keys down for a duration, e.g. 'shift+w:1.0'."""
+        keys_part, _, seconds_part = spec.partition(':')
+        keys = [k.strip() for k in keys_part.split('+') if k.strip()]
+        seconds = max(0.0, float(seconds_part))
+        started = tick()
+        self.injected_until = time.monotonic() + seconds + 0.20
+        for key in keys:
+            keyboard.press(key)
+        time.sleep(seconds)
+        for key in reversed(keys):
+            keyboard.release(key)
+        self.injected_until = time.monotonic() + 0.20
+        note_injection(started, tick())
 
     def _toggle_hold(self):
         # One hotkey controls both states.
@@ -1277,6 +1580,7 @@ class App(tk.Tk):
                     and self.idle.seconds() >= IDLE_SECONDS
                     and now >= self.next_keepalive):
                 self._send_keepalive()
+                self.last_keepalive_at = now
                 self.next_keepalive = now + random.uniform(KEEPALIVE_MIN_SECONDS,
                                                            KEEPALIVE_MAX_SECONDS)
             time.sleep(0.05)
@@ -1341,7 +1645,12 @@ class App(tk.Tk):
         if self.scan_active:
             status += '   •   Ship Scan Tab in ' + format(max(0, self.next_scan - now), '.1f') + 's'
         if self.keep_active:
-            status += '   •   Keepalive armed'
+            if self.last_keepalive_at is None:
+                status += '   •   Keepalive: armed, no tap sent yet'
+            else:
+                since = int(now - self.last_keepalive_at)
+                status += ('   •   Keepalive: last tap %ds ago (cap %ds)'
+                          % (since, KEEPALIVE_MAX_SECONDS))
         self.status_var.set(status)
 
         if not self.stop_event.is_set():
