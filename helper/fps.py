@@ -48,6 +48,7 @@ import atexit
 import csv
 import ctypes
 import io
+import os
 import subprocess
 import threading
 import time
@@ -66,9 +67,20 @@ advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
 POLL_SECONDS = 0.25
 WINDOW_SECONDS = 60.0
 
-#: Our own ETW session name. Fixed rather than random so that a previous run
-#: killed off without cleanup can be found and stopped on the next start.
-SESSION_NAME = "StarCitizenHelper"
+#: Our own ETW session name, unique to this process.
+#:
+#: It used to be fixed, so that a run killed without cleanup could be found and
+#: stopped by the next one. That reasoning had it backwards: a session name is
+#: exclusive, so an orphan holding the fixed name does not merely linger, it
+#: locks every future capture out - PresentMon refuses with "Use --session_name
+#: with a different name to start a new session" and exits, forever, until
+#: somebody finds the stray process by hand. Which is exactly what happened.
+#: A per-process name cannot collide with an orphan, with another copy of the
+#: app, or with a leftover of our own.
+SESSION_NAME = f"StarCitizenHelper-{os.getpid()}"
+#: The name older versions used. Still cleared at startup, since one of those
+#: could have left a session behind that nothing else will ever tidy up.
+LEGACY_SESSION_NAME = "StarCitizenHelper"
 
 STATUS_NO_SOURCE = "no_source"      # PresentMon binary not found
 STATUS_NO_ACCESS = "no_access"      # found, but not allowed to trace
@@ -94,6 +106,16 @@ _STALE_SECONDS = 15.0
 #: is a capture that can never deliver. The ceiling is WINDOW_SECONDS, since a
 #: stall outlasting the window drains it to empty. Sit well clear of both.
 _SILENT_SECONDS = 45.0
+#: Floor under the gap between capture starts. Comfortably clear of the
+#: measured 7.16s worst-case startup, so a start is never judged - or replaced
+#: - before it has had the chance to produce anything.
+_MIN_RESTART_SECONDS = 10.0
+
+#: PresentMon's standing unelevated warning, wrapped over four lines. None of
+#: it is a fault: we never ask it to resolve a process name (see the module
+#: docstring), which is the only thing it is warning about.
+_BENIGN_STDERR = ("elevated privilege", "short-running", "<unknown>",
+                  "terminate_on_proc_exit")
 #: Consecutive restarts before giving up. Reset as soon as frames flow again,
 #: so a bad minute cannot exhaust the budget for the rest of the session.
 _MAX_RETRIES = 2
@@ -232,6 +254,9 @@ def stop_trace_session(name: str = SESSION_NAME) -> bool:
 # A session of ours left running stops every PresentMon capture on the machine
 # without so much as an error, so this is worth a belt as well as braces.
 atexit.register(stop_trace_session)
+# Ours is per-process now, so nothing else will ever clear a session left by a
+# build that used the old fixed name. Done once, at import.
+stop_trace_session(LEGACY_SESSION_NAME)
 
 
 # --- the numbers ----------------------------------------------------------
@@ -360,6 +385,8 @@ class FpsMonitor(threading.Thread):
         #: which is exactly the shape a recurring fault has.
         self.last_reset = ""
         self.resets = 0
+        #: The last thing PresentMon said went wrong, for the Activity Log.
+        self.last_error = ""
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -391,9 +418,16 @@ class FpsMonitor(threading.Thread):
         now = time.monotonic()
 
         if running and not alive:
-            # A first start is not a restart; a process that was there and is
-            # now gone is, and it went unreported until now.
+            # A process that exited on its own leaves its trace session behind,
+            # and the next PresentMon then refuses the name outright: "Use
+            # --session_name with a different name to start a new session."
+            # So reap it properly first. Doing that here rather than inside
+            # _start_capture is what puts the restart interval between the stop
+            # and the start, which is the gap the asynchronous teardown needs.
+            # Clearing _proc also stops this counting a restart on every tick
+            # while the interval holds the next start back.
             if self._proc is not None:
+                self._stop_capture()
                 self._note_reset("the capture process exited")
             self._start_capture()
         elif not running and alive:
@@ -457,6 +491,13 @@ class FpsMonitor(threading.Thread):
         return STATUS_NO_GAME if can_capture() else STATUS_NO_ACCESS
 
     def _start_capture(self) -> None:
+        # A start that fails leaves the game running and no capture alive,
+        # which is the same state that asks for a start - so without a floor
+        # under the interval a failing start becomes a spin. Restarting a few
+        # times a second also cannot work on its own terms: PresentMon needs
+        # between one and seven seconds just to emit its header.
+        if self._started_at and time.monotonic() - self._started_at < _MIN_RESTART_SECONDS:
+            return
         executable = presentmon_executable()
         if executable is None:
             with self._lock:
@@ -470,9 +511,16 @@ class FpsMonitor(threading.Thread):
         with self._capture_lock:
             if self._proc is not None and self._proc.poll() is None:
                 return
-            # Anything left over from a run that was killed would silently
-            # swallow this capture, so clear it before asking for a new one.
-            stop_trace_session()
+            # No stop_trace_session() here. Stopping a session is asynchronous:
+            # it lingers while it tears down, and PresentMon - starting a
+            # fraction of a second later with the same name - collided with it
+            # and died with "failed to start trace session: error code 4201".
+            # _tick then restarted it, straight into the same race: measured at
+            # 222 restarts in 90 seconds, with the capture healthy 25% of the
+            # time. PresentMon's own --stop_existing_session clears a leftover
+            # session synchronously, before it creates its own, so it is the
+            # one that should do this. Ours stays where it is safe: after we
+            # kill the process, and at exit.
             try:
                 # Display tracking is left on. It cannot complete while the
                 # game is behind another window, but it does not hold rows
@@ -485,7 +533,7 @@ class FpsMonitor(threading.Thread):
                     [str(executable), "--output_stdout", "--no_console_stats",
                      "--no_track_input",
                      "--session_name", SESSION_NAME, "--stop_existing_session"],
-                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                     creationflags=CREATE_NO_WINDOW)
             except OSError:
                 self._proc = None
@@ -504,6 +552,12 @@ class FpsMonitor(threading.Thread):
         self._reader = threading.Thread(target=self._read, args=(proc,),
                                         name="frame-reader", daemon=True)
         self._reader.start()
+        # Drained on its own thread: a full stderr pipe would block the very
+        # process we are trying to read. This was DEVNULL, and discarding it
+        # is how "failed to start trace session: error code 4201" went unseen
+        # through an entire investigation.
+        threading.Thread(target=self._read_errors, args=(proc,),
+                         name="frame-stderr", daemon=True).start()
 
     def _stop_capture(self) -> None:
         with self._capture_lock:
@@ -536,6 +590,22 @@ class FpsMonitor(threading.Thread):
         """
         try:
             self._consume(proc)
+        except Exception:
+            return
+
+    def _read_errors(self, proc: subprocess.Popen) -> None:
+        """Keep whatever PresentMon complained about, minus its standing warning."""
+        try:
+            stream = io.TextIOWrapper(proc.stderr, encoding="utf-8", errors="replace")
+            for line in stream:
+                text = line.strip()
+                # The elevation notice is printed on every unelevated run,
+                # matters to nothing we do, and wraps across four lines - so
+                # match its wording anywhere rather than at the start, or the
+                # continuations get kept as though they were faults.
+                if not text or any(phrase in text for phrase in _BENIGN_STDERR):
+                    continue
+                self.last_error = text
         except Exception:
             return
 
