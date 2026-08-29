@@ -208,8 +208,11 @@ UI thread, so nothing blocks.
 
 Actions take the same syntax as hotkeys: single keys (`1`, `tab`, `space`), modified keys
 (`shift+w`, `ctrl+c`), or a sequence (`1, 2, tab`) where each item is pressed and released on its
-own. Only one macro runs at a time; triggering a second while one is going logs a warning and
-does nothing. Pick combos the game does not use — `ctrl+alt+1` through `ctrl+alt+9` are safe.
+own. Two special forms add timing without a new key: `wait:1.5` pauses for 1.5 seconds without
+touching the keyboard, and `hold:shift+w:2.0` presses `shift+w` down, keeps it down for 2.0
+seconds, then releases it — for a macro step that needs to be held rather than tapped. Only one
+macro runs at a time; triggering a second while one is going logs a warning and does nothing.
+Pick combos the game does not use — `ctrl+alt+1` through `ctrl+alt+9` are safe.
 
 ---
 
