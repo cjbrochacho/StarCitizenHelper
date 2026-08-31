@@ -152,6 +152,18 @@ class WordMark(tk.Canvas):
         # Negative y pulls the caps up to the top edge, level with the icon.
         self.create_text(0, -self.TITLE_LEADING, text=title, anchor="nw",
                          font=title_font, fill=title_fill)
-        self.create_text(0, self.TITLE_INK + self.GAP - self.SUBTITLE_LEADING,
-                         text=subtitle, anchor="nw",
-                         font=subtitle_font, fill=subtitle_fill)
+        self._subtitle_id = self.create_text(
+            0, self.TITLE_INK + self.GAP - self.SUBTITLE_LEADING,
+            text=subtitle, anchor="nw", font=subtitle_font, fill=subtitle_fill)
+        self._subtitle_font = sub_measure
+        self._title_width = measure.measure(title)
+
+    def set_subtitle(self, text):
+        """Replace the subtitle in place - for text that isn't known until
+
+        after construction, like a freshness check that finishes seconds
+        later. Widens the canvas if the new text no longer fits.
+        """
+        self.itemconfigure(self._subtitle_id, text=text)
+        width = max(self._title_width, self._subtitle_font.measure(text)) + 4
+        self.configure(width=width)

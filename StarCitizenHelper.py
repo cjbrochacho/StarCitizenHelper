@@ -34,14 +34,16 @@ _DIR = os.path.dirname(os.path.abspath(__file__))
 _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
 
 
-def current_revision():
-    """Short, human-showable id for what's actually running.
+def _read_revision():
+    """(full sha, is a git checkout) for what's actually running, or (None, False).
 
     A git checkout is never touched by the self-updater (see helper.update),
     so .version there would just be whatever was installed before the clone
     and never again after - HEAD is read directly instead. Everywhere else,
     .version is the commit the updater last applied, which is exactly what
-    is on disk since nothing else writes to this install.
+    is on disk since nothing else writes to this install. Both paths give a
+    full 40-character sha, so a freshness check can compare it for equality
+    against GitHub's answer without any prefix-matching guesswork.
     """
     git_dir = os.path.join(_DIR, '.git')
     if os.path.isdir(git_dir):
@@ -54,15 +56,23 @@ def current_revision():
             else:
                 sha = head
             if sha:
-                return sha[:7] + ' (dev)'
+                return sha, True
         except OSError:
             pass
     try:
         with open(os.path.join(_DIR, 'assets', '.version'), encoding='utf-8') as f:
             sha = f.read().strip()
-        return sha[:7] if sha else 'unreleased'
+        return (sha, False) if sha else (None, False)
     except OSError:
+        return None, False
+
+
+def current_revision():
+    """Short, human-showable id for what's actually running."""
+    sha, is_dev = _read_revision()
+    if not sha:
         return 'unreleased'
+    return sha[:7] + (' (dev)' if is_dev else '')
 
 DEFAULTS = {
     'keepalive_enabled':  True,
@@ -179,6 +189,10 @@ KEEPALIVE_MAX_SECONDS = 180
 #: person does, and the game only needs the press to outlast a frame.
 KEY_HOLD_MS = 40
 KEY_HOLD_JITTER_MS = 12
+
+#: How often Server History re-reads the game logs on its own, so a session
+#: that just started (or just ended) shows up without a manual Refresh click.
+HISTORY_REFRESH_MS = 120_000
 
 
 def summarize_sessions(records, limit=10):
@@ -332,10 +346,12 @@ class App(tk.Tk):
         self.last_keepalive_at = None
         self.next_scan = 0
         self.running_macro = ''
+        self._revision_sha, _ = _read_revision()
         self.revision = current_revision()
 
         self._build_ui()
         self._register_hotkeys()
+        threading.Thread(target=self._check_latest_revision, daemon=True).start()
 
         # Suppressing hook: callback must return True to let a key through, False to block it.
         # Only installed while the guard is on, so switching it off leaves the
@@ -373,6 +389,27 @@ class App(tk.Tk):
         self.update_idletasks()                  # the window must exist first
         apply_window_icon(self.winfo_id(), ICON_PATH)
 
+    def _check_latest_revision(self):
+        """Ask GitHub once whether this build is current. Best-effort, off-thread.
+
+        A network call has no place blocking the window from appearing, so
+        this runs on its own thread and hands the answer back to Tk via
+        after(0, ...) rather than touching a widget from off the main thread.
+        """
+        try:
+            from helper.update import latest_sha
+            remote = latest_sha()
+        except Exception:
+            remote = None
+        self.after(0, self._apply_revision_freshness, remote)
+
+    def _apply_revision_freshness(self, remote):
+        if not remote or not self._revision_sha or getattr(self, 'wordmark', None) is None:
+            return
+        suffix = ' (latest)' if remote == self._revision_sha else ' (update available)'
+        self.wordmark.set_subtitle(
+            'Automation status and hotkey controls  •  rev ' + self.revision + suffix)
+
     def _build_ui(self):
         style = ttk.Style(self)
         style.theme_use('clam')
@@ -389,10 +426,11 @@ class App(tk.Tk):
         title_box.pack(side='left', anchor='nw')
         BrandMark(title_box, size=46, background='#101722').pack(side='left',
                                                                  anchor='n', padx=(0, 12))
-        WordMark(title_box, 'STAR CITIZEN HELPER',
+        self.wordmark = WordMark(title_box, 'STAR CITIZEN HELPER',
                  'Automation status and hotkey controls  •  rev ' + self.revision,
                  background='#101722', title_fill='#eef6ff',
-                 subtitle_fill='#91a7bd').pack(side='left', anchor='nw')
+                 subtitle_fill='#91a7bd')
+        self.wordmark.pack(side='left', anchor='nw')
 
         if self.cfg.get('hud_enabled', True):
             hud_box = tk.Frame(header, bg=theme.BG)
@@ -1107,23 +1145,25 @@ class App(tk.Tk):
         log = find_game_log()
         if log is None:
             self.history_note.config(text='No game logs found.')
-            return
-        try:
-            sessions = collect_history(log.parent)
-        except Exception as exc:
-            self.history_note.config(text='Could not read the logs: %s' % exc)
-            return
+        else:
+            try:
+                sessions = collect_history(log.parent)
+            except Exception as exc:
+                self.history_note.config(text='Could not read the logs: %s' % exc)
+            else:
+                self._history_shards = {}
+                for item in sessions:
+                    row = view.insert('', 'end', tags=('current',) if item.ongoing else (),
+                                values=(item.joined.strftime('%a %d %b  %H:%M'),
+                                        item.duration + (' *' if item.ongoing else ''),
+                                        item.name, item.server))
+                    self._history_shards[row] = item.shard
+                self.history_note.config(
+                    text='%d sessions  -  * is the one running now' % len(sessions)
+                    if any(i.ongoing for i in sessions) else '%d sessions' % len(sessions))
 
-        self._history_shards = {}
-        for item in sessions:
-            row = view.insert('', 'end', tags=('current',) if item.ongoing else (),
-                        values=(item.joined.strftime('%a %d %b  %H:%M'),
-                                item.duration + (' *' if item.ongoing else ''),
-                                item.name, item.server))
-            self._history_shards[row] = item.shard
-        self.history_note.config(
-            text='%d sessions  -  * is the one running now' % len(sessions)
-            if any(i.ongoing for i in sessions) else '%d sessions' % len(sessions))
+        if not self.stop_event.is_set():
+            self.after(HISTORY_REFRESH_MS, self._refresh_history)
 
     def _copy_history_row(self):
         view = getattr(self, 'history_view', None)
