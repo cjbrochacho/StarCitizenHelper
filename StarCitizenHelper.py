@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 import sys
 import time
 import threading
@@ -67,12 +68,42 @@ def _read_revision():
         return None, False
 
 
+def _tag_at_head():
+    """The release tag name if HEAD sits exactly on one, else None.
+
+    Only meaningful for a git checkout. Goes through git itself rather than
+    resolving refs/tags by hand: an annotated tag (what `git tag -a` makes)
+    is its own object pointing at the commit, not a ref straight to it, so
+    reading one back without git means parsing a zlib-compressed git object
+    for one string - not worth it when git is already known to be present,
+    since that is how a checkout gets here in the first place.
+    """
+    try:
+        result = subprocess.run(
+            ['git', 'tag', '--points-at', 'HEAD'], cwd=_DIR,
+            capture_output=True, text=True, timeout=3)
+        names = [n for n in result.stdout.splitlines() if n.strip()]
+        return names[0] if names else None
+    except Exception:
+        return None
+
+
 def current_revision():
-    """Short, human-showable id for what's actually running."""
+    """Short, human-showable id for what's actually running.
+
+    A tagged release shows its tag name plainly - "v1" - rather than a
+    commit hash nobody asked to memorise; anything else falls back to the
+    short sha, with "(dev)" only for an untagged git checkout.
+    """
     sha, is_dev = _read_revision()
     if not sha:
         return 'unreleased'
-    return sha[:7] + (' (dev)' if is_dev else '')
+    if is_dev:
+        tag = _tag_at_head()
+        if tag:
+            return tag
+        return sha[:7] + ' (dev)'
+    return sha[:7]
 
 DEFAULTS = {
     'keepalive_enabled':  True,
