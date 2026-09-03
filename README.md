@@ -1,5 +1,9 @@
 # Star Citizen Helper
 
+**Latest release: v1 — 2026-09-03.** See [all releases](https://github.com/cjbrochacho/StarCitizenHelper/tags)
+for the full history; each one is a tagged commit, so `git checkout v1` always gets you exactly
+that point, not a moving target.
+
 A Windows utility for Star Citizen. It keeps your session alive while you are away, automates
 the keypresses you would otherwise spam by hand, and shows what your frame rate and your
 connection are actually doing — all from one window that sits behind the game.
