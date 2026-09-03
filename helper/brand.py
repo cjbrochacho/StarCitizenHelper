@@ -127,16 +127,20 @@ class WordMark(tk.Canvas):
     beside it, and the space between the two lines is whatever the fonts
     happen to add up to. Drawing the text lets both be set directly.
 
-    The two offsets below were measured from a screenshot of the rendered
-    header, not guessed; adjust them if the fonts change.
+    TITLE_LEADING/SUBTITLE_LEADING pull each line's caps up to align with
+    its own nominal top, measured from a screenshot of the rendered header -
+    those don't change with the font's actual size. The gap between the two
+    lines, though, has to come from the title font's own real linespace
+    rather than a third hardcoded number: a fixed guess drifts out of sync
+    with reality whenever something changes how large the title actually
+    renders - such as the app becoming DPI-aware, which alone was enough to
+    turn "just under the title" into "overlapping it" on an unaware guess.
     """
 
     #: How far below its layout box each font starts inking capitals. Too
     #: large and the caps are pushed off the top of the canvas and clipped.
     TITLE_LEADING = 9
     SUBTITLE_LEADING = 4
-    #: Ink height of the title, and the space wanted under it.
-    TITLE_INK = 17
     GAP = 5
 
     def __init__(self, parent, title, subtitle, background,
@@ -145,7 +149,10 @@ class WordMark(tk.Canvas):
         measure = tkfont.Font(family=title_font[0], size=title_font[1])
         sub_measure = tkfont.Font(family=subtitle_font[0], size=subtitle_font[1])
         width = max(measure.measure(title), sub_measure.measure(subtitle)) + 4
-        height = self.TITLE_INK + self.GAP + sub_measure.metrics("linespace")
+        # The title was pulled up by TITLE_LEADING, so its own visible
+        # bottom edge sits that much higher than a full, un-pulled line too.
+        title_ink = measure.metrics("linespace") - self.TITLE_LEADING
+        height = title_ink + self.GAP + sub_measure.metrics("linespace")
 
         super().__init__(parent, width=width, height=height, bg=background,
                          highlightthickness=0, bd=0)
@@ -153,7 +160,7 @@ class WordMark(tk.Canvas):
         self.create_text(0, -self.TITLE_LEADING, text=title, anchor="nw",
                          font=title_font, fill=title_fill)
         self._subtitle_id = self.create_text(
-            0, self.TITLE_INK + self.GAP - self.SUBTITLE_LEADING,
+            0, title_ink + self.GAP - self.SUBTITLE_LEADING,
             text=subtitle, anchor="nw", font=subtitle_font, fill=subtitle_fill)
         self._subtitle_font = sub_measure
         self._title_width = measure.measure(title)
