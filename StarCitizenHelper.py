@@ -25,11 +25,12 @@ from helper.idle import IdleWatcher, note_injection, tick
 from helper.hardware import HardwareMonitor, machine_profile
 from helper.history import collect as collect_history
 from helper.net import NetMonitor, find_game_log, process_pid
+from helper.overlay import OverlayWindow
 from helper.telemetry import (CONTEXT_FIELDS, PROFILE_FIELDS, ROW_FIELDS,
                               SUMMARY_FIELDS, Spool, TelemetryCollector)
 from helper.upload import Uploader
 from helper.window import (apply_window_icon, force_foreground, foreground_hwnd,
-                           set_app_id, window_for_pid)
+                           set_app_id, set_dpi_aware, window_for_pid, window_rect)
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
@@ -115,6 +116,12 @@ DEFAULTS = {
     'hold_keys':          'shift+w',
     'macros':             [],
     'hud_enabled':        True,
+    'overlay_enabled':    False,
+    'overlay_locked':     True,
+    'overlay_opacity':    90,
+    'overlay_x':          None,
+    'overlay_y':          None,
+    'overlay_toggle_lock': 'ctrl+alt+l',
     'auto_update':        True,
     'telemetry_enabled':  True,
     'telemetry_client_id': '',
@@ -125,8 +132,8 @@ DEFAULTS = {
 # Keys whose value must round-trip as a real JSON boolean, never as the
 # string "true"/"false" (which Python's bool() always reads as truthy).
 BOOLEAN_KEYS = (
-    'keepalive_enabled', 'altf4_guard', 'hud_enabled', 'auto_update',
-    'telemetry_enabled', 'telemetry_notice_seen',
+    'keepalive_enabled', 'altf4_guard', 'hud_enabled', 'overlay_enabled',
+    'overlay_locked', 'auto_update', 'telemetry_enabled', 'telemetry_notice_seen',
 )
 
 # Settings edited as free-text Entry fields via _add_settings_tab. Booleans
@@ -135,6 +142,7 @@ BOOLEAN_KEYS = (
 # stay out of field_vars or a later "Save Settings" click clobbers them.
 EDITABLE_FIELD_KEYS = (
     'keepalive_key', 'scan_toggle', 'scan_interval', 'hold_start', 'hold_keys',
+    'overlay_toggle_lock',
 )
 
 # ── Win32 process helpers ─────────────────────────────────────────────────────
@@ -321,6 +329,11 @@ class App(tk.Tk):
         # Before the first window exists, or the taskbar keeps grouping this
         # under the Python interpreter and showing its icon.
         set_app_id(APP_ID)
+        # Also before the first window: unaware, screen coordinates come back
+        # virtualised and land in the wrong place on mixed-DPI multi-monitor
+        # setups - the performance overlay is the first thing here that
+        # actually places itself by screen pixel, so the first to need this.
+        set_dpi_aware()
         super().__init__()
         self.title('Star Citizen Helper')
         self._apply_icon()
@@ -369,6 +382,7 @@ class App(tk.Tk):
             on_stop=self._telemetry_stopped_by_server,
         )
         self.hud = None
+        self.overlay = None
 
         # Windows tracks desktop-wide idle time for us; our own taps are
         # filtered out of it so they cannot look like the user coming back.
@@ -383,6 +397,8 @@ class App(tk.Tk):
         self._build_ui()
         self._register_hotkeys()
         threading.Thread(target=self._check_latest_revision, daemon=True).start()
+        if self.cfg.get('overlay_enabled'):
+            self._toggle_overlay(True)
 
         # Suppressing hook: callback must return True to let a key through, False to block it.
         # Only installed while the guard is on, so switching it off leaves the
@@ -567,17 +583,21 @@ class App(tk.Tk):
         self._build_history_tab(notebook)
         self._build_log_tab(notebook)
 
-    def _add_checkbox(self, parent, label, key, note=''):
+    def _add_checkbox(self, parent, label, key, note='', on_toggle=None):
         """A boolean setting that persists itself immediately on click.
 
         Kept out of field_vars/_sync_fields_to_cfg entirely, so it can never
         be corrupted into a string the way the old free-text fields were.
+        `on_toggle`, if given, runs after the value is saved - for settings
+        that need to actually do something right away, not just be recorded.
         """
         var = tk.BooleanVar(value=bool(self.cfg.get(key)))
 
         def _on_toggle():
             self.cfg[key] = var.get()
             self._persist()
+            if on_toggle:
+                on_toggle(var.get())
 
         row = tk.Frame(parent, bg=parent['bg'])
         row.pack(anchor='w', padx=18, pady=4)
@@ -963,7 +983,34 @@ class App(tk.Tk):
                  font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=18, pady=(14, 2))
         self._add_checkbox(frame, 'Show performance HUD in header', 'hud_enabled',
                            note='(restart required)')
-        self._add_checkbox(frame, 'Automatically update on launch', 'auto_update')
+        self._add_checkbox(frame, 'Show floating performance overlay', 'overlay_enabled',
+                           note='(a separate window over the game, not injected into it)',
+                           on_toggle=self._toggle_overlay)
+        self.overlay_locked_var = self._add_checkbox(
+            frame, 'Lock overlay position (click-through)', 'overlay_locked',
+            note='(unlock to drag it, then lock it again)',
+            on_toggle=self._toggle_overlay_lock)
+
+        opacity_row = tk.Frame(frame, bg='#101722')
+        opacity_row.pack(anchor='w', padx=18, pady=4)
+        tk.Label(opacity_row, text='Overlay opacity', bg='#101722', fg='#eef6ff',
+                 width=25, anchor='w').pack(side='left')
+        opacity_scale = tk.Scale(opacity_row, from_=20, to=100, orient='horizontal',
+                                 length=200, resolution=5, bg='#101722', fg='#eef6ff',
+                                 troughcolor='#0f1721', highlightthickness=0, bd=0,
+                                 command=lambda v: self._set_overlay_opacity(int(float(v))))
+        opacity_scale.set(int(self.cfg.get('overlay_opacity', 90)))
+        opacity_scale.pack(side='left', padx=8)
+
+        hotkey_row = tk.Frame(frame, bg='#101722')
+        hotkey_row.pack(fill='x', padx=18, pady=4)
+        tk.Label(hotkey_row, text='Overlay lock/unlock hotkey', bg='#101722', fg='#eef6ff',
+                 width=25, anchor='w').pack(side='left')
+        tk.Entry(hotkey_row, textvariable=self.field_vars['overlay_toggle_lock'],
+                bg='#0f1721', fg='#eaf4ff', insertbackground='white', relief='flat',
+                width=28).pack(side='left', padx=8, ipady=5)
+        tk.Label(hotkey_row, text='default: ctrl+alt+l - click Save Settings to apply',
+                bg='#101722', fg='#8ca2b9').pack(side='left')
 
         tk.Label(frame, text='Session history', bg='#101722', fg='#91a7bd',
                  font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=18, pady=(16, 2))
@@ -1048,6 +1095,9 @@ class App(tk.Tk):
                     self.server_label.config(text=net_stats.server + shard + region)
                 else:
                     self.server_label.config(text='server unknown - not in a match')
+
+            if self.overlay is not None:
+                self.overlay.update(fps_stats, net_stats)
 
             if getattr(self, 'cpu_label', None) is not None:
                 cpu_mhz, gpu_mhz = self.hardware.readings()
@@ -1369,6 +1419,7 @@ class App(tk.Tk):
             for key, fn in [
                 ('scan_toggle',   self._toggle_scan),
                 ('hold_start',    self._toggle_hold),
+                ('overlay_toggle_lock', self._toggle_overlay_lock_via_hotkey),
             ]:
                 self.hotkey_handles.append(keyboard.add_hotkey(self.cfg[key], fn, suppress=False))
             for m in self.cfg['macros']:
@@ -1506,6 +1557,59 @@ class App(tk.Tk):
                            ('on - Alt+F4 is blocked while the game is in front.'
                             if self.guard_active else
                             'off - Alt+F4 will close the game.'))
+
+    def _toggle_overlay(self, enabled):
+        """Create or destroy the floating copy of the header HUD.
+
+        A Toplevel can be made or torn down at any time, unlike the header
+        HUD which is only ever built once - so unlike hud_enabled, this one
+        needs no restart.
+        """
+        if enabled and self.overlay is None:
+            try:
+                x, y = self.cfg.get('overlay_x'), self.cfg.get('overlay_y')
+                position = (x, y) if x is not None and y is not None else None
+                anchor = None if position else window_rect(
+                    window_for_pid(process_pid('StarCitizen.exe')))
+                self.overlay = OverlayWindow(
+                    self, position=position, anchor_rect=anchor,
+                    locked=bool(self.cfg.get('overlay_locked', True)),
+                    opacity_percent=int(self.cfg.get('overlay_opacity', 90)),
+                    on_dragged=self._overlay_dragged)
+                self.log_queue.put('Performance overlay on.')
+            except Exception as exc:
+                self.overlay = None
+                self.log_queue.put('Could not open the performance overlay: %s' % exc)
+        elif not enabled and self.overlay is not None:
+            self.overlay.destroy()
+            self.overlay = None
+            self.log_queue.put('Performance overlay off.')
+
+    def _overlay_dragged(self, x, y):
+        """Remember where the overlay was dropped, so it starts there next time."""
+        self.cfg['overlay_x'] = x
+        self.cfg['overlay_y'] = y
+        self._persist()
+
+    def _toggle_overlay_lock(self, locked):
+        self.cfg['overlay_locked'] = locked
+        self._persist()
+        if self.overlay is not None:
+            self.overlay.set_locked(locked)
+        if getattr(self, 'overlay_locked_var', None) is not None:
+            self.overlay_locked_var.set(locked)
+        self.log_queue.put('Overlay ' + ('locked (click-through).' if locked
+                                          else 'unlocked - drag it, then lock it again.'))
+
+    def _toggle_overlay_lock_via_hotkey(self):
+        """The global hotkey has no args to carry the new state, unlike the checkbox."""
+        self._toggle_overlay_lock(not self.cfg.get('overlay_locked', True))
+
+    def _set_overlay_opacity(self, percent):
+        self.cfg['overlay_opacity'] = int(percent)
+        self._persist()
+        if self.overlay is not None:
+            self.overlay.set_opacity(int(percent))
 
     def _toggle_scan(self):
         self.scan_active = not self.scan_active
@@ -1751,6 +1855,12 @@ class App(tk.Tk):
             self.uploader.shutdown()
         except Exception:
             pass
+        if self.overlay is not None:
+            try:
+                self.overlay.destroy()
+            except Exception:
+                pass
+            self.overlay = None
         self.scan_active = False
         self.keep_active = False
         self._emergency()
