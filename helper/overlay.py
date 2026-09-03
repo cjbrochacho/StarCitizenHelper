@@ -52,9 +52,18 @@ class OverlayWindow(tk.Toplevel):
         self.configure(bg=KEY_COLOR)
         self.attributes("-transparentcolor", KEY_COLOR)
 
+        # Both packed with fill="x" so they always end up the same final
+        # width as each other - HudGraph's own <Configure> handler reflows
+        # its layout to match, which is exactly the mechanism the header
+        # already relies on (there, an explicit configure(width=460) plus
+        # fill="x" against a wider container). Without this, the canvas
+        # (which asks for nothing beyond its default) can end up narrower
+        # than the server line below it, if that line's own text runs long -
+        # the visible symptom being the readout not lining up with the graph
+        # under it, because they were never actually the same width.
         self.hud = HudGraph(self)
         self.hud.configure(bg=KEY_COLOR)
-        self.hud.pack()
+        self.hud.pack(fill="x")
         self.server_label = tk.Label(self, text="", bg=KEY_COLOR, fg=theme.MUTED,
                                      font=("Consolas", 8), anchor="e", justify="right")
         self.server_label.pack(fill="x", pady=(2, 0))
@@ -112,14 +121,23 @@ class OverlayWindow(tk.Toplevel):
             return
         self._locked = locked
         set_overlay_styles(self._hwnd, locked, KEY_COLOR_RGB, self._alpha)
+        # Bound on the content widgets, not just self: Tk delivers a click to
+        # whichever widget is directly under the pointer, and the canvas and
+        # label between them cover this window's entire visible area - a
+        # binding on self alone would only ever fire for the sliver (if any)
+        # neither one is drawn over, which is why dragging from "anywhere on
+        # the overlay" didn't actually work anywhere in practice.
+        targets = (self, self.hud, self.server_label)
         if locked:
-            self.unbind("<ButtonPress-1>")
-            self.unbind("<B1-Motion>")
-            self.unbind("<ButtonRelease-1>")
+            for widget in targets:
+                widget.unbind("<ButtonPress-1>")
+                widget.unbind("<B1-Motion>")
+                widget.unbind("<ButtonRelease-1>")
         else:
-            self.bind("<ButtonPress-1>", self._drag_start)
-            self.bind("<B1-Motion>", self._drag_move)
-            self.bind("<ButtonRelease-1>", self._drag_end)
+            for widget in targets:
+                widget.bind("<ButtonPress-1>", self._drag_start)
+                widget.bind("<B1-Motion>", self._drag_move)
+                widget.bind("<ButtonRelease-1>", self._drag_end)
 
     def set_opacity(self, percent: int) -> None:
         self._alpha = round(max(20, min(100, percent)) * 255 / 100)
