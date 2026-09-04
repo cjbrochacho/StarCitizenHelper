@@ -29,7 +29,11 @@ KEY_COLOR = "#010203"
 KEY_COLOR_RGB = (0x01, 0x02, 0x03)
 
 #: Distance from the screen edge, or from the game window's corner, for the
-#: default position before the user has ever dragged it anywhere.
+#: default position before the user has ever dragged it anywhere. A 96dpi
+#: measurement like the rest of the layout: the coordinates it is applied to
+#: are real screen pixels, so it has to be scaled to the display or the gap
+#: comes out proportionally smaller the higher the DPI - 20px against a 5760
+#: wide screen rather than the 40 it describes.
 MARGIN = 20
 
 
@@ -64,9 +68,13 @@ class OverlayWindow(tk.Toplevel):
         self.hud = HudGraph(self)
         self.hud.configure(bg=KEY_COLOR)
         self.hud.pack(fill="x")
+        # Scaled for the same reason everything else here is: the font below
+        # follows the display's DPI, so a gap written in 96dpi units has to
+        # follow it too or the two drift apart.
+        self._scale = self.winfo_fpixels("1i") / 96.0
         self.server_label = tk.Label(self, text="", bg=KEY_COLOR, fg=theme.MUTED,
                                      font=("Consolas", 8), anchor="e", justify="right")
-        self.server_label.pack(fill="x", pady=(2, 0))
+        self.server_label.pack(fill="x", pady=(round(2 * self._scale), 0))
 
         self._on_dragged = on_dragged
         self._locked = None
@@ -81,13 +89,14 @@ class OverlayWindow(tk.Toplevel):
         self._hwnd = None
 
         self.update_idletasks()               # winfo_reqwidth needs real geometry
+        margin = round(MARGIN * self._scale)
         if position:
             x, y = position
         elif anchor_rect:
             _, top, right, _ = anchor_rect
-            x, y = right - self.winfo_reqwidth() - MARGIN, top + MARGIN
+            x, y = right - self.winfo_reqwidth() - margin, top + margin
         else:
-            x, y = self.winfo_screenwidth() - self.winfo_reqwidth() - MARGIN, MARGIN
+            x, y = self.winfo_screenwidth() - self.winfo_reqwidth() - margin, margin
         self.geometry("+%d+%d" % (x, y))
 
         # Deferred: -transparentcolor's real Windows-side setup happens when
