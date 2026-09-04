@@ -106,6 +106,12 @@ def current_revision():
         return sha[:7] + ' (dev)'
     return sha[:7]
 
+#: Where telemetry is posted. Deliberately not a setting: the measurements are
+#: only worth anything pooled in one place, and a per-install endpoint would
+#: mean comparing a machine against whichever subset happened to share a URL.
+#: Turning telemetry off is still the user's call - that switch is in the tab.
+TELEMETRY_URL = 'http://gnxllkgfiapa5pdb8e4o4lsr.149.28.198.149.sslip.io/v1/ingest'
+
 DEFAULTS = {
     'keepalive_enabled':  True,
     'keepalive_key':      'tab',
@@ -126,7 +132,6 @@ DEFAULTS = {
     'telemetry_enabled':  True,
     'telemetry_client_id': '',
     'telemetry_notice_seen': False,
-    'telemetry_url':      '',
 }
 
 # Keys whose value must round-trip as a real JSON boolean, never as the
@@ -137,7 +142,7 @@ BOOLEAN_KEYS = (
 )
 
 # Settings edited as free-text Entry fields via _add_settings_tab. Booleans
-# and the Telemetry tab's own fields (telemetry_url, telemetry_client_id)
+# and the Telemetry tab's own field (telemetry_client_id)
 # are persisted through their own toggle/save handlers instead, so they must
 # stay out of field_vars or a later "Save Settings" click clobbers them.
 EDITABLE_FIELD_KEYS = (
@@ -335,7 +340,7 @@ class App(tk.Tk):
         self.telemetry = self._build_telemetry()
         self.uploader = Uploader(
             self.telemetry.spool, _DIR,
-            url_provider=(lambda: self.cfg.get('telemetry_url', '')),
+            url_provider=(lambda: TELEMETRY_URL),
             enabled=(lambda: bool(self.cfg.get('telemetry_enabled', True))),
             on_stop=self._telemetry_stopped_by_server,
         )
@@ -790,16 +795,11 @@ class App(tk.Tk):
         endpoint.pack(anchor='w', fill='x', padx=18, pady=(4, 2))
         tk.Label(endpoint, text='Send to', bg='#101722', fg='#91a7bd',
                  font=('Segoe UI', 9), width=9, anchor='w').pack(side='left')
-        self.telemetry_url_var = tk.StringVar(value=str(self.cfg.get('telemetry_url', '')))
-        entry = tk.Entry(endpoint, textvariable=self.telemetry_url_var, bg='#0f1721',
-                         fg='#eaf4ff', insertbackground='#eaf4ff', relief='flat',
-                         font=('Consolas', 9))
-        entry.pack(side='left', fill='x', expand=True, padx=(0, 8))
-        tk.Button(endpoint, text='Save', command=self._save_telemetry_url,
-                  bg='#253448', fg='#eef6ff', activebackground='#2a4661',
-                  relief='flat', padx=12, pady=3).pack(side='left')
-        tk.Label(frame, text='Leave this empty and nothing is sent anywhere - measurements '
-                             'are still written locally where you can read them.',
+        tk.Label(endpoint, text=TELEMETRY_URL, bg='#101722', fg='#7f93a8',
+                 font=('Consolas', 9), anchor='w').pack(side='left')
+        tk.Label(frame, text='Fixed - the measurements are only worth anything pooled in '
+                             'one place. Turn collection off above and nothing is measured, '
+                             'written or sent.',
                  bg='#101722', fg='#6f8398', font=('Segoe UI', 8),
                  wraplength=760, justify='left').pack(anchor='w', padx=18, pady=(0, 10))
 
@@ -839,9 +839,7 @@ class App(tk.Tk):
         except OSError:
             files, size = [], 0
         up = self.uploader.snapshot()
-        if not str(self.cfg.get('telemetry_url', '')).strip():
-            upload_line = 'local only, no endpoint set'
-        elif up['status'] == 'waiting' and up['waiting'] > 0:
+        if up['status'] == 'waiting' and up['waiting'] > 0:
             upload_line = 'retrying in %ds  (%d sent, %d failed)' % (
                 round(up['waiting']), up['sent'], up['failures'])
         elif up['status'] == 'stopped':
@@ -858,18 +856,6 @@ class App(tk.Tk):
                     str(self.cfg.get('telemetry_client_id', ''))[:12] + '...'))
         self.telemetry_button.config(text='Turn it off' if on else 'Turn it on',
                                      bg='#a65a46' if on else '#466f91')
-
-    def _save_telemetry_url(self):
-        """Where batches are posted. Empty means nowhere, which is the default."""
-        url = self.telemetry_url_var.get().strip()
-        if url and not url.startswith(('http://', 'https://')):
-            messagebox.showerror('Star Citizen Helper',
-                                 'That needs to start with http:// or https://')
-            return
-        self.cfg['telemetry_url'] = url
-        self._persist()
-        self.log_queue.put('Telemetry endpoint ' + (url or 'cleared - nothing is sent.'))
-        self._refresh_telemetry_tab()
 
     def _telemetry_stopped_by_server(self):
         """The server asked every client to stand down, so this one does.
