@@ -39,7 +39,7 @@ KEY_COLOR_RGB = (0x01, 0x02, 0x03)
 #: from an even 20/20 it wanted to sit a little lower and a little closer to
 #: the right edge, which pulls the two apart. Still in design units, so the
 #: nudge stays in proportion on a display that is not the one it was judged on.
-MARGIN_X = 15
+MARGIN_X = 10
 MARGIN_Y = 25
 
 
