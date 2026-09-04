@@ -463,8 +463,7 @@ class App(tk.Tk):
         if not remote or not self._revision_sha or getattr(self, 'wordmark', None) is None:
             return
         suffix = ' (latest)' if remote == self._revision_sha else ' (update available)'
-        self.wordmark.set_subtitle(
-            'Automation status and hotkey controls  •  rev ' + self.revision + suffix)
+        self.wordmark.set_note('rev ' + self.revision + suffix)
 
     def _build_ui(self):
         style = ttk.Style(self)
@@ -489,9 +488,10 @@ class App(tk.Tk):
         BrandMark(title_box, size=46, background='#101722').pack(side='left',
                                                                  anchor='n', padx=(0, 12))
         self.wordmark = WordMark(title_box, 'STAR CITIZEN HELPER',
-                 'Automation status and hotkey controls  •  rev ' + self.revision,
+                 'Automation status and hotkey controls',
                  background='#101722', title_fill='#eef6ff',
-                 subtitle_fill='#91a7bd')
+                 subtitle_fill='#91a7bd',
+                 note='rev ' + self.revision, note_fill='#6b7f96')
         self.wordmark.pack(side='left', anchor='nw')
 
         if self.cfg.get('hud_enabled', True):

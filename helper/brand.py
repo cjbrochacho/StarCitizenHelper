@@ -141,18 +141,27 @@ class WordMark(tk.Canvas):
     #: large and the caps are pushed off the top of the canvas and clipped.
     TITLE_LEADING = 9
     SUBTITLE_LEADING = 4
+    NOTE_LEADING = 3
     GAP = 5
+    #: Between subtitle and note. Tighter than GAP, so the note reads as
+    #: hanging off the subtitle rather than as a third equal line.
+    NOTE_GAP = 2
 
     def __init__(self, parent, title, subtitle, background,
-                 title_fill, subtitle_fill,
-                 title_font=("Segoe UI Semibold", 18), subtitle_font=("Segoe UI", 10)):
+                 title_fill, subtitle_fill, note="", note_fill=None,
+                 title_font=("Segoe UI Semibold", 18), subtitle_font=("Segoe UI", 10),
+                 note_font=("Segoe UI", 8)):
         measure = tkfont.Font(family=title_font[0], size=title_font[1])
         sub_measure = tkfont.Font(family=subtitle_font[0], size=subtitle_font[1])
-        width = max(measure.measure(title), sub_measure.measure(subtitle)) + 4
+        note_measure = tkfont.Font(family=note_font[0], size=note_font[1])
+        width = max(measure.measure(title), sub_measure.measure(subtitle),
+                    note_measure.measure(note)) + 4
         # The title was pulled up by TITLE_LEADING, so its own visible
         # bottom edge sits that much higher than a full, un-pulled line too.
         title_ink = measure.metrics("linespace") - self.TITLE_LEADING
-        height = title_ink + self.GAP + sub_measure.metrics("linespace")
+        subtitle_top = title_ink + self.GAP
+        note_top = subtitle_top + sub_measure.metrics("linespace") + self.NOTE_GAP
+        height = note_top + note_measure.metrics("linespace")
 
         super().__init__(parent, width=width, height=height, bg=background,
                          highlightthickness=0, bd=0)
@@ -160,10 +169,21 @@ class WordMark(tk.Canvas):
         self.create_text(0, -self.TITLE_LEADING, text=title, anchor="nw",
                          font=title_font, fill=title_fill)
         self._subtitle_id = self.create_text(
-            0, title_ink + self.GAP - self.SUBTITLE_LEADING,
+            0, subtitle_top - self.SUBTITLE_LEADING,
             text=subtitle, anchor="nw", font=subtitle_font, fill=subtitle_fill)
+        self._note_id = self.create_text(
+            0, note_top - self.NOTE_LEADING, text=note, anchor="nw",
+            font=note_font, fill=note_fill or subtitle_fill)
         self._subtitle_font = sub_measure
+        self._note_font = note_measure
         self._title_width = measure.measure(title)
+
+    def _fit(self):
+        """Widen to whichever line is longest; none of them may be clipped."""
+        self.configure(width=4 + max(
+            self._title_width,
+            self._subtitle_font.measure(self.itemcget(self._subtitle_id, "text")),
+            self._note_font.measure(self.itemcget(self._note_id, "text"))))
 
     def set_subtitle(self, text):
         """Replace the subtitle in place - for text that isn't known until
@@ -172,5 +192,9 @@ class WordMark(tk.Canvas):
         later. Widens the canvas if the new text no longer fits.
         """
         self.itemconfigure(self._subtitle_id, text=text)
-        width = max(self._title_width, self._subtitle_font.measure(text)) + 4
-        self.configure(width=width)
+        self._fit()
+
+    def set_note(self, text):
+        """Replace the third line - the build and how current it is."""
+        self.itemconfigure(self._note_id, text=text)
+        self._fit()
