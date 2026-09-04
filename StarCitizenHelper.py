@@ -234,57 +234,6 @@ KEY_HOLD_JITTER_MS = 12
 HISTORY_REFRESH_MS = 120_000
 
 
-def summarize_sessions(records, limit=10):
-    """Roll telemetry batches up into one row per session, newest first.
-
-    A session is one run of the app (helper.telemetry gives each launch its
-    own id). Frame counts weight the average, since a batch that ran for the
-    full 60 seconds says more about the session than one cut short by a
-    location change. The per-session low_1/stutter figures this produces are
-    an average of already-summarised per-minute batches, not a true
-    percentile over the session's raw frames - those individual frame times
-    are never written to disk, only their per-batch summary is.
-    """
-    sessions = {}
-    for rec in records:
-        if rec.get('type') != 'batch':
-            continue
-        session = rec.get('session')
-        summary = rec.get('sum') or {}
-        frames = summary.get('frames') or 0
-        if not session or frames <= 0:
-            continue
-        rows = rec.get('rows') or []
-        entry = sessions.setdefault(session, {
-            'session': session, 't0_min': None, 't0_max': None,
-            'frames': 0, 'fps_weighted': 0.0, 'low1_weighted': 0.0,
-            'stutter_weighted': 0.0,
-        })
-        t0 = rec.get('t0') or 0
-        t_end = t0 + len(rows)
-        entry['t0_min'] = t0 if entry['t0_min'] is None else min(entry['t0_min'], t0)
-        entry['t0_max'] = t_end if entry['t0_max'] is None else max(entry['t0_max'], t_end)
-        entry['frames'] += frames
-        entry['fps_weighted'] += summary.get('fps_avg', 0.0) * frames
-        entry['low1_weighted'] += summary.get('low_1', 0.0) * frames
-        entry['stutter_weighted'] += summary.get('stutter_pct', 0.0) * frames
-
-    out = []
-    for entry in sessions.values():
-        frames = entry['frames']
-        out.append({
-            'session': entry['session'],
-            't0': entry['t0_min'],
-            'duration_s': max(0, entry['t0_max'] - entry['t0_min']),
-            'frames': frames,
-            'fps_avg': round(entry['fps_weighted'] / frames, 1),
-            'low_1': round(entry['low1_weighted'] / frames, 1),
-            'stutter_pct': round(entry['stutter_weighted'] / frames, 2),
-        })
-    out.sort(key=lambda s: s['t0'], reverse=True)
-    return out[:limit]
-
-
 CRASH_LOG = os.path.join(_DIR, 'assets', 'crash.log')
 CRASH_LOG_MAX_BYTES = 2 * 1024 * 1024
 
@@ -1029,64 +978,6 @@ class App(tk.Tk):
                 width=28).pack(side='left', padx=8, ipady=5)
         tk.Label(hotkey_row, text='default: ctrl+alt+l - click Save Settings to apply',
                 bg='#101722', fg='#8ca2b9').pack(side='left')
-
-        tk.Label(frame, text='Session history', bg='#101722', fg='#91a7bd',
-                 font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=18, pady=(16, 2))
-        tk.Label(frame, text='One row per past run of this app, from the telemetry already '
-                             'being recorded on this PC. FPS/1% low/stutter here are an average '
-                             'of that session\'s per-minute batches, not a single precise reading.',
-                 bg='#101722', fg='#6f8398', font=('Segoe UI', 8),
-                 wraplength=760, justify='left').pack(anchor='w', padx=18, pady=(0, 6))
-
-        style = ttk.Style(self)
-        style.configure('PerfHistory.Treeview', background='#0f1721', foreground='#eaf4ff',
-                        fieldbackground='#0f1721', borderwidth=0, rowheight=24)
-        style.configure('PerfHistory.Treeview.Heading', background='#1c2938',
-                        foreground='#9eb2c6', borderwidth=0,
-                        font=('Segoe UI Semibold', 9))
-        columns = ('when', 'duration', 'frames', 'fps_avg', 'low_1', 'stutter')
-        headings = ('When', 'Duration', 'Frames', 'Avg FPS', '1% low', 'Stutter %')
-        widths = (150, 90, 90, 90, 90, 90)
-        self.perf_history_view = ttk.Treeview(frame, columns=columns, show='headings',
-                                              style='PerfHistory.Treeview', height=6)
-        for name, heading, width in zip(columns, headings, widths):
-            self.perf_history_view.heading(name, text=heading)
-            self.perf_history_view.column(name, width=width, anchor='w' if name == 'when' else 'e')
-        self.perf_history_view.pack(fill='x', padx=18)
-
-        history_row = tk.Frame(frame, bg='#101722')
-        history_row.pack(fill='x', padx=18, pady=(8, 14))
-        tk.Button(history_row, text='Refresh', command=self._refresh_perf_history,
-                 bg='#2a6f9e', fg='white', relief='flat', padx=14, pady=6).pack(side='left')
-        self.perf_history_note = tk.Label(history_row, text='', bg='#101722', fg='#8ca2b9')
-        self.perf_history_note.pack(side='left', padx=(12, 0))
-
-        self.after(600, self._refresh_perf_history)
-
-    def _refresh_perf_history(self):
-        view = getattr(self, 'perf_history_view', None)
-        if view is None:
-            return
-        for item in view.get_children():
-            view.delete(item)
-        try:
-            records = self.telemetry.spool.read_all()
-        except Exception as exc:
-            self.perf_history_note.config(text='Could not read telemetry: %s' % exc)
-            return
-        sessions = summarize_sessions(records, limit=10)
-        for s in sessions:
-            view.insert('', 'end', values=(
-                time.strftime('%a %d %b  %H:%M', time.localtime(s['t0'])),
-                '%dm' % max(1, round(s['duration_s'] / 60)),
-                s['frames'],
-                '%.1f' % s['fps_avg'],
-                '%.1f' % s['low_1'],
-                '%.2f' % s['stutter_pct'],
-            ))
-        self.perf_history_note.config(
-            text=('%d sessions' % len(sessions)) if sessions
-            else 'No sessions recorded yet.')
 
     def _refresh_hud(self):
         """Feed the header graph and the Performance tab, ten times a second."""
