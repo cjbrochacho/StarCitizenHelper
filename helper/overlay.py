@@ -34,7 +34,13 @@ KEY_COLOR_RGB = (0x01, 0x02, 0x03)
 #: are real screen pixels, so it has to be scaled to the display or the gap
 #: comes out proportionally smaller the higher the DPI - 20px against a 5760
 #: wide screen rather than the 40 it describes.
-MARGIN = 20
+#:
+#: One per axis, because the resting place was set by eye rather than derived:
+#: from an even 20/20 it wanted to sit a little lower and a little closer to
+#: the right edge, which pulls the two apart. Still in design units, so the
+#: nudge stays in proportion on a display that is not the one it was judged on.
+MARGIN_X = 15
+MARGIN_Y = 25
 
 
 class OverlayWindow(tk.Toplevel):
@@ -89,14 +95,15 @@ class OverlayWindow(tk.Toplevel):
         self._hwnd = None
 
         self.update_idletasks()               # winfo_reqwidth needs real geometry
-        margin = round(MARGIN * self._scale)
+        margin_x = round(MARGIN_X * self._scale)
+        margin_y = round(MARGIN_Y * self._scale)
         if position:
             x, y = position
         elif anchor_rect:
             _, top, right, _ = anchor_rect
-            x, y = right - self.winfo_reqwidth() - margin, top + margin
+            x, y = right - self.winfo_reqwidth() - margin_x, top + margin_y
         else:
-            x, y = self.winfo_screenwidth() - self.winfo_reqwidth() - margin, margin
+            x, y = self.winfo_screenwidth() - self.winfo_reqwidth() - margin_x, margin_y
         self.geometry("+%d+%d" % (x, y))
 
         # Deferred: -transparentcolor's real Windows-side setup happens when
