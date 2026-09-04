@@ -48,11 +48,25 @@ class HudGraph(tk.Canvas):
     """
 
     def __init__(self, parent: tk.Misc) -> None:
-        super().__init__(parent, width=MIN_PLOT_WIDTH + READOUT_WIDTH, height=HEIGHT,
-                         bg=BG, highlightthickness=0, bd=0)
+        # Every constant in this module is a 96dpi design measurement, but the
+        # fonts below are in points and Tk renders those against the display's
+        # real DPI. Once the app became DPI-aware those two stopped agreeing:
+        # on a 200% display the text doubled while the canvas it is positioned
+        # inside did not, so the readout lines overlapped each other and ran
+        # past the edge. Scaling the geometry by the same factor the fonts got
+        # keeps the design proportions whatever the display does.
+        self._s = s = parent.winfo_fpixels("1i") / 96.0
+        self._pad = round(PADDING * s)
+        self._gap = round(BAND_GAP * s)
+        self._height = round(HEIGHT * s)
+        self._readout_w = round(READOUT_WIDTH * s)
+        self._min_plot = round(MIN_PLOT_WIDTH * s)
+
+        super().__init__(parent, width=self._min_plot + self._readout_w,
+                         height=self._height, bg=BG, highlightthickness=0, bd=0)
         self._fps_top = 120.0
         self._ms_top = 60.0
-        self._width = MIN_PLOT_WIDTH + READOUT_WIDTH
+        self._width = self._min_plot + self._readout_w
         self.bind("<Configure>", self._resized)
 
         # plot: two sparklines plus a faint FPS 1%-low reference
@@ -82,15 +96,30 @@ class HudGraph(tk.Canvas):
         self._ping_sub = self.create_text(0, 0, text="", fill=MUTED, anchor="e",
                                           font=("Consolas", 8))
 
-        self._message = self.create_text(0, HEIGHT // 2, text="", fill=MUTED, anchor="c",
-                                         font=("Segoe UI", 8))
+        self._message = self.create_text(0, self._height // 2, text="", fill=MUTED,
+                                         anchor="c", font=("Segoe UI", 8))
         self._layout()
 
     # -- geometry ---------------------------------------------------------
 
     @property
     def _plot_width(self) -> int:
-        return max(MIN_PLOT_WIDTH, self._width - READOUT_WIDTH)
+        return self._layout_width - self._readout_w
+
+    @property
+    def _layout_width(self) -> int:
+        """The width everything is positioned against.
+
+        Both the plot and the readout must come from *one* number. They used
+        to disagree: the plot clamped at MIN_PLOT_WIDTH while the readout was
+        placed against the raw canvas width, so once the canvas fell below
+        MIN_PLOT_WIDTH + READOUT_WIDTH the two were laid out to different
+        scales and drew straight through each other - values landing at
+        negative x, labels past the right edge. Clamping here instead means a
+        canvas too narrow to hold the layout simply clips it at the edge,
+        which is legible; overlapping is not.
+        """
+        return max(self._width, self._min_plot + self._readout_w)
 
     def _resized(self, event: tk.Event) -> None:
         self._width = event.width
@@ -99,8 +128,8 @@ class HudGraph(tk.Canvas):
     @property
     def _fps_band(self) -> tuple[float, float]:
         """(floor, ceiling) for frame rate - the upper band, growing upward."""
-        ceiling = float(PADDING)
-        floor = PADDING + (HEIGHT - 2 * PADDING - BAND_GAP) * FPS_BAND_SHARE
+        ceiling = float(self._pad)
+        floor = self._pad + (self._height - 2 * self._pad - self._gap) * FPS_BAND_SHARE
         return floor, ceiling
 
     @property
@@ -113,20 +142,23 @@ class HudGraph(tk.Canvas):
         hugging opposite edges - now without either being able to reach the
         other's half.
         """
-        return float(HEIGHT - PADDING), self._fps_band[0] + BAND_GAP
+        return float(self._height - self._pad), self._fps_band[0] + self._gap
 
     def _layout(self) -> None:
-        left = self._plot_width + PADDING
-        right = self._width - PADDING
-        split = self._fps_band[0] + BAND_GAP / 2
-        self.coords(self._divider, PADDING, split, self._plot_width - PADDING, split)
-        self.coords(self._fps_tag, left, 11)
-        self.coords(self._fps_val, right, 15)
-        self.coords(self._fps_sub, right, 29)
-        self.coords(self._ping_tag, left, 47)
-        self.coords(self._ping_val, right, 51)
-        self.coords(self._ping_sub, right, 65)
-        self.coords(self._message, self._plot_width // 2, HEIGHT // 2)
+        s = self._s
+        left = self._plot_width + self._pad
+        right = self._layout_width - self._pad
+        split = self._fps_band[0] + self._gap / 2
+        self.coords(self._divider, self._pad, split, self._plot_width - self._pad, split)
+        # Baselines of the two readout blocks, in the same 96dpi units as the
+        # rest of this module and scaled alongside it.
+        self.coords(self._fps_tag, left, 11 * s)
+        self.coords(self._fps_val, right, 15 * s)
+        self.coords(self._fps_sub, right, 29 * s)
+        self.coords(self._ping_tag, left, 47 * s)
+        self.coords(self._ping_val, right, 51 * s)
+        self.coords(self._ping_sub, right, 65 * s)
+        self.coords(self._message, self._plot_width // 2, self._height // 2)
 
     # -- public -----------------------------------------------------------
 
@@ -151,7 +183,7 @@ class HudGraph(tk.Canvas):
             self.itemconfig(self._bars, state="hidden")
             return
 
-        left, right = PADDING, self._plot_width - PADDING
+        left, right = self._pad, self._plot_width - self._pad
         span = max(1, right - left)
         # Bars belong to the frame rate, so they live in its band and rise from
         # its floor - never into the latency half below.
@@ -202,7 +234,8 @@ class HudGraph(tk.Canvas):
             self._plot(self._fps_line, stats.history, self._fps_top, band)
             low_y = self._value_y(stats.low_1, self._fps_top, band) if stats.low_1 > 0 else None
             if low_y is not None:
-                self.coords(self._fps_low, PADDING, low_y, self._plot_width - PADDING, low_y)
+                self.coords(self._fps_low, self._pad, low_y,
+                            self._plot_width - self._pad, low_y)
                 self.itemconfig(self._fps_low, state="normal")
             else:
                 self.itemconfig(self._fps_low, state="hidden")
@@ -244,7 +277,7 @@ class HudGraph(tk.Canvas):
 
     def _plot(self, line_item: int, history, top: float,
               band: tuple[float, float]) -> None:
-        left, right = PADDING, self._plot_width - PADDING
+        left, right = self._pad, self._plot_width - self._pad
         span = right - left
         # One point per pixel column keeps the redraw cost flat regardless of
         # how many samples the minute holds.

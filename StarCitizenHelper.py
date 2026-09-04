@@ -337,8 +337,17 @@ class App(tk.Tk):
         super().__init__()
         self.title('Star Citizen Helper')
         self._apply_icon()
-        self.geometry('980x760')
-        self.minsize(860, 630)
+        # These numbers were chosen while the process was DPI-unaware, when
+        # Windows silently upscaled the whole window and they meant 96dpi
+        # units. set_dpi_aware() above stops that happening, so they now mean
+        # real pixels - which on a 200% display is half the intended window,
+        # while Tk's font scaling doubles to match the true DPI. The result is
+        # correctly sized text bursting out of a half-sized frame. Scaling the
+        # geometry by the same factor the fonts got restores what these
+        # numbers were always describing.
+        scale = self.winfo_fpixels('1i') / 96.0
+        self.geometry('%dx%d' % (980 * scale, 760 * scale))
+        self.minsize(int(860 * scale), int(630 * scale))
         self.configure(bg='#101722')
         self.protocol('WM_DELETE_WINDOW', self.close)
 
@@ -469,8 +478,14 @@ class App(tk.Tk):
         header.pack(fill='x', padx=22, pady=(18, 5))
 
         # Title on the left, performance HUD on the right, sharing one row.
+        #
+        # The HUD claims its width first. pack() hands out the cavity in the
+        # order it is called, so whichever of these two goes first gets its
+        # full request and the other takes the remainder. With the title first,
+        # a long subtitle starved the HUD: measured at 859px for the title box
+        # against a 936px header, leaving the graph 37 pixels. The subtitle is
+        # decorative and clips harmlessly; the graph does not.
         title_box = tk.Frame(header, bg='#101722')
-        title_box.pack(side='left', anchor='nw')
         BrandMark(title_box, size=46, background='#101722').pack(side='left',
                                                                  anchor='n', padx=(0, 12))
         self.wordmark = WordMark(title_box, 'STAR CITIZEN HELPER',
@@ -497,6 +512,9 @@ class App(tk.Tk):
                                          fg=theme.MUTED, font=('Consolas', 8),
                                          anchor='e', justify='right')
             self.server_label.pack(fill='x', pady=(2, 0))
+
+        # Packed last on purpose - see the note above the title box.
+        title_box.pack(side='left', anchor='nw')
 
         # Active automations panel
         panel = tk.Frame(self, bg='#192433', highlightbackground='#2e435a', highlightthickness=1)
