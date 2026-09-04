@@ -35,6 +35,16 @@ BAND_GAP = 5
 #: 1% low reference as well as its own line.
 FPS_BAND_SHARE = 0.58
 
+#: Line weights, in the same 96dpi units as every other measurement here. They
+#: were plain pixels, which meant a hairline stayed one physical pixel however
+#: dense the display got - while the text beside it, being in points, thickened
+#: with the DPI. Same colour, wildly different weight, and the graph read as
+#: washed out next to its own readout.
+LINE_WIDTH = 1
+#: The frame rate is the headline series - the number people actually watch -
+#: so its line is drawn heavier than the rest rather than a different colour.
+FPS_LINE_WIDTH = 1.5
+
 _FPS_STEPS = (30, 60, 90, 120, 144, 165, 240, 360)
 _MS_STEPS = (20, 40, 60, 100, 150, 200, 300, 500)
 
@@ -73,14 +83,19 @@ class HudGraph(tk.Canvas):
         # The band divider goes down first of all, so everything else sits on
         # top of it. It is the only cue that the two halves are separate
         # scales rather than one plot.
-        self._divider = self.create_line(0, 0, 0, 0, fill=GRID, width=1)
+        lw = max(1, round(LINE_WIDTH * s))
+        self._divider = self.create_line(0, 0, 0, 0, fill=GRID, width=lw)
         # Drawn before the lines so it sits behind both. One item, not one per
         # bar: the path runs along the baseline and spikes up for each column,
         # which is cheap enough to redraw ten times a second.
-        self._bars = self.create_line(0, 0, 0, 0, fill=FRAME_BAR, width=1)
-        self._fps_low = self.create_line(0, 0, 0, 0, fill=FPS_LOW, dash=(1, 5), width=1)
-        self._fps_line = self.create_line(0, 0, 0, 0, fill=ACCENT, width=1)
-        self._ping_line = self.create_line(0, 0, 0, 0, fill=LAT, width=1)
+        self._bars = self.create_line(0, 0, 0, 0, fill=FRAME_BAR, width=lw)
+        # The dash pattern is a measurement too - left unscaled it turns into a
+        # near-solid line as the weight around it grows.
+        self._fps_low = self.create_line(0, 0, 0, 0, fill=FPS_LOW, width=lw,
+                                         dash=(max(1, round(1 * s)), max(1, round(5 * s))))
+        self._fps_line = self.create_line(0, 0, 0, 0, fill=ACCENT,
+                                          width=max(1, round(FPS_LINE_WIDTH * s)))
+        self._ping_line = self.create_line(0, 0, 0, 0, fill=LAT, width=lw)
 
         # readout: two headline numbers, each with a tiny sub-line
         self._fps_tag = self.create_text(0, 0, text="FPS", fill=MUTED, anchor="w",
