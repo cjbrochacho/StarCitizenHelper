@@ -235,7 +235,7 @@ class HudGraph(tk.Canvas):
                         fill=ACCENT if live else MUTED)
         self.itemconfig(
             self._fps_sub,
-            text=(f"{stats.average:.2f} avg  {stats.low_1:.0f} low" if live
+            text=(f"{stats.average:.2f} avg  {stats.swing_pct:.0f}% sw" if live
                   else ("no frames arriving" if stats.history else "")))
 
     # -- ping -------------------------------------------------------------
