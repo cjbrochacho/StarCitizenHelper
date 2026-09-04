@@ -14,5 +14,8 @@ ERROR = "#ff6b6b"
 #: across the header, not as a panel sitting on top of it.
 ACCENT = "#41b8f5"       # frame rate line (cyan)
 LAT = "#e0a54e"          # latency line (amber)
-FPS_LOW = "#295a74"      # faint cyan for the 1% low reference
+# Reference marks: each a dimmed version of the series it belongs to, so a
+# glance reads them as "that line's threshold" rather than as a third series.
+FPS_REF = "#295a74"      # faint cyan for the frame rate reference
+LAT_REF = "#7b5125"      # faint amber for the latency reference
 GRID = "#1a222e"

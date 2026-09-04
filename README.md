@@ -254,11 +254,11 @@ fast the game is running:
 Both need every frame to mean anything, so they show `--` if the figures are ever coming from
 samples rather than from every frame.
 
-Behind the two lines sit **frame time bars** — one per pixel column, showing the worst frame in
-that column, on the same time axis as the lines. The frame rate line is an average over each
-second, so a single slow frame barely dents it; the bars come from every frame the game
-presented, so a stutter shows up as a spike. The worst frame is drawn rather than the mean,
-because averaging is what hides it. The faint dashed line marks the 1% low.
+Each line has a **faint dashed reference** in its own colour: 60 fps for the frame rate, 50 ms
+for latency. They are fixed marks rather than derived ones, so the question they answer is the
+one you actually ask at a glance — above the number I care about, or below it. Both are drawn
+against their own series' scale, and the scale never eases down far enough to push a mark off
+the top, so they stay readable even when the data never reaches them.
 
 **Every frame is counted**, so the 1% low and the minimum are real percentiles over thousands of
 frames rather than estimates from periodic samples.

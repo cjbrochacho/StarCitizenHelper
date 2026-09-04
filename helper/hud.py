@@ -13,7 +13,7 @@ from .fps import (STATUS_NO_ACCESS, STATUS_NO_SOURCE, STATUS_OK, WINDOW_SECONDS,
                   Stats)
 from .net import NetStats
 from .net import STATUS_OK as NET_OK
-from .theme import ACCENT, BG, FPS_LOW, GRID, LAT, MUTED, WARN
+from .theme import ACCENT, BG, FPS_REF, GRID, LAT, LAT_REF, MUTED, WARN
 
 MIN_PLOT_WIDTH = 220
 READOUT_WIDTH = 122
@@ -27,9 +27,19 @@ PADDING = 6
 #: series at once. Separate bands make the independence visible: neither line
 #: can enter the other's space, whatever its scale does.
 BAND_GAP = 5
-#: Frame rate takes the larger share; it carries the 1% low reference as well
-#: as its own line.
+#: Frame rate takes the larger share; it is the series people read first.
 FPS_BAND_SHARE = 0.58
+
+#: Where each dashed reference line sits, in that series' own units.
+#:
+#: Fixed marks, not derived ones. The frame rate line used to track the 1% low,
+#: which moved with the data - so it answered "how far below your own average
+#: are your worst frames", a question you have to already understand to read.
+#: A constant answers the one asked at a glance instead: am I above the number
+#: I care about, or below it. Both are drawn against their series' own eased
+#: ceiling, so each lands correctly whatever scale its band is currently on.
+FPS_REFERENCE = 60.0
+PING_REFERENCE = 50.0
 
 #: Line weights, in the same 96dpi units as every other measurement here. They
 #: were plain pixels, which meant a hairline stayed one physical pixel however
@@ -43,6 +53,25 @@ FPS_LINE_WIDTH = 1.5
 
 _FPS_STEPS = (30, 60, 90, 120, 144, 165, 240, 360)
 _MS_STEPS = (20, 40, 60, 100, 150, 200, 300, 500)
+
+
+def _floor_for(reference: float, steps: tuple[int, ...]) -> float:
+    """The lowest ceiling that still leaves `reference` inside the plot.
+
+    Strictly above the reference, not equal to it. _value_y clamps at
+    min(value / top, 1.0), so a ceiling of exactly the reference puts its line
+    on the band's top edge, where it reads as the border rather than as a
+    threshold - and it has to stay legible precisely when the data never
+    reaches it, which is the case it exists to show. One step above leaves it
+    inside with the series visibly below.
+    """
+    return next((float(s) for s in steps if s > reference), float(steps[-1]))
+
+
+#: Ceilings never ease below these, so both reference lines are always drawn
+#: somewhere readable - 60fps against a 90 ceiling, 50ms against 60.
+_FPS_FLOOR = _floor_for(FPS_REFERENCE, _FPS_STEPS)
+_MS_FLOOR = _floor_for(PING_REFERENCE, _MS_STEPS)
 
 
 class HudGraph(tk.Canvas):
@@ -75,7 +104,7 @@ class HudGraph(tk.Canvas):
         self._width = self._min_plot + self._readout_w
         self.bind("<Configure>", self._resized)
 
-        # plot: two sparklines plus a faint FPS 1%-low reference
+        # plot: two sparklines, each with a faint dashed reference beneath it
         # The band divider goes down first of all, so everything else sits on
         # top of it. It is the only cue that the two halves are separate
         # scales rather than one plot.
@@ -83,8 +112,9 @@ class HudGraph(tk.Canvas):
         self._divider = self.create_line(0, 0, 0, 0, fill=GRID, width=lw)
         # The dash pattern is a measurement too - left unscaled it turns into a
         # near-solid line as the weight around it grows.
-        self._fps_low = self.create_line(0, 0, 0, 0, fill=FPS_LOW, width=lw,
-                                         dash=(max(1, round(1 * s)), max(1, round(5 * s))))
+        dashes = (max(1, round(1 * s)), max(1, round(5 * s)))
+        self._fps_ref = self.create_line(0, 0, 0, 0, fill=FPS_REF, width=lw, dash=dashes)
+        self._ping_ref = self.create_line(0, 0, 0, 0, fill=LAT_REF, width=lw, dash=dashes)
         self._fps_line = self.create_line(0, 0, 0, 0, fill=ACCENT,
                                           width=max(1, round(FPS_LINE_WIDTH * s)))
         self._ping_line = self.create_line(0, 0, 0, 0, fill=LAT, width=lw)
@@ -192,17 +222,13 @@ class HudGraph(tk.Canvas):
         """
         if stats.history:
             band = self._fps_band
-            self._fps_top = _ease(self._fps_top, stats.history, _FPS_STEPS, 30.0)
+            self._fps_top = _ease(self._fps_top, stats.history, _FPS_STEPS, _FPS_FLOOR)
             self._plot(self._fps_line, stats.history, self._fps_top, band)
-            low_y = self._value_y(stats.low_1, self._fps_top, band) if stats.low_1 > 0 else None
-            if low_y is not None:
-                self.coords(self._fps_low, self._pad, low_y,
-                            self._plot_width - self._pad, low_y)
-                self.itemconfig(self._fps_low, state="normal")
-            else:
-                self.itemconfig(self._fps_low, state="hidden")
+            mark = self._value_y(FPS_REFERENCE, self._fps_top, band)
+            self.coords(self._fps_ref, self._pad, mark, self._plot_width - self._pad, mark)
+            self.itemconfig(self._fps_ref, state="normal")
         else:
-            self._hide(self._fps_line, self._fps_low)
+            self._hide(self._fps_line, self._fps_ref)
 
         live = stats.status == STATUS_OK
         self.itemconfig(self._fps_val, text=f"{stats.fps:.2f}" if live else "--",
@@ -216,13 +242,17 @@ class HudGraph(tk.Canvas):
 
     def _draw_ping(self, stats: NetStats) -> None:
         if stats.status == NET_OK and stats.history:
-            self._ms_top = _ease(self._ms_top, stats.history, _MS_STEPS, 20.0)
-            self._plot(self._ping_line, stats.history, self._ms_top, self._ping_band)
+            band = self._ping_band
+            self._ms_top = _ease(self._ms_top, stats.history, _MS_STEPS, _MS_FLOOR)
+            self._plot(self._ping_line, stats.history, self._ms_top, band)
+            mark = self._value_y(PING_REFERENCE, self._ms_top, band)
+            self.coords(self._ping_ref, self._pad, mark, self._plot_width - self._pad, mark)
+            self.itemconfig(self._ping_ref, state="normal")
             self.itemconfig(self._ping_val, text=f"{stats.ping_ms:.2f}")
             loss = f"  {stats.loss_pct:.0f}%loss" if stats.loss_pct >= 1 else ""
             self.itemconfig(self._ping_sub, text=f"{stats.jitter:.2f} jit{loss}")
         else:
-            self._hide(self._ping_line)
+            self._hide(self._ping_line, self._ping_ref)
             self.itemconfig(self._ping_val, text="--")
             self.itemconfig(self._ping_sub, text="")
 
