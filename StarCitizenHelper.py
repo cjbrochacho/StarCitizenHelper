@@ -110,7 +110,7 @@ DEFAULTS = {
     'keepalive_enabled':  True,
     'keepalive_key':      'tab',
     'altf4_guard':        True,
-    'scan_toggle':        'ctrl+alt+page up',
+    'scan_toggle':        'tab+page up',
     'scan_interval':      2,
     'hold_start':         'shift+w+page up',
     'hold_keys':          'shift+w',
@@ -586,7 +586,7 @@ class App(tk.Tk):
 
         self._add_settings_tab(notebook, 'Scan Ships', 'Ship Scan',
             'Independent of inactivity: sends Tab continuously even while you use your keyboard or mouse.',
-            [('Toggle hotkey',        'scan_toggle',   'Ctrl+Alt+Page Up'),
+            [('Toggle hotkey',        'scan_toggle',   'Tab+Page Up'),
              ('Tab interval seconds', 'scan_interval', '2')],
             extra_button=('Toggle Ship Scan', self._toggle_scan))
 
