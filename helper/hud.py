@@ -15,10 +15,6 @@ from .net import NetStats
 from .net import STATUS_OK as NET_OK
 from .theme import ACCENT, BG, FPS_LOW, GRID, LAT, MUTED, WARN
 
-#: Frame time bars sit behind the lines, so they read as texture rather
-#: than as a third thing competing for attention.
-FRAME_BAR = "#24404f"
-
 MIN_PLOT_WIDTH = 220
 READOUT_WIDTH = 122
 HEIGHT = 76
@@ -31,8 +27,8 @@ PADDING = 6
 #: series at once. Separate bands make the independence visible: neither line
 #: can enter the other's space, whatever its scale does.
 BAND_GAP = 5
-#: Frame rate takes the larger share; it carries the frame-time bars and the
-#: 1% low reference as well as its own line.
+#: Frame rate takes the larger share; it carries the 1% low reference as well
+#: as its own line.
 FPS_BAND_SHARE = 0.58
 
 #: Line weights, in the same 96dpi units as every other measurement here. They
@@ -85,10 +81,6 @@ class HudGraph(tk.Canvas):
         # scales rather than one plot.
         lw = max(1, round(LINE_WIDTH * s))
         self._divider = self.create_line(0, 0, 0, 0, fill=GRID, width=lw)
-        # Drawn before the lines so it sits behind both. One item, not one per
-        # bar: the path runs along the baseline and spikes up for each column,
-        # which is cheap enough to redraw ten times a second.
-        self._bars = self.create_line(0, 0, 0, 0, fill=FRAME_BAR, width=lw)
         # The dash pattern is a measurement too - left unscaled it turns into a
         # near-solid line as the weight around it grows.
         self._fps_low = self.create_line(0, 0, 0, 0, fill=FPS_LOW, width=lw,
@@ -178,56 +170,11 @@ class HudGraph(tk.Canvas):
     # -- public -----------------------------------------------------------
 
     def update(self, fps_stats: Stats, net_stats: NetStats) -> None:
-        self._draw_frame_bars(fps_stats)
         self._draw_fps(fps_stats)
         self._draw_ping(net_stats)
         self._draw_message(fps_stats, net_stats)
 
     # -- fps --------------------------------------------------------------
-
-    def _draw_frame_bars(self, stats: Stats) -> None:
-        """Worst frame time per pixel column, as bars off the bottom.
-
-        The frame rate line is an average over each second, so a single slow
-        frame barely dents it. These come from every frame the game presented,
-        and the tallest bar in a column is the worst frame in it - averaging
-        them would hide the stutter that makes them worth drawing.
-        """
-        frames = stats.frame_times
-        if not frames:
-            self.itemconfig(self._bars, state="hidden")
-            return
-
-        left, right = self._pad, self._plot_width - self._pad
-        span = max(1, right - left)
-        # Bars belong to the frame rate, so they live in its band and rise from
-        # its floor - never into the latency half below.
-        floor, ceiling = self._fps_band
-        # Scaled so the worst frame in view reaches a little over half the
-        # band, leaving the line above it readable.
-        worst = max(ms for _, ms in frames) or 1.0
-        reach = (floor - ceiling) * 0.55
-
-        # Placed by age, on the same axis as the lines, so a spike sits under
-        # the moment it happened rather than being spread across the window.
-        columns: dict[int, float] = {}
-        for age, ms in frames:
-            position = max(0.0, min(1.0, 1.0 - age / WINDOW_SECONDS))
-            slot = int(position * span)
-            if ms > columns.get(slot, 0.0):
-                columns[slot] = ms
-
-        points: list[float] = []
-        for slot in sorted(columns):
-            x = left + slot
-            top = floor - reach * (columns[slot] / worst)
-            points.extend((x, floor, x, top, x, floor))
-
-        if len(points) < 6:
-            self.itemconfig(self._bars, state="hidden")
-            return
-        self.itemconfig(self._bars, state="normal")
-        self.coords(self._bars, *points)
 
     def _draw_fps(self, stats: Stats) -> None:
         """Draw the history whenever there is history; the plot is not a
@@ -255,7 +202,7 @@ class HudGraph(tk.Canvas):
             else:
                 self.itemconfig(self._fps_low, state="hidden")
         else:
-            self._hide(self._fps_line, self._fps_low, self._bars)
+            self._hide(self._fps_line, self._fps_low)
 
         live = stats.status == STATUS_OK
         self.itemconfig(self._fps_val, text=f"{stats.fps:.2f}" if live else "--",
