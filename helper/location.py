@@ -37,7 +37,7 @@ never held anywhere it could be sent.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 # --- vocabulary -----------------------------------------------------------
@@ -453,7 +453,31 @@ class LocationReader:
                   and place.source == SOURCE_NAMED
                   and self._place.source != SOURCE_NAMED)
         if deeper or firmer or self._contradicts(place):
-            self._place = place
+            self._place = self._carry_system(place)
+
+    def _carry_system(self, place: Place) -> Place:
+        """Keep the system when the new reading does not name one.
+
+        The game names plenty of places without saying which system they are
+        in: RR_P3_LEO is "the rest stop in low orbit of planet three", and the
+        parser cannot know whose planet three without context it does not
+        have. The reader does have it - it is holding the last place - so the
+        system carries over and the rest stop lands under Pyro instead of
+        under nothing. On live data that was 458 batches filed as
+        unsaid.unsaid.rest_stop_p3_leo and friends.
+
+        Only the system. The body is not carried: RR_P3_LEO is at planet
+        three, and the place being held might be planet four, so inheriting
+        the body would file it confidently in the wrong orbit. An empty rung
+        is honest; a wrong one is not.
+
+        Crossing between systems goes through a jump point, which the game
+        does name - jp_stanton_pyro - so the system is refreshed on the way
+        rather than carried past its expiry.
+        """
+        if place.system or not self._place.system:
+            return place
+        return replace(place, system=self._place.system)
 
     def _contradicts(self, place: Place) -> bool:
         """Whether a reading rules out the place being held.
