@@ -6,7 +6,7 @@ import time
 import threading
 import queue
 import random
-import uuid
+import webbrowser
 import ctypes
 from ctypes import wintypes
 
@@ -22,7 +22,7 @@ from helper.brand import BrandMark, WordMark
 from helper.fps import FpsMonitor, presentmon_executable
 from helper.hud import HudGraph
 from helper.idle import IdleWatcher, note_injection, tick
-from helper.hardware import HardwareMonitor, machine_profile
+from helper.hardware import HardwareMonitor, machine_id, machine_profile
 from helper.history import collect as collect_history
 from helper.net import NetMonitor, find_game_log, process_pid
 from helper.overlay import OverlayWindow
@@ -112,6 +112,10 @@ def current_revision():
 #: Turning telemetry off is still the user's call - that switch is in the tab.
 TELEMETRY_URL = 'http://gnxllkgfiapa5pdb8e4o4lsr.149.28.198.149.sslip.io/v1/ingest'
 
+#: The same deployment's dashboard. Derived rather than written twice, so
+#: moving the endpoint moves the link with it.
+TELEMETRY_SITE = TELEMETRY_URL.rsplit('/v1/ingest', 1)[0]
+
 DEFAULTS = {
     'keepalive_enabled':  True,
     'keepalive_key':      'tab',
@@ -130,7 +134,6 @@ DEFAULTS = {
     'overlay_toggle_lock': 'ctrl+alt+l',
     'auto_update':        True,
     'telemetry_enabled':  True,
-    'telemetry_client_id': '',
     'telemetry_notice_seen': False,
 }
 
@@ -142,9 +145,8 @@ BOOLEAN_KEYS = (
 )
 
 # Settings edited as free-text Entry fields via _add_settings_tab. Booleans
-# and the Telemetry tab's own field (telemetry_client_id)
-# are persisted through their own toggle/save handlers instead, so they must
-# stay out of field_vars or a later "Save Settings" click clobbers them.
+# are persisted through their own toggle handler instead, so they must stay
+# out of field_vars or a later "Save Settings" click clobbers them.
 EDITABLE_FIELD_KEYS = (
     'keepalive_key', 'scan_toggle', 'scan_interval', 'hold_start', 'hold_keys',
     'overlay_toggle_lock',
@@ -716,11 +718,6 @@ class App(tk.Tk):
         Passing a callable rather than a flag means switching it off in the UI
         takes effect on the next sample instead of at the next restart.
         """
-        client_id = str(self.cfg.get('telemetry_client_id') or '')
-        if not client_id:
-            client_id = uuid.uuid4().hex
-            self.cfg['telemetry_client_id'] = client_id
-            self._persist()
         log = find_game_log()
         return TelemetryCollector(
             Spool(os.path.join(_DIR, 'assets', 'telemetry')),
@@ -730,7 +727,7 @@ class App(tk.Tk):
             machine=machine_profile(),
             log_path=find_game_log,
             live_dir=(lambda: log.parent if log else None),
-            client_id=client_id,
+            client_id=machine_id(),
             enabled=(lambda: bool(self.cfg.get('telemetry_enabled', True))),
             # Deferred: the watcher is built after the collector is.
             idle=(lambda: self.idle.seconds()),
@@ -787,23 +784,9 @@ class App(tk.Tk):
                                           bg='#466f91', fg='white', relief='flat',
                                           padx=14, pady=6, width=16)
         self.telemetry_button.pack(side='left', padx=(0, 8))
-        for label, command in (('Open my data', self._open_telemetry_folder),
-                               ('Reset my ID', self._reset_telemetry_id)):
-            tk.Button(row, text=label, command=command, bg='#253448', fg='#eef6ff',
-                      activebackground='#2a4661', relief='flat', padx=14, pady=6
-                      ).pack(side='left', padx=(0, 8))
-
-        endpoint = tk.Frame(frame, bg='#101722')
-        endpoint.pack(anchor='w', fill='x', padx=18, pady=(4, 2))
-        tk.Label(endpoint, text='Send to', bg='#101722', fg='#91a7bd',
-                 font=('Segoe UI', 9), width=9, anchor='w').pack(side='left')
-        tk.Label(endpoint, text=TELEMETRY_URL, bg='#101722', fg='#7f93a8',
-                 font=('Consolas', 9), anchor='w').pack(side='left')
-        tk.Label(frame, text='Fixed - the measurements are only worth anything pooled in '
-                             'one place. Turn collection off above and nothing is measured, '
-                             'written or sent.',
-                 bg='#101722', fg='#6f8398', font=('Segoe UI', 8),
-                 wraplength=760, justify='left').pack(anchor='w', padx=18, pady=(0, 10))
+        tk.Button(row, text='Open my data', command=self._open_my_data,
+                  bg='#253448', fg='#eef6ff', activebackground='#2a4661',
+                  relief='flat', padx=14, pady=6).pack(side='left', padx=(0, 8))
 
         tk.Label(frame, text='Everything that is collected', bg='#101722', fg='#91a7bd',
                  font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=18, pady=(10, 2))
@@ -855,7 +838,7 @@ class App(tk.Tk):
                  % ('ON' if on else 'OFF', self.telemetry.batches_written,
                     len(files), '' if len(files) == 1 else 's', size / 1024.0,
                     upload_line,
-                    str(self.cfg.get('telemetry_client_id', ''))[:12] + '...'))
+                    self.telemetry.client[:12] + '...'))
         self.telemetry_button.config(text='Turn it off' if on else 'Turn it on',
                                      bg='#a65a46' if on else '#466f91')
 
@@ -878,22 +861,19 @@ class App(tk.Tk):
         self.log_queue.put('Telemetry ' + ('on.' if on else 'off.'))
         self._refresh_telemetry_tab()
 
-    def _open_telemetry_folder(self):
-        folder = self.telemetry.spool.directory
+    def _open_my_data(self):
+        """This PC\'s own page on the dashboard - what was sent, read back.
+
+        The spool this used to open is a queue, not an archive: a file
+        lives in it only until it has been posted, so once uploading had
+        caught up there was nothing left in there to look at.
+        """
+        url = '%s/machine/%s' % (TELEMETRY_SITE, self.telemetry.client)
         try:
-            os.makedirs(folder, exist_ok=True)
-            os.startfile(folder)
+            webbrowser.open(url)
         except OSError as exc:
             messagebox.showerror('Star Citizen Helper',
-                                 'Could not open %s\n%s' % (folder, exc))
-
-    def _reset_telemetry_id(self):
-        """A new id, unlinked from everything sent under the old one."""
-        self.cfg['telemetry_client_id'] = uuid.uuid4().hex
-        self._persist()
-        self.telemetry.client = self.cfg['telemetry_client_id']
-        self.log_queue.put('Telemetry ID reset.')
-        self._refresh_telemetry_tab()
+                                 'Could not open %s\n%s' % (url, exc))
 
     # ── Performance HUD ───────────────────────────────────────────────────────
 

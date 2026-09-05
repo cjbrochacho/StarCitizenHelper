@@ -41,7 +41,11 @@ SCHEMA = 1
 
 #: One row per second; a batch closes at this many, or sooner if the context
 #: changes. Sixty keeps HTTP framing down to a third of what ten would cost.
-BATCH_SECONDS = 60
+#: Seconds of samples per batch. Sixty made the dashboard feel dead - a
+#: player watching their own page waited a full minute for one row, and a
+#: short stop somewhere was rounded away entirely. Ten is still hundreds
+#: of frames to take percentiles over at any playable frame rate.
+BATCH_SECONDS = 10
 SAMPLE_SECONDS = 1.0
 
 #: Keep a fortnight, and never more than this on disk.
