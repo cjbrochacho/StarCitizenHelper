@@ -32,6 +32,12 @@ from helper.upload import Uploader
 from helper.window import (apply_window_icon, force_foreground, foreground_hwnd,
                            set_app_id, set_dpi_aware, window_for_pid, window_rect)
 
+#: The release this source belongs to. Tags are the real source of truth and a
+#: checkout reads them directly, but a zip install has neither git nor tags, so
+#: the number has to travel inside the source. Bumped when a release is tagged;
+#: the tag name is this with a "v" in front.
+__version__ = '3.0.0'
+
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
 
@@ -69,42 +75,54 @@ def _read_revision():
         return None, False
 
 
-def _tag_at_head():
-    """The release tag name if HEAD sits exactly on one, else None.
+def _describe():
+    """(latest tag, commits since it) for a git checkout, else (None, 0).
 
-    Only meaningful for a git checkout. Goes through git itself rather than
-    resolving refs/tags by hand: an annotated tag (what `git tag -a` makes)
-    is its own object pointing at the commit, not a ref straight to it, so
-    reading one back without git means parsing a zlib-compressed git object
-    for one string - not worth it when git is already known to be present,
-    since that is how a checkout gets here in the first place.
+    `git describe --tags --long` always answers in the one shape -
+    "<tag>-<distance>-g<sha>" - and gives a distance of 0 when HEAD sits
+    exactly on the tag. The plain form drops that suffix on an exact match,
+    which would leave the caller unable to tell a bare "v3.0.0" meaning the
+    release from a tag of that name with commits after it. The long form
+    removes the special case rather than guessing at it.
+
+    Goes through git rather than resolving refs/tags by hand: an annotated
+    tag (what `git tag -a` makes) is its own object pointing at the commit
+    instead of a ref straight to it, so reading one back without git means
+    parsing a zlib-compressed git object for a single string. git is already
+    known to be here - it is how a checkout arrived - so it does the work.
     """
     try:
         result = subprocess.run(
-            ['git', 'tag', '--points-at', 'HEAD'], cwd=_DIR,
+            ['git', 'describe', '--tags', '--long'], cwd=_DIR,
             capture_output=True, text=True, timeout=3)
-        names = [n for n in result.stdout.splitlines() if n.strip()]
-        return names[0] if names else None
+        if result.returncode != 0:
+            return None, 0                       # no tags in this clone yet
+        tag, distance, _sha = result.stdout.strip().rsplit('-', 2)
+        return tag, int(distance)
     except Exception:
-        return None
+        return None, 0
 
 
 def current_revision():
-    """Short, human-showable id for what's actually running.
+    """Short, human-showable id for what is actually running.
 
-    A tagged release shows its tag name plainly - "v1" - rather than a
-    commit hash nobody asked to memorise; anything else falls back to the
-    short sha, with "(dev)" only for an untagged git checkout.
+    A release shows its version plainly - "v3.0.0". A checkout past the last
+    tag says how far past it is - "v3.0.0+18 (dev)" - because that is the
+    state the app is normally run in while being worked on, and a bare commit
+    hash there says nothing about which release it is near. The sha is left
+    out of the string entirely; it is still read separately for the freshness
+    check, which needs an exact forty-character match to compare against.
     """
     sha, is_dev = _read_revision()
+    if is_dev:
+        tag, distance = _describe()
+        if tag:
+            return tag if distance == 0 else '%s+%d (dev)' % (tag, distance)
+        return 'v%s (dev)' % __version__         # a clone with no tags fetched
     if not sha:
         return 'unreleased'
-    if is_dev:
-        tag = _tag_at_head()
-        if tag:
-            return tag
-        return sha[:7] + ' (dev)'
-    return sha[:7]
+    return 'v%s' % __version__
+
 
 #: Where telemetry is posted. Deliberately not a setting: the measurements are
 #: only worth anything pooled in one place, and a per-install endpoint would
@@ -419,7 +437,7 @@ class App(tk.Tk):
         if not remote or not self._revision_sha or getattr(self, 'wordmark', None) is None:
             return
         suffix = ' (latest)' if remote == self._revision_sha else ' (update available)'
-        self.wordmark.set_note('rev ' + self.revision + suffix)
+        self.wordmark.set_note(self.revision + suffix)
 
     def _build_ui(self):
         style = ttk.Style(self)
@@ -447,7 +465,7 @@ class App(tk.Tk):
                  'Automation status and hotkey controls',
                  background='#101722', title_fill='#eef6ff',
                  subtitle_fill='#91a7bd',
-                 note='rev ' + self.revision, note_fill='#6b7f96')
+                 note=self.revision, note_fill='#6b7f96')
         self.wordmark.pack(side='left', anchor='nw')
 
         if self.cfg.get('hud_enabled', True):
