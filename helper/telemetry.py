@@ -35,6 +35,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .gamecfg import graphics_settings, upscaler
+from .net import process_pid
+from .window import game_resolution
 from .location import LocationReader, UNKNOWN as NOWHERE
 
 SCHEMA = 1
@@ -59,7 +61,10 @@ MAX_BYTES = 32 * 1024 * 1024
 PROFILE_FIELDS = ("machine_id", "cpu", "cpu_mhz_nominal", "cores", "gpu",
                   "ram_mb", "screen", "os_build")
 
-VIDEO_FIELDS = ("upscaler", "dlss_support")
+#: game_res sits here rather than with the machine because it is not a
+#: property of the PC: it changes when the player changes it, and a profile
+#: is written again whenever any of this moves.
+VIDEO_FIELDS = ("upscaler", "dlss_support", "game_res")
 
 #: Graphics settings are allowlisted in gamecfg, where the file is read. This
 #: is the second gate: whatever arrives must still look like a setting - a
@@ -446,7 +451,14 @@ class TelemetryCollector(threading.Thread):
         live = self._live_dir() if callable(self._live_dir) else self._live_dir
         log = self._log_path() if callable(self._log_path) else self._log_path
         gfx = graphics_settings(live) if live else {}
-        return gfx, (upscaler(log) if log else {})
+        video = upscaler(log) if log else {}
+        # What the card is actually driving. The game's own Resolution
+        # setting is an index into its list of modes, not a size, and the
+        # desktop resolution is not what is being rendered - a 4K monitor
+        # running the game in a 1080p window is a different workload with
+        # the same screen.
+        video["game_res"] = game_resolution(process_pid("StarCitizen.exe"))
+        return gfx, video
 
     def _flush_locked(self) -> None:
         if not self._seconds or self._context is None:

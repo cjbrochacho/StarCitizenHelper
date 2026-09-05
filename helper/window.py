@@ -168,6 +168,8 @@ def apply_window_icon(hwnd, ico_path):
 
 user32.SetProcessDPIAware.restype = wintypes.BOOL
 user32.GetWindowRect.argtypes = (wintypes.HWND, ctypes.POINTER(wintypes.RECT))
+user32.GetClientRect.argtypes = (wintypes.HWND, ctypes.POINTER(wintypes.RECT))
+user32.GetClientRect.restype = wintypes.BOOL
 
 
 def set_dpi_aware():
@@ -186,6 +188,42 @@ def set_dpi_aware():
         return True
     except Exception:
         return False
+
+
+def client_size(hwnd):
+    """The drawable size of a window, as (width, height) in real pixels.
+
+    GetClientRect rather than GetWindowRect: the border and title bar are not
+    rendered by the game, so counting them would overstate how much the card
+    is being asked to draw. Borderless full screen makes the two identical,
+    which is exactly when it matters least.
+    """
+    rect = wintypes.RECT()
+    if not user32.GetClientRect(hwnd, ctypes.byref(rect)):
+        return (0, 0)
+    return (rect.right - rect.left, rect.bottom - rect.top)
+
+
+def game_resolution(pid):
+    """"2560x1440" for the game's own window, or "" when it has none.
+
+    This is what the card is actually driving, which the desktop resolution is
+    not: a 4K monitor running the game in a 1080p window is a different
+    workload with the same screen, and the game's own Resolution setting is an
+    index into its list rather than a size.
+
+    Only correct once the process has called set_dpi_aware(). Without it
+    Windows answers in virtualised units and a 3840x2160 game measures
+    1920x1080 on a 200% display - halved, plausible, and wrong. The app calls
+    it during startup, before any of this runs.
+    """
+    if not pid:
+        return ""
+    hwnd = window_for_pid(pid)
+    if not hwnd:
+        return ""
+    width, height = client_size(hwnd)
+    return "%dx%d" % (width, height) if width and height else ""
 
 
 def window_rect(hwnd):
