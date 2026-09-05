@@ -388,25 +388,41 @@ class LocationReader:
     Reads only what has been appended since last time, the way the shard
     reader does, and resets when the log is replaced by a new launch.
 
-    Depth is the ranking: a reading that reaches further down the ladder wins,
-    and a stated place beats an inferred one at equal depth. Otherwise the
-    streaming chatter that only knows the system would keep erasing the moment
-    the game named the actual district.
+    A place is held until the log contradicts it. That is the whole rule, and
+    it matters because of what the log actually contains: in a three-hour
+    session it named a location outright twice, and of 215 streaming paths
+    only 56% resolved to anywhere. The rest were hangars, habs, ship interiors
+    and station modules - the same assets wherever you are, which is exactly
+    why they cannot say where you are.
+
+    This used to expire after five minutes without a fresh reading, which
+    meant walking indoors and staying there was indistinguishable from
+    leaving: the client learned you were at Orison, streamed nothing but
+    modular interiors while you sat in your ship, and then discarded Orison on
+    a timer. Four batches in five went up with no location at all.
+
+    So depth is no longer the only ranking. A reading that contradicts the one
+    held - a different system, a different body - replaces it however shallow
+    it is, which is what makes travel register. A reading that merely restates
+    less of the same place is redundant and ignored, and one that says nothing
+    is not evidence of anything.
     """
 
-    def __init__(self, stale_after: float = 300.0) -> None:
+    def __init__(self) -> None:
         self._offset = 0
         self._place = UNKNOWN
-        self._age = 0.0
-        self.stale_after = stale_after
 
     def reset(self) -> None:
         self._offset = 0
         self._place = UNKNOWN
-        self._age = 0.0
 
-    def read(self, path: Path, now: float) -> Place:
-        """Consume new bytes and return the best current reading."""
+    def read(self, path: Path, now: float = 0.0) -> Place:
+        """Consume new bytes and return the best current reading.
+
+        `now` is no longer read - nothing expires on a clock any more - but it
+        stays in the signature because the collector passes its monotonic time
+        to every reader it drives, and they should keep looking alike.
+        """
         try:
             size = path.stat().st_size
             if size < self._offset:
@@ -419,21 +435,34 @@ class LocationReader:
             return self._place
 
         for token in _RE_LOCATION.findall(fresh):
-            self._offer(parse_location_token(token.decode("ascii", "replace")), now)
+            self._offer(parse_location_token(token.decode("ascii", "replace")))
         for raw in _RE_CONTAINER.findall(fresh):
-            self._offer(parse_container_path(raw.decode("ascii", "replace")), now)
+            self._offer(parse_container_path(raw.decode("ascii", "replace")))
 
-        if self._place.known and now - self._age > self.stale_after:
-            self._place, self._age = UNKNOWN, now
         return self._place
 
-    def _offer(self, place: Place, now: float) -> None:
+    def _offer(self, place: Place) -> None:
+        """Take the reading if it beats or contradicts the one being held."""
         if not place.known:
+            return                      # a hangar is not a place; say nothing
+        if not self._place.known:
+            self._place = place
             return
-        stale = now - self._age > self.stale_after
         deeper = place.depth > self._place.depth
         firmer = (place.depth == self._place.depth
                   and place.source == SOURCE_NAMED
                   and self._place.source != SOURCE_NAMED)
-        if deeper or firmer or stale:
-            self._place, self._age = place, now
+        if deeper or firmer or self._contradicts(place):
+            self._place = place
+
+    def _contradicts(self, place: Place) -> bool:
+        """Whether a reading rules out the place being held.
+
+        Only rungs both readings name are compared, so a bare "stanton" while
+        holding stanton.crusader.orison is agreement with less detail, not a
+        move to the system. "pyro" disagrees at the first rung, and a jump
+        across the 'verse registers even though it says less.
+        """
+        return any(new and held and new != held for new, held in (
+            (place.system, self._place.system), (place.body, self._place.body),
+            (place.site, self._place.site), (place.detail, self._place.detail)))

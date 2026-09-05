@@ -138,6 +138,13 @@ def _percentiles(frames: list[float]) -> dict:
 
 # --- building a batch -----------------------------------------------------
 
+#: No keyboard or mouse for this long and the player is not playing. Well
+#: clear of a long quantum jump, which is the longest anyone sits still while
+#: genuinely in the game, and far below the idle sessions this is here to
+#: exclude.
+IDLE_SECONDS = 600.0
+
+
 def build_context(place, net_stats, build: str, frame_source: str) -> dict:
     """The context block, assembled a named field at a time."""
     fields = place.as_fields() if place else NOWHERE.as_fields()
@@ -301,7 +308,7 @@ class TelemetryCollector(threading.Thread):
 
     def __init__(self, spool: Spool, fps_stats, net_stats, hardware,
                  machine: dict, log_path=None, client_id: str = "",
-                 enabled=None, live_dir=None) -> None:
+                 enabled=None, live_dir=None, idle=None) -> None:
         super().__init__(name="telemetry", daemon=True)
         self.spool = spool
         self._fps_stats = fps_stats
@@ -311,6 +318,7 @@ class TelemetryCollector(threading.Thread):
         self._log_path = log_path
         self._live_dir = live_dir
         self._enabled = enabled or (lambda: True)
+        self._idle = idle or (lambda: 0.0)
 
         self.client = client_id or uuid.uuid4().hex
         self.session = uuid.uuid4().hex[:16]
@@ -357,6 +365,16 @@ class TelemetryCollector(threading.Thread):
         fps = self._fps_stats()
         if getattr(fps, "status", "") != "ok":
             self.flush()                 # not in a game; do not fabricate a gap
+            return
+
+        # Frames are not play. A game left sitting on a menu, or parked in a
+        # hangar overnight, renders happily and would otherwise be recorded as
+        # hours of telemetry - one such stretch ran to nine and a half hours -
+        # and now that a place is held until contradicted, all of it would be
+        # attributed to wherever the player last was. Windows already tracks
+        # this for the keepalive, and it discounts the taps this app sends.
+        if self._idle() > IDLE_SECONDS:
+            self.flush()
             return
 
         net = self._net_stats()

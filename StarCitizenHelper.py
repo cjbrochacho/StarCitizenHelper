@@ -732,6 +732,8 @@ class App(tk.Tk):
             live_dir=(lambda: log.parent if log else None),
             client_id=client_id,
             enabled=(lambda: bool(self.cfg.get('telemetry_enabled', True))),
+            # Deferred: the watcher is built after the collector is.
+            idle=(lambda: self.idle.seconds()),
         )
 
     def _show_telemetry_notice(self):
