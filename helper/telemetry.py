@@ -79,7 +79,7 @@ VIDEO_FIELDS = ("upscaler", "dlss_support", "game_res")
 _RE_SETTING = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,40}$")
 
 CONTEXT_FIELDS = ("system", "body", "site", "detail", "path", "depth", "kind",
-                  "source", "region", "instance", "build", "frame_source")
+                  "source", "region", "instance", "build")
 
 #: Positional, so a stray field cannot ride along in a row.
 ROW_FIELDS = ("dt", "fps", "frame_ms", "worst_ms", "cpu_mhz", "gpu_mhz",
@@ -169,14 +169,13 @@ def _percentiles(frames: list[float]) -> dict:
 IDLE_SECONDS = 600.0
 
 
-def build_context(place, net_stats, build: str, frame_source: str) -> dict:
+def build_context(place, net_stats, build: str) -> dict:
     """The context block, assembled a named field at a time."""
     fields = place.as_fields() if place else NOWHERE.as_fields()
     context = {name: fields.get(name, "") for name in CONTEXT_FIELDS}
     context["region"] = getattr(net_stats, "region", "") or ""
     context["instance"] = _instance_of(getattr(net_stats, "shard", ""))
     context["build"] = build
-    context["frame_source"] = frame_source
     return context
 
 
@@ -204,21 +203,13 @@ def build_batch(client: str, session: str, t0: int, context: dict,
     summary["ping_avg"] = round(sum(pings) / len(pings), 2) if pings else 0.0
     summary["jitter_ms"] = 0.0
     summary["loss_pct"] = 0.0
-    ctx = {name: context.get(name, "") for name in CONTEXT_FIELDS}
-    # Whatever instrument was running, a batch that pooled too few frames to
-    # take a percentile over did not measure per-frame. Its summary is zeros,
-    # and leaving the source as "presentmon" would offer those zeros as
-    # readings. The rows are real and they are samples, so it says so - and
-    # `frames` stays 0, which is what a reader should key on.
-    if len(frames) < MIN_POOL_FRAMES:
-        ctx["frame_source"] = "sampled"
     return {
         "type": "batch",
         "schema": SCHEMA,
         "client": client,
         "session": session,
         "t0": t0,
-        "ctx": ctx,
+        "ctx": {name: context.get(name, "") for name in CONTEXT_FIELDS},
         "sum": {name: summary.get(name, 0.0) for name in SUMMARY_FIELDS},
         "rows": [s.as_row() for s in seconds],
     }
@@ -418,12 +409,18 @@ class TelemetryCollector(threading.Thread):
         if not self._build:
             self._build = game_build(self._log_path() if callable(self._log_path)
                                      else self._log_path)
+        # Only per-frame measurement is collected. Until PresentMon has its
+        # trace open the monitor falls back to periodic sampling, and a figure
+        # taken that way is not a percentile over frames however it is
+        # labelled - a 1% low from samples is one sample. Rather than record
+        # it and mark it, this waits: the seconds before the trace opens are
+        # simply not measured, which is the honest description of them.
+        if not getattr(fps, "per_frame", False):
+            self.flush()
+            return
+
         place = self._read_place(mono)
-        # Provenance, kept as a field rather than assumed: rows measured
-        # through RivaTuner's shared memory went up tagged "rtss", and these
-        # are a different instrument, so they must not be pooled blindly.
-        context = build_context(place, net, self._build,
-                                "presentmon" if getattr(fps, "per_frame", False) else "sampled")
+        context = build_context(place, net, self._build)
 
         with self._lock:
             if self._context is not None and context != self._context:
@@ -533,6 +530,13 @@ class TelemetryCollector(threading.Thread):
 
     def _flush_locked(self) -> None:
         if not self._seconds or self._context is None:
+            self._seconds, self._context = [], None
+            return
+        # A batch that pooled too few frames to take a percentile over has
+        # nothing to say that this collects. It happens when the instrument
+        # was silent for the whole stretch, and writing it would put a row of
+        # zeros where a reader expects a measurement.
+        if sum(len(second.frames) for second in self._seconds) < MIN_POOL_FRAMES:
             self._seconds, self._context = [], None
             return
         self._write_profile_if_changed()

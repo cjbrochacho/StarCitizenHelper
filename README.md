@@ -432,9 +432,14 @@ must miss nothing instead, so each frame is taken by its own timestamp exactly o
 late it was handed over. Taking only the last second for both used to drop everything arriving
 outside it: a batch whose ten seconds fell inside one silence pooled no frames and still
 reported a 1% low, a minimum, a swing and a stutter — all of them zero, none of them measured.
-A batch that pools too few frames to take a percentile over now reports its source as
-`sampled` rather than `presentmon`, and its frame count stays zero, so nothing downstream can
-mistake an absent measurement for a slow one.
+
+**Only per-frame measurement is collected.** PresentMon takes several seconds to open its
+trace, and until it does the monitor falls back to periodic sampling — which the HUD still
+shows you, because a rough number now beats none. It is not recorded: a 1% low taken from
+samples is one sample, and a figure like that is not a percentile whatever it is labelled. So
+those seconds are simply not measured, and a batch that pools too few frames to take a
+percentile over is dropped rather than written as a row of zeros. There is one instrument, so
+nothing carries a field naming it.
 
 Run `python test_telemetry.py` to check that half: it drives the collector with fake monitors,
 so it needs no game, no window and no network.

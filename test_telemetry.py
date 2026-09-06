@@ -19,7 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from helper.telemetry import (BATCH_SECONDS, MIN_POOL_FRAMES, Second,
-                              TelemetryCollector, build_batch)
+                              TelemetryCollector, build_batch, build_context)
 
 PASSED = 0
 FAILED = 0
@@ -189,54 +189,67 @@ def _steady():
 check("a steady stream is counted once, not a third high", lambda: _steady())
 
 
-# --- what a batch may claim ----------------------------------------------
+# --- only what was measured per frame --------------------------------------
 
-print("\n2. a batch that measured no frames says so")
-
-def _zeros():
-    ctx = {"frame_source": "presentmon", "path": "stanton", "system": "stanton"}
-    seconds = [Second(dt=i, fps=59.7, frame_ms=16.75) for i in range(BATCH_SECONDS)]
-    batch = build_batch("c", "s", 1000, ctx, seconds)
-    assert batch["sum"]["frames"] == 0, batch["sum"]["frames"]
-    assert batch["sum"]["fps_avg"] == 0.0
-    assert batch["sum"]["low_1"] == 0.0
+print("\n2. nothing is collected unless it was measured per frame")
 
 
-check("its summary is zeros", lambda: _zeros())
+def _not_per_frame():
+    # Before PresentMon has its trace open the monitor falls back to periodic
+    # sampling. A 1% low from samples is one sample, so none of it is kept.
+    held = FakeFps(per_frame=False).aged(100.0, [(0.5, 8.0)])
+    tel = collector(lambda: held)
+    for tick in range(BATCH_SECONDS + 2):
+        tel.tick(1000.0 + tick, 100.0 + tick)
+    assert not tel._seconds, "recorded %d sampled seconds" % len(tel._seconds)
+    assert not tel.spool.written, "wrote %d sampled records" % len(tel.spool.written)
 
 
-def _sampled():
-    ctx = {"frame_source": "presentmon", "path": "stanton", "system": "stanton"}
-    seconds = [Second(dt=i, fps=59.7) for i in range(BATCH_SECONDS)]
-    batch = build_batch("c", "s", 1000, ctx, seconds)
-    assert batch["ctx"]["frame_source"] == "sampled", \
-        "a frameless batch called itself %r" % batch["ctx"]["frame_source"]
+check("a sampled tick records nothing", lambda: _not_per_frame())
 
 
-check("and does not claim it measured per-frame", lambda: _sampled())
+def _dropped():
+    # The instrument is per-frame but silent for the whole batch: there is no
+    # percentile to take, so the batch is not written rather than written as
+    # a row of zeros.
+    held = FakeFps(per_frame=True)
+    tel = collector(lambda: held)
+    for tick in range(BATCH_SECONDS):
+        tel.tick(1000.0 + tick, 100.0 + tick)
+    written = [r for r in tel.spool.written if r["type"] == "batch"]
+    assert not written, "wrote a batch with no frames in it"
 
 
-def _kept():
-    ctx = {"frame_source": "presentmon", "path": "stanton", "system": "stanton"}
+check("a batch that pooled no frames is not written", lambda: _dropped())
+
+
+def _one():
+    # One frame has no spread, so it is not a percentile either.
+    assert MIN_POOL_FRAMES == 2
+    held = FakeFps(per_frame=True)
+    tel = collector(lambda: held)
+    for tick in range(BATCH_SECONDS):
+        held.aged(100.0 + tick, [(0.5, 8.0)] if tick == 0 else [])
+        tel.tick(1000.0 + tick, 100.0 + tick)
+    written = [r for r in tel.spool.written if r["type"] == "batch"]
+    assert not written, "one frame became a batch"
+
+
+check("one frame is not a percentile", lambda: _one())
+
+
+def _no_source():
+    # There is one instrument now, so the field naming it is not sent.
+    ctx = build_context(None, FakeNet(), "019d99a0")
+    assert "frame_source" not in ctx, "context still carries a frame source"
     seconds = [Second(dt=i, frames=[8.0] * 60) for i in range(BATCH_SECONDS)]
     batch = build_batch("c", "s", 1000, ctx, seconds)
-    assert batch["ctx"]["frame_source"] == "presentmon"
+    assert "frame_source" not in batch["ctx"], "batch still carries a frame source"
     assert batch["sum"]["frames"] == 600, batch["sum"]["frames"]
     assert batch["sum"]["fps_avg"] > 0.0
 
 
-check("a batch that did measure keeps its instrument", lambda: _kept())
-
-
-def _one():
-    assert MIN_POOL_FRAMES == 2
-    ctx = {"frame_source": "presentmon"}
-    batch = build_batch("c", "s", 1000, ctx, [Second(dt=0, frames=[8.0])])
-    assert batch["sum"]["frames"] == 0, "a lone frame must not become a reading"
-    assert batch["ctx"]["frame_source"] == "sampled"
-
-
-check("one frame is not a percentile", lambda: _one())
+check("no frame source is sent at all", lambda: _no_source())
 
 
 # --- the whole path ------------------------------------------------------
@@ -258,7 +271,7 @@ def _endtoend():
     assert summary["frames"] == 90, summary["frames"]
     assert summary["fps_avg"] > 0.0, "still zero: %r" % summary
     assert summary["low_1"] > 0.0, "still zero: %r" % summary
-    assert written[0]["ctx"]["frame_source"] == "presentmon"
+    assert "frame_source" not in written[0]["ctx"]
 
 
 check("a batch spanning a delivery gap reports real figures", lambda: _endtoend())
