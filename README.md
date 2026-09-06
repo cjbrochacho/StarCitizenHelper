@@ -422,6 +422,21 @@ Measurements are aggregated on your PC before they are written: a second of fram
 row, and percentiles are computed once per batch, because a 1% low over sixty frames is one
 frame rather than a percentile.
 
+The row and the percentiles read the frames over different windows, and it matters.
+PresentMon does not hand frames over evenly — it delivers bursts with seconds of silence
+between them — so a **row** reads only the frames from its own second, or a burst's arrival
+would read as a second of play at whatever rate the burst happened to span. The **percentiles**
+must miss nothing instead, so each frame is taken by its own timestamp exactly once, however
+late it was handed over. Taking only the last second for both used to drop everything arriving
+outside it: a batch whose ten seconds fell inside one silence pooled no frames and still
+reported a 1% low, a minimum, a swing and a stutter — all of them zero, none of them measured.
+A batch that pools too few frames to take a percentile over now reports its source as
+`sampled` rather than `presentmon`, and its frame count stays zero, so nothing downstream can
+mistake an absent measurement for a slow one.
+
+Run `python test_telemetry.py` to check that half: it drives the collector with fake monitors,
+so it needs no game, no window and no network.
+
 Set `"telemetry_enabled": false` in `settings.json`, or press **Turn it off**, and it stops
 within a second.
 

@@ -50,6 +50,13 @@ SCHEMA = 1
 BATCH_SECONDS = 10
 SAMPLE_SECONDS = 1.0
 
+#: How far back the batch's frame pool will reach for frames it has not taken
+#: yet. PresentMon does not deliver evenly - it hands over bursts with seconds
+#: of silence between them - so a frame is pooled by its own timestamp rather
+#: than by when it arrived. The bound is a batch, because a frame older than
+#: that belongs to a batch already written and cannot be added to it now.
+POOL_SECONDS = float(BATCH_SECONDS)
+
 #: Keep a fortnight, and never more than this on disk.
 KEEP_DAYS = 14
 MAX_BYTES = 32 * 1024 * 1024
@@ -113,8 +120,11 @@ class Second:
     cpu_mhz: int = 0
     gpu_mhz: int = 0
     ping_ms: float = 0.0
-    #: Every frame drawn in this second, kept for the batch percentiles and
-    #: never written out - a per-second 1% low is one frame, not a percentile.
+    #: Every frame this tick pooled for the batch's percentiles, and never
+    #: written out - a per-second 1% low is one frame, not a percentile. Not
+    #: the same set as the row above it: the row describes one second, while
+    #: the pool takes each frame once by its own timestamp, however late the
+    #: instrument handed it over.
     frames: list[float] = field(default_factory=list)
 
     def as_row(self) -> list:
@@ -122,9 +132,14 @@ class Second:
                 else getattr(self, name) for name in ROW_FIELDS]
 
 
+#: Fewest frames a percentile can honestly be taken over. One frame has no
+#: spread, so there is no 1% low, no swing and no stutter to report.
+MIN_POOL_FRAMES = 2
+
+
 def _percentiles(frames: list[float]) -> dict:
     """The consistency figures, over every frame in the batch."""
-    if len(frames) < 2:
+    if len(frames) < MIN_POOL_FRAMES:
         return {name: 0.0 for name in SUMMARY_FIELDS[:7]}
     ordered = sorted(frames, reverse=True)
     worst_count = max(1, len(ordered) // 100)
@@ -189,13 +204,21 @@ def build_batch(client: str, session: str, t0: int, context: dict,
     summary["ping_avg"] = round(sum(pings) / len(pings), 2) if pings else 0.0
     summary["jitter_ms"] = 0.0
     summary["loss_pct"] = 0.0
+    ctx = {name: context.get(name, "") for name in CONTEXT_FIELDS}
+    # Whatever instrument was running, a batch that pooled too few frames to
+    # take a percentile over did not measure per-frame. Its summary is zeros,
+    # and leaving the source as "presentmon" would offer those zeros as
+    # readings. The rows are real and they are samples, so it says so - and
+    # `frames` stays 0, which is what a reader should key on.
+    if len(frames) < MIN_POOL_FRAMES:
+        ctx["frame_source"] = "sampled"
     return {
         "type": "batch",
         "schema": SCHEMA,
         "client": client,
         "session": session,
         "t0": t0,
-        "ctx": {name: context.get(name, "") for name in CONTEXT_FIELDS},
+        "ctx": ctx,
         "sum": {name: summary.get(name, 0.0) for name in SUMMARY_FIELDS},
         "rows": [s.as_row() for s in seconds],
     }
@@ -338,6 +361,11 @@ class TelemetryCollector(threading.Thread):
         self._lock = threading.Lock()
         self._reader = LocationReader()
         self._seconds: list[Second] = []
+        #: The newest frame the batch pool has already taken, on the same
+        #: monotonic clock tick() is given. None until the first tick, which
+        #: is what stops a fresh collector sweeping up the whole of the
+        #: monitor's minute-long window in one go.
+        self._pooled_to: float | None = None
         self._context: dict | None = None
         self._t0 = 0
         self._build = ""
@@ -402,7 +430,7 @@ class TelemetryCollector(threading.Thread):
                 self._flush_locked()
             if self._context is None:
                 self._context, self._t0 = context, int(wall)
-            self._seconds.append(self._second(fps, net, len(self._seconds)))
+            self._seconds.append(self._second(fps, net, len(self._seconds), mono))
             if len(self._seconds) >= BATCH_SECONDS:
                 self._flush_locked()
 
@@ -412,9 +440,27 @@ class TelemetryCollector(threading.Thread):
             return NOWHERE
         return self._reader.read(Path(path), mono)
 
-    def _second(self, fps, net, dt: int) -> Second:
-        """Only the frames from the last second, so windows do not overlap."""
-        recent = [ms for age, ms in getattr(fps, "frame_times", []) if age <= SAMPLE_SECONDS]
+    def _second(self, fps, net, dt: int, mono: float) -> Second:
+        """One row for this second, and every frame the pool has not taken.
+
+        Two windows, deliberately, because they answer different questions.
+
+        The *row* describes one second, so it reads only the frames aged under
+        a second. Widening it would make the arrival of a burst look like a
+        second of play at whatever rate the burst happened to span.
+
+        The *pool* feeds the batch's percentiles and must miss nothing.
+        PresentMon does not deliver evenly - measured, it handed over 1 row at
+        7s, 99 by 22s and 738 by 51s - so a frame delivered outside its own
+        second used to be dropped by every second and lost. A whole batch
+        landing inside one silence pooled nothing and reported a 1% low, a
+        minimum, a swing and a stutter of zero for figures that were never
+        measured; 64 of 5,427 batches in a fortnight of real play did exactly
+        that. So the pool takes a frame by its own timestamp against a
+        watermark, exactly once, however late it arrives.
+        """
+        times = list(getattr(fps, "frame_times", []))
+        recent = [ms for age, ms in times if age <= SAMPLE_SECONDS]
         cpu_mhz, gpu_mhz = (self._hardware() if callable(self._hardware) else (0, 0))
         total = sum(recent)
         return Second(
@@ -425,8 +471,30 @@ class TelemetryCollector(threading.Thread):
             cpu_mhz=int(cpu_mhz or 0),
             gpu_mhz=int(gpu_mhz or 0),
             ping_ms=float(getattr(net, "ping_ms", 0.0) or 0.0),
-            frames=recent,
+            frames=self._pool(times, mono),
         )
+
+    def _pool(self, times, mono: float) -> list[float]:
+        """The frames not yet taken, and the watermark moved past them.
+
+        A frame's stamp is this tick's clock less the age the monitor reported
+        for it, which is the same instant to well inside a frame. The floor
+        keeps two things honest: a collector that has just started, or has
+        just come back from a stall, reaches back one batch and no further,
+        rather than sweeping the monitor's whole minute into one batch.
+        """
+        floor = mono - POOL_SECONDS
+        if self._pooled_to is not None:
+            floor = max(floor, self._pooled_to)
+        fresh = []
+        newest = floor
+        for age, ms in times:
+            stamp = mono - age
+            if stamp > floor:
+                fresh.append(ms)
+                newest = max(newest, stamp)
+        self._pooled_to = newest
+        return fresh
 
     # -- writing out -------------------------------------------------------
 
