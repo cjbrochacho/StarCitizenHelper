@@ -381,8 +381,10 @@ slow hardware can be found across many players rather than guessed at from one.
 
 **It is on by default, and it says so.** The first launch after this arrives shows a notice
 with the off switch in the dialog, not buried behind it. The **Telemetry** tab lists every
-field that is collected, counts what has been written, and has **Open my data** — the files
-are gzipped JSON and you can read every byte of them.
+field that is collected, counts what has been written, and has **Open my data**, which opens
+this PC's own page on the dashboard — everything it has sent, read back, and how it compares
+with machines like it. The spool on disk is gzipped JSON and you can still read every byte of
+it, but it is a queue rather than an archive: a file lives there only until it has been posted.
 
 Batches are written to `assets/telemetry/` and pruned after a fortnight or 32 MB, whichever
 comes first.

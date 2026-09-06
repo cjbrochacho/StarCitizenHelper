@@ -885,8 +885,13 @@ class App(tk.Tk):
         The spool this used to open is a queue, not an archive: a file
         lives in it only until it has been posted, so once uploading had
         caught up there was nothing left in there to look at.
+
+        The path is /rig, not /machine: the dashboard names a PC a rig
+        throughout, and the old address now 404s. The id is this machine's -
+        the collector is keyed on it, so `client` is the same salted digest
+        the profile sends as `machine_id`, which is what the page is keyed on.
         """
-        url = '%s/machine/%s' % (TELEMETRY_SITE, self.telemetry.client)
+        url = '%s/rig/%s' % (TELEMETRY_SITE, self.telemetry.client)
         try:
             webbrowser.open(url)
         except OSError as exc:
