@@ -287,8 +287,14 @@ class Stats:
     #: Mean milliseconds the GPU was busy per frame. Next to the frame time it
     #: says whether the GPU or the CPU is the limit.
     gpu_busy_ms: float = 0.0
-    #: (age in seconds, frame time in ms), oldest first - same axis as history.
-    frame_times: list[tuple[float, float]] = field(default_factory=list)
+    #: (monotonic stamp, frame time in ms), oldest first. The stamp is the
+    #: frame's own, not its age: the telemetry collector pools frames across
+    #: ticks and needs to know which it has already taken, and an age is
+    #: measured from whenever `stats()` happened to be called. Reconstructing
+    #: a stamp from an age against a different reading of the clock moved
+    #: every frame by the gap between the two, so frames at the boundary were
+    #: taken twice and the batch's frame count ran about a quarter high.
+    frame_stamps: list[tuple[float, float]] = field(default_factory=list)
     #: (age in seconds, fps), oldest first, for plotting.
     history: list[tuple[float, float]] = field(default_factory=list)
 
@@ -346,7 +352,7 @@ def summarise(frames: list[tuple[float, float, float]], status: str,
         swing_pct=100.0 * swing / mean_frame if mean_frame else 0.0,
         stutter_pct=stutter,
         gpu_busy_ms=sum(gpu) / len(gpu) if gpu else 0.0,
-        frame_times=[(now - stamp, ms) for stamp, ms, _ in frames],
+        frame_stamps=[(stamp, ms) for stamp, ms, _ in frames],
         history=history,
     )
 

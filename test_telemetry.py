@@ -18,8 +18,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from helper.telemetry import (BATCH_SECONDS, MIN_POOL_FRAMES, POOL_SECONDS,
-                              Second, TelemetryCollector, build_batch)
+from helper.telemetry import (BATCH_SECONDS, MIN_POOL_FRAMES, Second,
+                              TelemetryCollector, build_batch)
 
 PASSED = 0
 FAILED = 0
@@ -37,14 +37,19 @@ def check(what, fn):
 
 
 class FakeFps:
-    """A frame monitor. `frame_times` is (age in seconds, frame in ms)."""
+    """A frame monitor. `frame_stamps` is (monotonic stamp, frame in ms)."""
 
-    def __init__(self, frame_times=(), fps=60.0, status="ok", per_frame=True):
-        self.frame_times = list(frame_times)
+    def __init__(self, frame_stamps=(), fps=60.0, status="ok", per_frame=True):
+        self.frame_stamps = list(frame_stamps)
         self.fps = fps
         self.frame_time_ms = 1000.0 / fps if fps else 0.0
         self.status = status
         self.per_frame = per_frame
+
+    def aged(self, now, ages_and_ms):
+        """Frames written as ages at `now`, which is how they read here."""
+        self.frame_stamps = [(now - age, ms) for age, ms in ages_and_ms]
+        return self
 
 
 class FakeNet:
@@ -92,7 +97,7 @@ def _burst():
     assert pooled == 0, "expected nothing pooled during the silence, got %d" % pooled
     # Now the burst lands, carrying frames aged up to three seconds - every
     # one of them older than the second it arrives in.
-    held.frame_times = [(2.5, 8.0), (2.0, 8.0), (1.5, 8.0), (0.5, 8.0)]
+    held.aged(102.0, [(2.5, 8.0), (2.0, 8.0), (1.5, 8.0), (0.5, 8.0)])
     tel.tick(1002.0, 102.0)
     pooled = sum(len(s.frames) for s in tel._seconds)
     assert pooled == 4, "the burst should be pooled whole, got %d" % pooled
@@ -102,11 +107,11 @@ check("a burst delivered outside its second is still pooled", lambda: _burst())
 
 
 def _once():
-    held = FakeFps(frame_times=[(0.5, 8.0), (0.2, 8.0)])
+    held = FakeFps().aged(100.0, [(0.5, 8.0), (0.2, 8.0)])
     tel = collector(lambda: held)
     tel.tick(1000.0, 100.0)
     # The same frames, a second older, still in the monitor's window.
-    held.frame_times = [(1.5, 8.0), (1.2, 8.0)]
+    held.aged(101.0, [(1.5, 8.0), (1.2, 8.0)])
     tel.tick(1001.0, 101.0)
     pooled = sum(len(s.frames) for s in tel._seconds)
     assert pooled == 2, "each frame belongs to one batch only, got %d" % pooled
@@ -116,35 +121,72 @@ check("and never pooled twice", lambda: _once())
 
 
 def _floor():
-    # The monitor holds a minute of frames; a collector that has just started
-    # must not attribute all of it to its first batch.
-    old = [(float(age), 8.0) for age in range(59, 0, -1)]
-    tel = collector(lambda: FakeFps(frame_times=old))
+    # The monitor holds a minute of frames whenever the collector starts, and
+    # those were drawn before it was collecting. The first tick takes its own
+    # second and leaves the rest of the window alone.
+    window = [(float(age), 8.0) for age in range(59, 0, -1)]
+    window += [(0.5, 8.0), (0.2, 8.0)]
+    tel = collector(lambda: FakeFps().aged(100.0, window))
     tel.tick(1000.0, 100.0)
     pooled = sum(len(s.frames) for s in tel._seconds)
-    assert pooled <= POOL_SECONDS + 1, \
-        "reached back past one batch: %d frames" % pooled
-    assert pooled > 0, "reached back nothing at all"
-
+    assert pooled == 2, "took %d of a 61-frame window, wanted the 2 fresh" % pooled
 
 check("a fresh collector does not sweep the whole window", lambda: _floor())
 
 
 def _row():
     # A burst spanning three seconds must not make the row read as though
-    # that many frames were drawn in one.
-    held = FakeFps(frame_times=[(2.5, 8.0), (2.0, 8.0), (0.5, 4.0)], fps=60.0)
+    # that many frames were drawn in one. One tick first to set the
+    # watermark, then the silence and the burst.
+    held = FakeFps(fps=60.0).aged(100.0, [(0.5, 8.0)])
     tel = collector(lambda: held)
     tel.tick(1000.0, 100.0)
-    second = tel._seconds[0]
-    assert len(second.frames) == 3, "the pool takes all three"
+    held.aged(103.0, [(2.5, 8.0), (2.0, 8.0), (0.5, 4.0)])
+    tel.tick(1003.0, 103.0)
+    second = tel._seconds[-1]
+    assert len(second.frames) == 3, (
+        "the pool takes the whole burst, took %d" % len(second.frames))
     # Only the 4 ms frame is inside the last second, so the row is 250 fps
     # over that one frame - not a rate invented from the whole burst.
     assert abs(second.fps - 250.0) < 0.01, "row fps was %r" % second.fps
     assert abs(second.worst_ms - 4.0) < 0.01, "row worst was %r" % second.worst_ms
 
-
 check("the row still describes its own second", lambda: _row())
+
+
+def _steady():
+    # A continuous stream, the ordinary case: ten ticks at a true 120 fps, and
+    # a monitor whose window keeps the last minute. The batch must hold the
+    # frames that were actually drawn and not one more.
+    #
+    # This is the case real data caught. Rebuilding a frame's stamp from its
+    # age used a different reading of the clock than the monitor had used, so
+    # the boundary frames came back on the next tick too and a ten-second
+    # batch at 120 fps reported 1,620 frames instead of 1,200 - a count a
+    # third high, and that count is the weight every population average uses.
+    rate, step = 120.0, 1.0 / 120.0
+    held = FakeFps(fps=rate)
+    tel = collector(lambda: held)
+    drawn = 0
+    for tick in range(BATCH_SECONDS):
+        now = 100.0 + tick
+        # Every frame of the last minute, as the monitor really holds them,
+        # and read at an instant slightly after the tick's own clock - which
+        # is what made the reconstruction drift.
+        held.frame_stamps = [(now + 0.004 - i * step, 1000.0 * step)
+                             for i in range(int(rate * 60))][::-1]
+        drawn = int(rate) * (tick + 1)
+        tel.tick(1000.0 + tick, now)
+    written = [r for r in tel.spool.written if r["type"] == "batch"]
+    assert len(written) == 1, "expected one batch, got %d" % len(written)
+    pooled = written[0]["sum"]["frames"]
+    # One tick's worth of slack: the first tick reaches back a second.
+    assert abs(pooled - drawn) <= rate,         "pooled %d frames for %d drawn" % (pooled, drawn)
+    fps_avg = written[0]["sum"]["fps_avg"]
+    assert abs(fps_avg - rate) < 1.0, "fps_avg %r for a steady %r" % (fps_avg, rate)
+
+
+check("a steady stream is counted once, not a third high", lambda: _steady())
 
 
 # --- what a batch may claim ----------------------------------------------
@@ -208,7 +250,7 @@ def _endtoend():
     # everything on the tenth, which is the shape that produced the zeros.
     for i in range(BATCH_SECONDS - 1):
         tel.tick(1000.0 + i, 100.0 + i)
-    held.frame_times = [(9.0 - i * 0.1, 8.0) for i in range(90)]
+    held.aged(100.0 + BATCH_SECONDS - 1, [(9.0 - i * 0.1, 8.0) for i in range(90)])
     tel.tick(1000.0 + BATCH_SECONDS - 1, 100.0 + BATCH_SECONDS - 1)
     written = [r for r in tel.spool.written if r["type"] == "batch"]
     assert len(written) == 1, "expected one batch, got %d" % len(written)

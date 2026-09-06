@@ -459,8 +459,8 @@ class TelemetryCollector(threading.Thread):
         that. So the pool takes a frame by its own timestamp against a
         watermark, exactly once, however late it arrives.
         """
-        times = list(getattr(fps, "frame_times", []))
-        recent = [ms for age, ms in times if age <= SAMPLE_SECONDS]
+        stamps = list(getattr(fps, "frame_stamps", []))
+        recent = [ms for at, ms in stamps if at > mono - SAMPLE_SECONDS]
         cpu_mhz, gpu_mhz = (self._hardware() if callable(self._hardware) else (0, 0))
         total = sum(recent)
         return Second(
@@ -471,29 +471,32 @@ class TelemetryCollector(threading.Thread):
             cpu_mhz=int(cpu_mhz or 0),
             gpu_mhz=int(gpu_mhz or 0),
             ping_ms=float(getattr(net, "ping_ms", 0.0) or 0.0),
-            frames=self._pool(times, mono),
+            frames=self._pool(stamps, mono),
         )
 
-    def _pool(self, times, mono: float) -> list[float]:
+    def _pool(self, stamps, mono: float) -> list[float]:
         """The frames not yet taken, and the watermark moved past them.
 
-        A frame's stamp is this tick's clock less the age the monitor reported
-        for it, which is the same instant to well inside a frame. The floor
-        keeps two things honest: a collector that has just started, or has
-        just come back from a stall, reaches back one batch and no further,
-        rather than sweeping the monitor's whole minute into one batch.
+        The monitor hands over each frame's own monotonic stamp, so the
+        watermark is exact and a frame is taken once. It used to hand over an
+        age instead, and rebuilding a stamp from it shifted every frame by
+        however long the reading took - enough for the frames at the boundary
+        to be taken again on the next tick, which ran the batch's frame count
+        about a quarter high.
+
+        The floor keeps a collector that has just started, or has just come
+        back from a stall, reaching back one batch and no further, rather than
+        sweeping the monitor's whole minute into one batch.
         """
-        floor = mono - POOL_SECONDS
-        if self._pooled_to is not None:
-            floor = max(floor, self._pooled_to)
-        fresh = []
-        newest = floor
-        for age, ms in times:
-            stamp = mono - age
-            if stamp > floor:
-                fresh.append(ms)
-                newest = max(newest, stamp)
-        self._pooled_to = newest
+        if self._pooled_to is None:
+            # The first tick of a session takes its own second and no more.
+            # Reaching back a whole batch here would hand the first batch up
+            # to ten seconds of frames drawn before collection began, and
+            # `frames` is the weight every population average uses.
+            self._pooled_to = mono - SAMPLE_SECONDS
+        floor = max(mono - POOL_SECONDS, self._pooled_to)
+        fresh = [ms for at, ms in stamps if at > floor]
+        self._pooled_to = max([floor] + [at for at, _ in stamps if at > floor])
         return fresh
 
     # -- writing out -------------------------------------------------------
