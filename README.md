@@ -546,6 +546,8 @@ feeding it keeps running.
 ```
 StarCitizenHelper.py     the app
 StarCitizenHelper.bat    the only thing you run: sets up if needed, then launches
+test_telemetry.py        what the collector must not get wrong
+test_docs.py             what this file must not get wrong
 
 helper/
   __init__.py            marks the package
@@ -559,6 +561,7 @@ helper/
   upload.py              posts the spool, and survives not being able to
   update.py              fetches and applies the newest commit at launch
   hud.py                 the header graph and its readout
+  overlay.py             the same readout, floating over the game
   idle.py                desktop-wide idle detection
   window.py              finds the game window; snap focus; taskbar icon
   brand.py               the radar mark and the header wordmark
@@ -576,9 +579,28 @@ settings.json            written on first save (git-ignored)
 Everything under `helper/` is standard library plus `ctypes`. The one binary is
 `vendor/PresentMon.exe`, which is run as a child process and never loaded into anything.
 
+The two test files are scripts, not a framework - run either with `py -3 <file>` and it
+exits non-zero if something is wrong. Neither needs the game, a window or a network.
+`test_docs.py` is what keeps this README honest: it reads the settings block above as if
+it were code and fails when the app has a setting this file does not mention.
+
 ---
 
 ## Troubleshooting
+
+**The game stutters, and you suspect this app is why.**
+Turn off **Measure frame rate (runs PresentMon)** on the Performance tab, or set
+`"perf_capture_enabled": false`. That is the whole of what this app does to the machine
+while a session is up: no PresentMon process, no ETW session, nothing being traced.
+It takes effect immediately, so you can toggle it without leaving the game.
+
+Turning off the HUD is **not** the same test - `hud_enabled` hides the readout and leaves
+the capture running behind it.
+
+If it still stutters, this app is not the only thing tracing frames on a typical machine.
+RivaTuner ships its own PresentMon, and Razer's software runs a permanent `RzPresentMon`
+session. `logman query -ets` lists every trace session running right now, which is the
+quickest way to see what else is holding one open.
 
 **Python was not found.**
 Run `StarCitizenHelper.bat` — it installs Python for you. If it cannot reach the internet, install

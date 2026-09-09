@@ -10,9 +10,14 @@ would have been the eighth undocumented key, and `scan_toggle` has been
 printed with a default the app has not used in some time. None of that was
 caught, because a stale paragraph runs perfectly well.
 
-So the settings block in the README is read here as if it were code, and
-checked against DEFAULTS. Add a setting without documenting it and this
-fails, which is the only thing that reliably keeps the two together.
+The same went for the project layout: helper/overlay.py shipped a whole
+feature and never appeared in the tree, and neither test file was listed.
+
+So the two blocks in the README that describe the app are read here as if
+they were code - the settings block against DEFAULTS, the layout tree
+against the files that actually exist. Add a setting or a module without
+documenting it and this fails, which is the only thing that reliably keeps
+the two together.
 
 It reads the sources as text rather than importing the app: importing
 StarCitizenHelper builds a Tk window and starts threads, which is not
@@ -50,6 +55,15 @@ def _module_dict(name):
         if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", "") == name:
             return ast.literal_eval(node.value)
     raise AssertionError("%s is not a module-level literal any more" % name)
+
+
+def _readme_layout():
+    """The tree under the Project layout heading, as the names it lists."""
+    readme = io.open(ROOT / "README.md", encoding="utf-8").read()
+    match = re.search(r"## Project layout.*?```(.*?)```", readme, re.S)
+    assert match, "the README has no tree under the Project layout heading"
+    names = re.findall(r"[A-Za-z0-9_.-]+", match.group(1))
+    return {name for name in names if name.endswith(".py")}
 
 
 def _readme_settings():
@@ -105,7 +119,38 @@ check("the README invents none", _nothing_invented)
 check("and the values it prints are the real defaults", _defaults_match)
 
 
-print("\n2. the block stays machine-readable, so this test keeps working")
+print("")
+print("2. every module is in the project layout")
+
+
+def _modules_on_disk():
+    found = {path.name for path in ROOT.glob("*.py")}
+    return found | {path.name for path in (ROOT / "helper").glob("*.py")}
+
+
+def _no_unlisted_modules():
+    """A module nobody has read about may as well not be there.
+
+    helper/overlay.py shipped a whole feature and never appeared in the
+    tree; so did both test files. Same fault as an undocumented setting,
+    and the same fix.
+    """
+    missing = sorted(_modules_on_disk() - _readme_layout())
+    assert not missing, (
+        "modules the project layout never lists: %s" % ", ".join(missing))
+
+
+def _no_phantom_modules():
+    gone = sorted(_readme_layout() - _modules_on_disk())
+    assert not gone, (
+        "the layout lists modules that are no longer there: %s" % ", ".join(gone))
+
+
+check("no module is missing from the layout", _no_unlisted_modules)
+check("and none of the listed ones are gone", _no_phantom_modules)
+
+
+print("\n3. the block stays machine-readable, so this test keeps working")
 
 
 def _boolean_keys_are_real():
