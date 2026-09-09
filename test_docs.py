@@ -57,6 +57,23 @@ def _module_dict(name):
     raise AssertionError("%s is not a module-level literal any more" % name)
 
 
+def _module_string(name):
+    """A string assigned at module level in StarCitizenHelper.py."""
+    source = io.open(ROOT / "StarCitizenHelper.py", encoding="utf-8").read()
+    for node in ast.parse(source).body:
+        if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", "") == name:
+            return ast.literal_eval(node.value)
+    raise AssertionError("%s is not a module-level literal any more" % name)
+
+
+def _readme_release():
+    """The version in the banner at the top of the README."""
+    readme = io.open(ROOT / "README.md", encoding="utf-8").read()
+    match = re.search(r"Latest release: v([0-9]+[.][0-9]+[.][0-9]+)", readme)
+    assert match, "the README no longer states a latest release"
+    return match.group(1)
+
+
 def _readme_layout():
     """The tree under the Project layout heading, as the names it lists."""
     readme = io.open(ROOT / "README.md", encoding="utf-8").read()
@@ -120,7 +137,27 @@ check("and the values it prints are the real defaults", _defaults_match)
 
 
 print("")
-print("2. every module is in the project layout")
+print("2. the release number says what is actually running")
+
+
+def _version_matches_readme():
+    """A zip install has no tags, so __version__ is the only version it has.
+
+    current_revision() returns it verbatim there - meaning an install seven
+    commits past the tag still called itself v3.0.0, because nothing failed
+    when the number and the release drifted apart.
+    """
+    source, banner = _module_string("__version__"), _readme_release()
+    assert source == banner, (
+        "__version__ is %s but the README announces v%s - a release bumps both"
+        % (source, banner))
+
+
+check("__version__ agrees with the README banner", _version_matches_readme)
+
+
+print("")
+print("3. every module is in the project layout")
 
 
 def _modules_on_disk():
@@ -150,7 +187,7 @@ check("no module is missing from the layout", _no_unlisted_modules)
 check("and none of the listed ones are gone", _no_phantom_modules)
 
 
-print("\n3. the block stays machine-readable, so this test keeps working")
+print("\n4. the block stays machine-readable, so this test keeps working")
 
 
 def _boolean_keys_are_real():

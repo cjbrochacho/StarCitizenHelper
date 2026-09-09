@@ -1,6 +1,6 @@
 # Star Citizen Helper
 
-**Latest release: v3.0.0 — 2026-09-04.** See [all releases](https://github.com/cjbrochacho/StarCitizenHelper/tags)
+**Latest release: v3.1.0 — 2026-09-09.** See [all releases](https://github.com/cjbrochacho/StarCitizenHelper/tags)
 for the full history; each one is a tagged commit, so `git checkout v3.0.0` always gets you exactly
 that point, not a moving target. Releases from v3.0.0 on are `vMAJOR.MINOR.PATCH`; the earlier
 `v1` and `v2` tags predate that and are left as they are.

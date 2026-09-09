@@ -36,7 +36,7 @@ from helper.window import (apply_window_icon, force_foreground, foreground_hwnd,
 #: checkout reads them directly, but a zip install has neither git nor tags, so
 #: the number has to travel inside the source. Bumped when a release is tagged;
 #: the tag name is this with a "v" in front.
-__version__ = '3.0.0'
+__version__ = '3.1.0'
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
