@@ -144,6 +144,7 @@ DEFAULTS = {
     'hold_keys':          'shift+w',
     'macros':             [],
     'hud_enabled':        True,
+    'perf_capture_enabled': True,
     'overlay_enabled':    False,
     'overlay_locked':     True,
     'overlay_opacity':    90,
@@ -158,7 +159,8 @@ DEFAULTS = {
 # Keys whose value must round-trip as a real JSON boolean, never as the
 # string "true"/"false" (which Python's bool() always reads as truthy).
 BOOLEAN_KEYS = (
-    'keepalive_enabled', 'altf4_guard', 'hud_enabled', 'overlay_enabled',
+    'keepalive_enabled', 'altf4_guard', 'hud_enabled', 'perf_capture_enabled',
+    'overlay_enabled',
     'overlay_locked', 'auto_update', 'telemetry_enabled', 'telemetry_notice_seen',
 )
 
@@ -393,7 +395,14 @@ class App(tk.Tk):
         keyboard.on_press(self._on_key_press)
 
         threading.Thread(target=self._automation_loop, daemon=True).start()
-        self.fps_monitor.start()
+        # The master switch for frame capture. Off means PresentMon is never
+        # launched and no ETW trace session is opened at all - which is the
+        # only way to rule the measurement out as a cause of a stutter,
+        # since hud_enabled only hides the readout that the capture feeds.
+        if self.cfg.get('perf_capture_enabled', True):
+            self.fps_monitor.start()
+        else:
+            self.log_queue.put('Frame capture disabled in settings - PresentMon not started')
         self.net_monitor.start()
         self.hardware.start()
         self.telemetry.start()
@@ -739,7 +748,10 @@ class App(tk.Tk):
         log = find_game_log()
         return TelemetryCollector(
             Spool(os.path.join(_DIR, 'assets', 'telemetry')),
-            fps_stats=self.fps_monitor.stats,
+            # Indirected on purpose: _toggle_perf_capture swaps in a fresh
+            # FpsMonitor, and a bound method captured here would go on
+            # reporting the dead one's empty window forever.
+            fps_stats=(lambda: self.fps_monitor.stats()),
             net_stats=self.net_monitor.stats,
             hardware=self.hardware.readings,
             machine=machine_profile(),
@@ -939,6 +951,10 @@ class App(tk.Tk):
 
         tk.Label(frame, text='Preferences', bg='#101722', fg='#91a7bd',
                  font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=18, pady=(14, 2))
+        self._add_checkbox(
+            frame, 'Measure frame rate (runs PresentMon)', 'perf_capture_enabled',
+            note='(off stops the ETW capture entirely - takes effect at once)',
+            on_toggle=self._toggle_perf_capture)
         self._add_checkbox(frame, 'Show performance HUD in header', 'hud_enabled',
                            note='(restart required)')
         self._add_checkbox(frame, 'Show floating performance overlay', 'overlay_enabled',
@@ -969,6 +985,33 @@ class App(tk.Tk):
                 width=28).pack(side='left', padx=8, ipady=5)
         tk.Label(hotkey_row, text='default: ctrl+alt+l - click Save Settings to apply',
                 bg='#101722', fg='#8ca2b9').pack(side='left')
+
+    def _toggle_perf_capture(self, enabled):
+        """Start or stop the frame capture without restarting the app.
+
+        A stopped FpsMonitor cannot be restarted - it is a Thread, and a
+        Thread runs once - so turning this back on builds a fresh one. Every
+        reader of the monitor goes through self.fps_monitor rather than a
+        saved reference, so the swap is invisible to them.
+
+        stats() answers on a monitor that was never started, reporting the
+        no-source/no-game status and an empty window, so the HUD and the
+        Performance tab keep working while this is off - they just show '--'.
+        """
+        if enabled:
+            if not self.fps_monitor.is_alive():
+                self.fps_monitor = FpsMonitor()
+                # A fresh monitor counts its restarts from zero, and the
+                # watcher in _refresh_hud reports any change - so without
+                # this it announces a restart that never happened.
+                self._fps_reset_seen = 0
+                self.fps_monitor.start()
+            self.log_queue.put('Frame capture enabled')
+        else:
+            # shutdown() kills PresentMon and closes the trace session; it
+            # does not merely ask the thread to wind down at its leisure.
+            self.fps_monitor.shutdown()
+            self.log_queue.put('Frame capture disabled - PresentMon stopped')
 
     def _refresh_hud(self):
         """Feed the header graph and the Performance tab, ten times a second."""
