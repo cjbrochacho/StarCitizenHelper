@@ -326,7 +326,18 @@ say, since the measurement includes the API call as well as the network.
 **There is no player count**, deliberately. The client is only ever told about itself and the
 entities streamed in around it, never the shard head-count, so any number here would be invented.
 
-Set `"hud_enabled": false` in `settings.json` to hide the header graph.
+### Turning it off
+
+Two separate switches, both on the **Performance** tab, because they do different things:
+
+- **Measure frame rate (runs PresentMon)** — `perf_capture_enabled`. Off means PresentMon
+  is never launched and no ETW session is opened, so nothing is being measured at all.
+  It applies the moment you click it: off stops the running capture, on starts a new one.
+  This is the switch to use if you suspect the measurement is itself costing you frames.
+- **Show performance HUD in header** — `hud_enabled`. Hides the graph only, at the next
+  restart. The capture behind it carries on, so this rules nothing out.
+
+With the capture off the HUD and the Performance tab still work; they just read `--`.
 
 ---
 
@@ -389,9 +400,13 @@ it, but it is a queue rather than an archive: a file lives there only until it h
 Batches are written to `assets/telemetry/` and pruned after a fortnight or 32 MB, whichever
 comes first.
 
-**Nothing is sent anywhere until you set an endpoint.** `telemetry_url` is empty by default, and
-with it empty the measurements only ever exist on your own disk. Set it in the Telemetry tab and
+**`telemetry_enabled` is the switch, and it is the only one.** Turn it off - in the Telemetry
+tab or in `settings.json` - and the measurements only ever exist on your own disk. With it on,
 batches are posted once every 30 seconds.
+
+The endpoint is not a setting. It is `TELEMETRY_URL` near the top of `StarCitizenHelper.py`,
+so pointing this at your own ingestor means editing that line. Earlier versions of this file
+described a `telemetry_url` key; there has never been one that the app reads.
 
 The thing on the other end — the ingestor, the store and the dashboard — is a separate project
 and is never installed here. The two halves share one HTTP endpoint and nothing else, which is
@@ -482,21 +497,37 @@ Set `"auto_update": false` in `settings.json` to pin the version you have.
 ## Settings file
 
 `settings.json` sits next to the app and loads at startup. Edit it by hand or use
-**Backup** / **Import**.
+**Backup** / **Import**. Anything absent falls back to the default below, so a partial
+file is fine.
+
+The app also writes `telemetry_client_id` here on first run - the anonymous id described
+under [Performance data](#performance-data). It is generated, not configured.
+
+`perf_capture_enabled` is the one to reach for if you suspect the measurement itself is
+costing you frames: with it `false` PresentMon is never launched and no ETW session is
+opened. `hud_enabled` does **not** do this - it only hides the readout, and the capture
+feeding it keeps running.
 
 ```json
 {
-  "keepalive_enabled":  true,
-  "keepalive_key":      "tab",
-  "altf4_guard":        true,
-  "scan_toggle":        "ctrl+alt+page up",
-  "scan_interval":      2,
-  "hold_start":         "shift+w+page up",
-  "hold_keys":          "shift+w",
-  "hud_enabled":        true,
-  "auto_update":        true,
-  "telemetry_enabled":  true,
-  "telemetry_url":      "",
+  "keepalive_enabled":    true,
+  "keepalive_key":        "tab",
+  "altf4_guard":          true,
+  "scan_toggle":          "tab+page up",
+  "scan_interval":        2,
+  "hold_start":           "shift+w+page up",
+  "hold_keys":            "shift+w",
+  "hud_enabled":          true,
+  "perf_capture_enabled": true,
+  "overlay_enabled":      false,
+  "overlay_locked":       true,
+  "overlay_opacity":      90,
+  "overlay_x":            null,
+  "overlay_y":            null,
+  "overlay_toggle_lock":  "ctrl+alt+l",
+  "auto_update":          true,
+  "telemetry_enabled":    true,
+  "telemetry_notice_seen": false,
   "macros": [
     {
       "name":    "Countermeasures",
