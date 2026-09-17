@@ -260,8 +260,24 @@ def _sheets_in_layout():
     assert match and "data/keybinds/" in match.group(1), "the layout does not list data/keybinds/"
 
 
+def _pdf_shipped():
+    """The zoom renders from the PDF; without it every zoom is a rough preview."""
+    folder = ROOT / "data" / "keybinds"
+    pdf = folder / "sheet.pdf"
+    assert pdf.is_file(), "data/keybinds/sheet.pdf is missing"
+    assert pdf.read_bytes()[:5] == b"%PDF-", "sheet.pdf does not start like a PDF - CRLF-mangled?"
+    attributes = io.open(ROOT / ".gitattributes", encoding="utf-8").read()
+    assert "*.pdf binary" in attributes, ".gitattributes has no *.pdf binary rule"
+    script = io.open(folder / "render_sheet.ps1", encoding="utf-8").read()
+    assert "$Page" in script, "render_sheet.ps1 has no -Page parameter; the app relies on it"
+    readme = io.open(ROOT / "README.md", encoding="utf-8").read()
+    match = re.search(r"## Project layout.*?```(.*?)```", readme, re.S)
+    assert match and "sheet.pdf" in match.group(1), "the layout does not list sheet.pdf"
+
+
 check("both sheets exist and are real PNGs, with their credits", _sheets_present)
 check("and the layout says so", _sheets_in_layout)
+check("the PDF ships, marked binary, with a script that renders one page", _pdf_shipped)
 
 
 print("\n%s  (%d passed, %d failed)"

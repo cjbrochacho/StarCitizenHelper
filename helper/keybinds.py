@@ -13,17 +13,25 @@ at all, so this module can say "these are your rebinds" and cannot, on its
 own, say "these are all your bindings". The Key Bindings tab pairs it with a
 rendered reference sheet of the defaults for that reason.
 
-Phase 2, when a snapshot of defaultProfile.xml ships with the app: add a
-`Binding(actionmap, action, input, source)` where source is 'default' or
-'rebind', and `merge(defaults, rebinds)` keyed on (actionmap, action) - a
-rebind replaces the default for its (actionmap, action, device) and an
-unbound rebind removes it. `describe_action` is the one place display names
-come from, so the game's localisation strings slot in there and nowhere else.
+There is a way to the full list without opening the archive. The game can
+export its own bindings - in the console, `pp_rebindkeys export all <name>`,
+or Options > Keybindings > Advanced > Export - to
+
+    LIVE\\USER\\client\\<n>\\Controls\\Mappings\\layout_<name>_exported.xml
+
+in the very same format, with every action listed and the unbound ones as
+"kb1_ ". `load_full_export` finds such a file, `merge` lays the player's
+rebinds over it, and the result is what the game is actually using - as of
+the export, which is the one caveat the status line has to keep saying.
+
+`describe_action` is the one place display names come from; the game's own
+localised strings could slot in there and nowhere else.
 """
 
 from __future__ import annotations
 
 import re
+import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,12 +41,29 @@ from helper.gamecfg import profile_dir
 
 @dataclass(frozen=True)
 class Rebind:
-    """One <rebind> in actionmaps.xml. `input` is '' when the player cleared it."""
+    """One <rebind> in actionmaps.xml. `input` is '' when the player cleared it.
+
+    `device` survives the clearing: "kb1_ " means the keyboard binding was
+    removed, "mo1_ " the mouse one, and a merge has to tell them apart.
+    """
     actionmap: str
     action: str
     input: str
     activation: str = ""
     multitap: int = 1
+    device: str = ""
+
+
+@dataclass(frozen=True)
+class Binding:
+    """One row of the full table: a default from the export, or the player's."""
+    actionmap: str
+    action: str
+    input: str
+    source: str                     # 'default' or 'rebind'
+    activation: str = ""
+    multitap: int = 1
+    device: str = ""
 
 
 # --- finding and reading ----------------------------------------------------
@@ -59,8 +84,12 @@ def find_actionmaps(live_dir: Path | None) -> Path | None:
 _RE_BARE_DEVICE = re.compile(r"^[a-z]{2}\d+_?$")
 
 
-def read_rebinds(path: Path | None) -> list[Rebind]:
-    """Every rebind in the file, in file order. Anything unreadable is []."""
+def read_actionmaps(path: Path | None) -> list[Rebind]:
+    """Every <rebind> in an action-maps file, in file order; unreadable is [].
+
+    The same reader serves actionmaps.xml (the player's changes) and a
+    layout_*_exported.xml (everything): the format is one and the same.
+    """
     if path is None:
         return []
     try:
@@ -78,6 +107,7 @@ def read_rebinds(path: Path | None) -> list[Rebind]:
                 multitap = 1
             for rebind in action.findall("rebind"):
                 raw = (rebind.get("input") or "").strip()
+                kind = device(raw)
                 if _RE_BARE_DEVICE.match(raw):
                     raw = ""
                 found.append(Rebind(
@@ -86,8 +116,108 @@ def read_rebinds(path: Path | None) -> list[Rebind]:
                     input=raw,
                     activation=rebind.get("activationMode") or action.get("activationMode") or "",
                     multitap=multitap,
+                    device=kind,
                 ))
     return found
+
+
+read_rebinds = read_actionmaps
+
+
+# --- the full export ---------------------------------------------------------
+
+#: A rebinds-only file has a handful of actions; a full export has well over
+#: a thousand. Anything in between is not a file this app wrote or wants.
+FULL_EXPORT_MIN_ACTIONS = 150
+
+EXPORT_COMMAND = "pp_rebindkeys export all sch"
+
+
+def mappings_dir(live_dir: Path | None) -> Path | None:
+    """Where the game writes exports: USER\\client\\<n>\\Controls\\Mappings."""
+    if live_dir is None:
+        return None
+    attributes = profile_dir(live_dir)
+    if attributes is None:
+        return None
+    # attributes.xml sits in Profiles/default; the client folder is two up.
+    return attributes.parents[2] / "Controls" / "Mappings"
+
+
+def find_exports(live_dir: Path | None) -> list[Path]:
+    """Every layout_*_exported.xml for the current client, newest first."""
+    folder = mappings_dir(live_dir)
+    if folder is None:
+        return []
+    try:
+        found = [p for p in folder.glob("layout_*_exported.xml") if p.is_file()]
+        found.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        return found
+    except OSError:
+        return []
+
+
+def is_full_export(rows: list[Rebind]) -> bool:
+    return len({(r.actionmap, r.action) for r in rows}) >= FULL_EXPORT_MIN_ACTIONS
+
+
+def load_full_export(live_dir: Path | None) -> tuple[Path | None, list[Rebind]]:
+    """The newest export that lists everything, and its rows; (None, []) if none."""
+    for path in find_exports(live_dir):
+        rows = read_actionmaps(path)
+        if is_full_export(rows):
+            return path, rows
+    return None, []
+
+
+def merge(base: list[Rebind], rebinds: list[Rebind]) -> list[Binding]:
+    """The export with the player's changes laid over it.
+
+    Keyed on (actionmap, action, device): rebinding the keyboard leaves a
+    mouse binding for the same action alone. A rebind replaces its row in
+    place, so the export's order - the game's own grouping - is kept; one
+    for an action the export does not know is appended. A cleared binding
+    stays as a row with no input rather than vanishing, so the table can
+    still be searched for it and can say the player cleared it.
+    """
+    rows: list[Binding | None] = [
+        Binding(r.actionmap, r.action, r.input, "default", r.activation, r.multitap, r.device)
+        for r in base]
+    slot: dict[tuple[str, str, str], int] = {}
+    for index, r in enumerate(base):
+        slot[(r.actionmap, r.action, r.device)] = index      # a repeat in the export: last wins
+    for r in rebinds:
+        key = (r.actionmap, r.action, r.device)
+        row = Binding(r.actionmap, r.action, r.input, "rebind", r.activation, r.multitap, r.device)
+        if key in slot:
+            rows[slot[key]] = row
+        else:
+            slot[key] = len(rows)
+            rows.append(row)
+    return [row for row in rows if row is not None]
+
+
+def conflicts(bindings: list[Binding]) -> dict[tuple[str, str], list[tuple[str, str]]]:
+    """Keys bound to more than one action in the same mode, where the player
+    is involved.
+
+    The game's own defaults share keys on purpose - mining and salvage are
+    modifier sub-modes of flight, press and hold on one key are two actions -
+    so a group made only of defaults is not a conflict. One the player made,
+    or made worse, is. Keyed on (mode, input): action maps within a mode are
+    active together, so a clash across two of them is still a clash.
+    """
+    groups: dict[tuple[str, str], dict[tuple[str, str], str]] = {}
+    for b in bindings:
+        if not b.input or b.device not in ("keyboard", "mouse"):
+            continue
+        members = groups.setdefault((mode_of(b.actionmap), b.input), {})
+        members[(b.actionmap, b.action)] = b.source
+    return {
+        key: list(members)
+        for key, members in groups.items()
+        if len(members) >= 2 and "rebind" in members.values()
+    }
 
 
 # --- naming what is bound ----------------------------------------------------
@@ -130,9 +260,16 @@ _RE_JS_AXIS = re.compile(r"^(x|y|z|rotx|roty|rotz|slider\d)$")
 _RE_JS_HAT = re.compile(r"^hat(\d)_(up|down|left|right)$")
 
 
+_RE_DEVICE = re.compile(r"^(kb|mo|js|gp)\d+(?:_|$)")
+
+
 def device(raw: str) -> str:
-    """'keyboard', 'mouse', 'joystick', 'gamepad', or '' for anything else."""
-    match = _RE_INPUT.match(raw or "")
+    """'keyboard', 'mouse', 'joystick', 'gamepad', or '' for anything else.
+
+    A bare "kb1_" still names its device: that is the game's way of writing
+    a keyboard binding the player removed.
+    """
+    match = _RE_DEVICE.match((raw or "").strip())
     return _DEVICES[match.group(1)] if match else ""
 
 
@@ -279,6 +416,19 @@ def mode_of(actionmap: str) -> str:
     if name.startswith(_FPS):
         return "FPS"
     return "Other"
+
+
+def describe_export_status(path: Path, actions: int, yours: int, stale: bool) -> str:
+    """The one line under the full table."""
+    try:
+        when = time.strftime("%Y-%m-%d %H:%M", time.localtime(path.stat().st_mtime))
+    except OSError:
+        when = "?"
+    line = "%s - %s actions, %d yours, exported %s" % (
+        path.name, format(actions, ","), yours, when)
+    if stale:
+        line += " - actionmaps.xml changed since; re-export for an exact list"
+    return line
 
 
 def describe_status(path: Path | None, rebinds: list[Rebind]) -> str:

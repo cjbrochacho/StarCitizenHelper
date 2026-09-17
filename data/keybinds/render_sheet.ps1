@@ -16,15 +16,23 @@
       -Pdf "$env:USERPROFILE\Downloads\SC4_6_0_KeyboardMouseOnly_v1.pdf"
 
   Writes flight.png and fps.png next to this script, 2000 px wide.
+
+.EXAMPLE
+  powershell -NoProfile -ExecutionPolicy Bypass -File render_sheet.ps1 `
+      -Pdf sheet.pdf -OutDir C:\cache -Width 2740 -Page 2 -Names page2-2740
+
+  One page, one file, at an exact width - how the app renders a zoom level.
 #>
 param(
     [Parameter(Mandatory = $true)] [string] $Pdf,
     [string]   $OutDir = '',
     [int]      $Width  = 2000,
+    [int]      $Page   = 0,              # 1-based; 0 renders every page
     [string[]] $Names  = @('flight', 'fps')
 )
 
 $ErrorActionPreference = 'Stop'
+if ($Width -lt 100 -or $Width -gt 8000) { throw "Width $Width is outside 100..8000." }
 if ($PSVersionTable.PSVersion.Major -ge 6) {
     throw "Windows.Data.Pdf is not available in PowerShell $($PSVersionTable.PSVersion); run this with Windows PowerShell 5.1 (powershell.exe)."
 }
@@ -60,8 +68,14 @@ function Await-Action($action) {
 
 $file = Await-Operation ([Windows.Storage.StorageFile]::GetFileFromPathAsync($Pdf)) ([Windows.Storage.StorageFile])
 $doc  = Await-Operation ([Windows.Data.Pdf.PdfDocument]::LoadFromFileAsync($file)) ([Windows.Data.Pdf.PdfDocument])
-if ($doc.PageCount -gt $Names.Count) {
-    Write-Warning ("The PDF has {0} pages but only {1} names were given; the rest are skipped." -f $doc.PageCount, $Names.Count)
+if ($Page -gt 0) {
+    if ($Page -gt $doc.PageCount) { throw "The PDF has $($doc.PageCount) pages; there is no page $Page." }
+    $indices = @($Page - 1)
+} else {
+    if ($doc.PageCount -gt $Names.Count) {
+        Write-Warning ("The PDF has {0} pages but only {1} names were given; the rest are skipped." -f $doc.PageCount, $Names.Count)
+    }
+    $indices = 0..([Math]::Min($doc.PageCount, $Names.Count) - 1)
 }
 $folder = Await-Operation ([Windows.Storage.StorageFolder]::GetFolderFromPathAsync($OutDir)) ([Windows.Storage.StorageFolder])
 
@@ -69,12 +83,12 @@ $folder = Await-Operation ([Windows.Storage.StorageFolder]::GetFolderFromPathAsy
 # request for 2000 comes back 2500 on a 125% screen. Ask once, measure what
 # came back, and correct the request for every page - the output is then the
 # same width on any machine.
-function Render-Page($page, $requestWidth, $name) {
+function Render-Page($pdfPage, $requestWidth, $name) {
     $options = New-Object Windows.Data.Pdf.PdfPageRenderOptions
     $options.DestinationWidth = $requestWidth
     $target = Await-Operation ($folder.CreateFileAsync($name, [Windows.Storage.CreationCollisionOption]::ReplaceExisting)) ([Windows.Storage.StorageFile])
     $stream = Await-Operation ($target.OpenAsync([Windows.Storage.FileAccessMode]::ReadWrite)) ([Windows.Storage.Streams.IRandomAccessStream])
-    Await-Action ($page.RenderToStreamAsync($stream, $options))
+    Await-Action ($pdfPage.RenderToStreamAsync($stream, $options))
     $stream.Dispose()
     # PNG width is a big-endian int at byte 16 of the IHDR chunk.
     $head = New-Object byte[] 24
@@ -83,17 +97,17 @@ function Render-Page($page, $requestWidth, $name) {
     [System.Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($head, 16))
 }
 
-$pages = [Math]::Min($doc.PageCount, $Names.Count)
 $request = $Width
-for ($i = 0; $i -lt $pages; $i++) {
-    $page = $doc.GetPage($i)
-    $name = $Names[$i] + '.png'
-    $got = Render-Page $page $request $name
+for ($k = 0; $k -lt $indices.Count; $k++) {
+    $i = $indices[$k]
+    $pdfPage = $doc.GetPage($i)
+    $name = $Names[$k] + '.png'
+    $got = Render-Page $pdfPage $request $name
     if ($got -ne $Width) {
         $request = [int][Math]::Round($Width * $Width / $got)
-        $got = Render-Page $page $request $name
+        $got = Render-Page $pdfPage $request $name
     }
-    $page.Dispose()
+    $pdfPage.Dispose()
     $size = (Get-Item -LiteralPath (Join-Path $OutDir $name)).Length
     Write-Output ("page {0} -> {1}  {2} px wide  ({3:N0} bytes)" -f ($i + 1), $name, $got, $size)
 }

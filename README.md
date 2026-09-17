@@ -234,26 +234,59 @@ Pick combos the game does not use — `ctrl+alt+1` through `ctrl+alt+9` are safe
 
 ## Key Bindings
 
-The game's default bindings, by mode, and what you have changed.
+The game's default bindings, by mode, and the bindings you actually have.
 
-The top of the tab is a reference sheet: **Flight** and **FPS**, one page each, rendered from a
+### The sheet
+
+The top of the tab is a reference sheet: **Flight** and **FPS**, one page each, from a
 community-made keyboard-and-mouse chart for 4.6.0 by *Those Guys With Ships* and *Texas Space
-Navy* (credited in `data/keybinds/SOURCE.md`, which also says how to re-render it for a new
-patch). Mining, salvage, scanning and the rest are modifier sub-modes of Flight, shown on that
-page with a colour key. Scroll to move around it, Shift+scroll to move sideways, Ctrl+scroll or
-the **Fit / 100% / 150% / 200%** buttons to zoom, and drag with the mouse to pan. The pages are
-not decoded until you first open the tab, so a launch that never looks at them costs nothing.
+Navy* (credited in `data/keybinds/SOURCE.md`, which also says how to swap it for a new patch).
+Mining, salvage, scanning and the rest are modifier sub-modes of Flight, shown on that page with
+a colour key. Scroll to move around it, Shift+scroll to move sideways, drag with the mouse to
+pan.
 
-Under the sheet, **Your rebinds** lists what you have changed from those defaults - the action,
-what it is bound to now, and which action map it belongs to - filtered to the mode shown, or
-all of them. It is read live from the game's own profile, the same `actionmaps.xml` the in-game
-options screen writes, so **Reload** after changing a binding in the game shows it here. The
-panel folds away to give the sheet the whole tab; the count stays in the heading.
+Zoom is exact at any size. Use the slider, type a percentage, **Fit**, **100%**, **200%**, or
+Ctrl+scroll in steps of ten, from 25% to 250%. The sheet ships as a PDF, and the first time a
+size is asked for the page is rendered at exactly that width - by Windows' own PDF renderer, in
+the background, a second or two - and then kept under `assets\keybinds\` so it is instant from
+then on. Until the render lands you see the shipped image scaled the quick, rough way, and the
+zoom readout says `rendering...`. If it says `(preview)` instead, the renderer could not run - it
+needs the Windows PowerShell that comes with Windows - and the Activity Log says why. Nothing is
+decoded until you first open the tab, so a launch that never looks at it costs nothing.
 
-What it cannot show is a full list of every current binding. The game keeps only your *changes*
-in a readable file; the defaults themselves are inside `Data.p4k`, an archive nothing outside
-the game can open. A later version will ship a snapshot of those defaults so the table can be
-complete. Until then the sheet is the defaults and the table is the diff.
+### Bindings
+
+Under the sheet, **Bindings** is your actual bindings: every action the game has, what it is
+bound to right now, which action map it belongs to, and `yours` against the ones you changed.
+Drag the sash between sheet and table to give either more room; the heading folds the table
+away and shows the count. The table is filtered to the mode shown unless you tick **show all
+modes**; type in **search** to narrow it by action, key or map.
+
+The game keeps only your *changes* in a readable file - `actionmaps.xml`, the one its options
+screen writes - and the defaults are inside `Data.p4k`, an archive nothing outside the game can
+open. But the game will write the whole list out itself. Once, in the game, open the console with
+`` ` `` and run
+
+```
+pp_rebindkeys export all sch
+```
+
+(or Options > Keybindings > Advanced Controls Customization > Export). That writes
+`layout_sch_exported.xml` into `USER\client\<n>\Controls\Mappings\`; press **Reload** here and
+the full table appears, with your `actionmaps.xml` laid over it. Until you do, the tab shows the
+command with a **Copy command** button, and the table holds just your rebinds.
+
+The export is a snapshot. Rebinding something afterwards is fine - `actionmaps.xml` is read live
+and wins - but *resetting* a binding to its default is not in that file, so the status line will
+ask you to export again when `actionmaps.xml` is newer than the export.
+
+A row in orange is a key bound to more than one action in the same mode, where at least one of
+them is yours. The game's own defaults share keys on purpose - press and hold on one key, mining
+and salvage under a modifier - so those are left alone; a clash you made, or made worse, is
+flagged. Three actions of yours on one key will show as three orange rows.
+
+Setting a binding from here is planned: capture the keys, write a one-action mapping file, and
+have the game load it with `pp_rebindkeys`. Not in this version.
 
 ---
 
@@ -617,6 +650,7 @@ test_update.py           what the updater must not get wrong
 test_launcher.py         a lone launcher installs the app - needs the network
 test_keybinds.py         what the key bindings reader must not get wrong
 test_window.py           what the window-position helpers must not get wrong
+test_sheet.py            what the sheet renderer must not get wrong
 
 helper/
   __init__.py            marks the package
@@ -632,7 +666,8 @@ helper/
   hud.py                 the header graph and its readout
   overlay.py             the same readout, floating over the game
   idle.py                desktop-wide idle detection
-  keybinds.py            the player's rebinds, read from actionmaps.xml
+  keybinds.py            bindings: the game's export, the player's rebinds, merged
+  sheet.py               the sheet at any zoom, rendered from its PDF on demand
   scroll.py              a tab that scrolls, and one wheel handler for the window
   window.py              finds the game window; snap focus; taskbar icon; remembers where this one was
   brand.py               the radar mark and the header wordmark
@@ -647,9 +682,10 @@ data/keybinds/
   flight.png             the reference sheet, Flight page - credits in SOURCE.md
   fps.png                the reference sheet, FPS page
   SOURCE.md              where the sheet came from, and how to refresh it
-  render_sheet.ps1       renders a PDF to these PNGs with nothing but Windows
+  sheet.pdf              the sheet itself - rendered from at every zoom level
+  render_sheet.ps1       renders the PDF to PNG with nothing but Windows; one page or all
 
-assets/                  generated icon and shortcut marker (git-ignored)
+assets/                  generated icon, shortcut marker, sheet renders (git-ignored)
 settings.json            written on first save (git-ignored)
 ```
 
@@ -667,6 +703,11 @@ the app has something this file does not mention.
 ---
 
 ## Troubleshooting
+
+**Zoom on the Key Bindings sheet stays rough, and the readout says (preview).**
+The exact render needs the Windows PowerShell that ships with Windows (5.1, at
+`C:\Windows\System32\WindowsPowerShell\v1.0\`). The Activity Log has the line from the renderer
+saying what went wrong. Delete `assets\keybinds\` to make it try again from scratch.
 
 **Key Bindings says "Star Citizen not found".**
 It finds the game the same way Server History does: from the RSI launcher's own log, which

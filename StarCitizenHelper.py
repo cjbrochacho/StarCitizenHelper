@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+from fractions import Fraction
 import sys
 import time
 import threading
@@ -22,8 +23,11 @@ from helper.brand import BrandMark, WordMark
 from helper.fps import FpsMonitor, presentmon_executable
 from helper.hud import HudGraph
 from helper.idle import IdleWatcher, note_injection, tick
-from helper.keybinds import (describe_action, describe_input, describe_status,
-                             find_actionmaps, mode_of, read_rebinds)
+from helper.keybinds import (EXPORT_COMMAND, Binding, conflicts, describe_action,
+                             describe_export_status, describe_input, describe_status,
+                             find_actionmaps, load_full_export, mappings_dir, merge,
+                             mode_of, read_actionmaps)
+from helper.sheet import SheetRenderer
 from helper.hardware import HardwareMonitor, machine_id, machine_profile
 from helper.history import collect as collect_history
 from helper.net import NetMonitor, find_game_log, process_pid
@@ -53,11 +57,16 @@ _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
 #: The key binding reference sheets, one PNG per page, in the order the tab
 #: offers them. See data/keybinds/SOURCE.md for where they come from.
 KEYBINDS_DIR = os.path.join(_DIR, 'data', 'keybinds')
-SHEETS = (('Flight', 'flight.png'), ('FPS', 'fps.png'))
-#: Zoom steps as (numerator, denominator). Tk scales a photo by an integer
-#: zoom and an integer subsample, both in one copy, so these are the sizes
-#: that cost nothing more than the result.
-ZOOM_LADDER = ((1, 3), (1, 2), (2, 3), (1, 1), (3, 2), (2, 1))
+SHEETS = (('Flight', 'flight.png'), ('FPS', 'fps.png'))      # page N = index + 1
+SHEET_PDF = os.path.join(KEYBINDS_DIR, 'sheet.pdf')
+SHEET_SCRIPT = os.path.join(KEYBINDS_DIR, 'render_sheet.ps1')
+#: Renders of the PDF at zoom levels the user has asked for. Under assets/,
+#: which the updater never touches and git never sees.
+SHEET_CACHE = os.path.join(_DIR, 'assets', 'keybinds')
+#: 250% of a 2000px page is a 77 MB photo; 300% would be 111 MB.
+ZOOM_MIN, ZOOM_MAX = 25, 250
+#: A slider drag fires many changes a second; the render waits for it to stop.
+RENDER_DEBOUNCE_MS = 250
 
 
 def _read_revision():
@@ -973,72 +982,44 @@ class App(tk.Tk):
     # -- Key Bindings ---------------------------------------------------------
 
     def _build_keybinds_tab(self, notebook):
-        """The reference sheet for the game's bindings, and the player's own.
+        """The reference sheet for the game's bindings, and the full table.
 
-        Two things, kept apart because they come from different places. The
-        sheet is a rendered PNG of a community reference for the *default*
-        bindings, one page per mode. The table underneath is what the player
-        has changed, read from actionmaps.xml - which is all that file holds;
-        the defaults themselves live inside Data.p4k, which nothing here can
-        open. Nothing is loaded until the tab is first shown: the images are
-        a few megabytes each once decoded, and most launches never look.
+        The sheet is a community chart of the *default* bindings, one page per
+        mode. It ships as a PDF and as one 2000px PNG per page; any other zoom
+        is rendered from the PDF on demand, in the background, and cached -
+        Tk's own scaling drops pixels and the sheet's small text does not
+        survive it. The table underneath is the player's actual bindings: the
+        game's own export of everything, with actionmaps.xml laid over it.
+        Nothing is loaded until the tab is first shown.
         """
         frame = self._keybinds_tab = tk.Frame(notebook, bg='#101722')
         notebook.add(frame, text='Key Bindings')
         self._sheet_mode = SHEETS[0][0]
-        self._sheet_zoom = 'fit'                 # or an index into ZOOM_LADDER
-        self._sheet_base = {}                    # mode -> PhotoImage as loaded
-        self._sheet_scaled = {}                  # mode -> ((num, den), PhotoImage)
+        self._sheet_pct = 100
+        self._sheet_fit = True
+        self._sheet_base = {}                    # mode -> PhotoImage as shipped
+        self._sheet_scaled = {}                  # mode -> (pct, PhotoImage, crisp)
+        self._sheet_generation = 0               # bumps on every zoom/mode change
+        self._sheet_render_after = None
+        self._sheet_fit_after = None
+        self._sheet_syncing = False
+        self._sheet_rendering = False
+        self._sheet_preview_only = False
+        self._sheet_renderer = SheetRenderer(SHEET_PDF, SHEET_CACHE, SHEET_SCRIPT,
+                                             log=self.log_queue.put)
         self._keybinds_loaded = False
+        self._bindings = []                      # the merged table, filtered per refresh
+        self._binding_conflicts = {}
         self._show_all_modes = tk.BooleanVar(value=False)
 
-        # Bottom first, so the table is never what gets cut off - see Macros.
-        panel = tk.Frame(frame, bg='#101722')
-        panel.pack(side='bottom', fill='x', padx=18, pady=(8, 12))
-        head = tk.Frame(panel, bg='#101722')
-        head.pack(fill='x')
-        # The table folds away so the sheet can have the whole tab, and starts
-        # folded: room is tight - at a 1000px window the notebook gets about
-        # 540px - and the sheet is what the tab is for. The count stays in view.
-        self._rebinds_open = False
-        self._rebinds_toggle = tk.Button(head, text='', command=self._toggle_rebinds,
-                                         bg='#101722', fg='#91a7bd', activebackground='#101722',
-                                         activeforeground='#eef6ff', relief='flat', bd=0,
-                                         font=('Segoe UI Semibold', 10), cursor='hand2')
-        self._rebinds_toggle.pack(side='left')
-        tk.Button(head, text='Reload', command=self._refresh_rebinds,
-                  bg='#253448', fg='#eef6ff', activebackground='#2a4661',
-                  relief='flat', padx=12, pady=3).pack(side='right')
-        tk.Checkbutton(head, text='show all modes', variable=self._show_all_modes,
-                       command=self._refresh_rebinds, bg='#101722', fg='#c9d7e6',
-                       selectcolor='#0f1721', activebackground='#101722',
-                       activeforeground='#eef6ff', relief='flat').pack(side='right', padx=(0, 10))
-        table = self._rebinds_table = tk.Frame(panel, bg='#101722')
-        # Not packed yet: _toggle_rebinds does that, in front of the status line.
-        columns = ('mode', 'action', 'bound', 'map')
-        self.rebinds_view = ttk.Treeview(table, columns=columns, show='headings',
-                                         style='Dark.Treeview', height=3)
-        for name, title, width in (('mode', 'Mode', 70), ('action', 'Action', 260),
-                                   ('bound', 'Bound to', 160), ('map', 'Action map', 180)):
-            self.rebinds_view.heading(name, text=title)
-            self.rebinds_view.column(name, width=width, anchor='w')
-        bar = ttk.Scrollbar(table, orient='vertical', command=self.rebinds_view.yview)
-        self.rebinds_view.configure(yscrollcommand=bar.set)
-        self.rebinds_view.pack(side='left', fill='x', expand=True)
-        bar.pack(side='left', fill='y')
-        self.rebinds_status = tk.Label(panel, text='', bg='#101722', fg='#6f8398',
-                                       font=('Consolas', 9), anchor='w', justify='left')
-        self.rebinds_status.pack(fill='x', pady=(4, 0))
-        self._paint_rebinds_toggle()
-
-        # Top: heading, then the two rows of controls.
         tk.Label(frame, text='Key Bindings', bg='#101722', fg='#eef6ff',
                  font=('Segoe UI Semibold', 13)).pack(anchor='w', padx=18, pady=(16, 2))
         tk.Label(frame, text='Default bindings per mode, from a community 4.6.0 sheet; your own '
-                             'changes below. Scroll and Shift+scroll to pan, Ctrl+scroll to zoom, '
-                             'drag to move.',
+                             'bindings in the table below. Scroll and Shift+scroll to pan, '
+                             'Ctrl+scroll or the slider to zoom, drag to move.',
                  bg='#101722', fg='#91a7bd', wraplength=900, justify='left'
                  ).pack(anchor='w', padx=18, pady=(0, 8))
+
         controls = tk.Frame(frame, bg='#101722')
         controls.pack(fill='x', padx=18, pady=(0, 6))
         self._sheet_mode_buttons = {}
@@ -1050,19 +1031,38 @@ class App(tk.Tk):
             self._sheet_mode_buttons[mode] = button
         tk.Frame(controls, bg='#2e435a', width=1, height=26).pack(side='left', padx=10)
         self._sheet_zoom_buttons = {}
-        for label, step in (('Fit', 'fit'), ('100%', 3), ('150%', 4), ('200%', 5)):
-            button = tk.Button(controls, text=label, command=lambda z=step: self._set_zoom(z),
+        for label, pct, fit in (('Fit', None, True), ('100%', 100, False), ('200%', 200, False)):
+            button = tk.Button(controls, text=label,
+                               command=lambda p=pct, f=fit: self._apply_zoom(p, fit=f),
                                bg='#253448', fg='#eef6ff', activebackground='#2a4661',
                                relief='flat', padx=10, pady=5, width=5)
             button.pack(side='left', padx=(0, 4))
-            self._sheet_zoom_buttons[step] = button
+            self._sheet_zoom_buttons[label] = button
+        self._sheet_slider = tk.Scale(controls, from_=ZOOM_MIN, to=ZOOM_MAX, orient='horizontal',
+                                      resolution=1, showvalue=0, length=180,
+                                      bg='#101722', fg='#eef6ff', troughcolor='#0f1721',
+                                      highlightthickness=0, bd=0, command=self._on_zoom_slider)
+        self._sheet_slider.pack(side='left', padx=(10, 6))
+        self._sheet_entry = tk.Entry(controls, width=4, justify='right', bg='#0f1721',
+                                     fg='#eaf4ff', insertbackground='white', relief='flat')
+        self._sheet_entry.pack(side='left', ipady=3)
+        self._sheet_entry.bind('<Return>', self._on_zoom_entry)
+        self._sheet_entry.bind('<FocusOut>', self._on_zoom_entry)
+        tk.Label(controls, text='%', bg='#101722', fg='#91a7bd').pack(side='left', padx=(2, 0))
         self._sheet_zoom_label = tk.Label(controls, text='', bg='#101722', fg='#6f8398',
                                           font=('Consolas', 9))
         self._sheet_zoom_label.pack(side='left', padx=(10, 0))
 
-        # The image, with its own scrolling in both directions.
-        viewer = tk.Frame(frame, bg='#101722')
-        viewer.pack(fill='both', expand=True, padx=18)
+        # The sheet above, the table below, and a sash between them the user
+        # can drag. Classic PanedWindow rather than ttk's: only this one has a
+        # per-pane minimum, which is what keeps the table's head row in view
+        # however far the sash goes.
+        paned = self._keybinds_paned = tk.PanedWindow(
+            frame, orient='vertical', bg='#101722', sashwidth=6, sashpad=0,
+            sashrelief='flat', bd=0, opaqueresize=True)
+        paned.pack(fill='both', expand=True, padx=18, pady=(0, 12))
+
+        viewer = tk.Frame(paned, bg='#101722')
         viewer.columnconfigure(0, weight=1)
         viewer.rowconfigure(0, weight=1)
         self.sheet_canvas = tk.Canvas(viewer, bg='#0f1721', highlightthickness=0,
@@ -1078,26 +1078,75 @@ class App(tk.Tk):
         # these - the canvas owns its wheel entirely.
         canvas.bind('<MouseWheel>', lambda e: (canvas.yview_scroll(-int(e.delta / 120) * 40, 'units'), 'break')[1])
         canvas.bind('<Shift-MouseWheel>', lambda e: (canvas.xview_scroll(-int(e.delta / 120) * 40, 'units'), 'break')[1])
-        canvas.bind('<Control-MouseWheel>', lambda e: (self._zoom_step(1 if e.delta > 0 else -1), 'break')[1])
+        canvas.bind('<Control-MouseWheel>', lambda e: (
+            self._apply_zoom(self._sheet_pct + (10 if e.delta > 0 else -10), fit=False), 'break')[1])
         canvas.bind('<ButtonPress-1>', lambda e: canvas.scan_mark(e.x, e.y))
         canvas.bind('<B1-Motion>', lambda e: canvas.scan_dragto(e.x, e.y, gain=1))
         canvas.bind('<Configure>', self._on_sheet_resize)
+        paned.add(viewer, stretch='always', minsize=160)
+
+        panel = tk.Frame(paned, bg='#101722')
+        head = tk.Frame(panel, bg='#101722')
+        head.pack(fill='x', pady=(6, 0))
+        self._bindings_open = False
+        self._bindings_toggle = tk.Button(head, text='', command=self._toggle_bindings,
+                                          bg='#101722', fg='#91a7bd', activebackground='#101722',
+                                          activeforeground='#eef6ff', relief='flat', bd=0,
+                                          font=('Segoe UI Semibold', 10), cursor='hand2')
+        self._bindings_toggle.pack(side='left')
+        tk.Button(head, text='Reload', command=self._reload_bindings,
+                  bg='#253448', fg='#eef6ff', activebackground='#2a4661',
+                  relief='flat', padx=12, pady=3).pack(side='right')
+        tk.Checkbutton(head, text='show all modes', variable=self._show_all_modes,
+                       command=self._refresh_bindings, bg='#101722', fg='#c9d7e6',
+                       selectcolor='#0f1721', activebackground='#101722',
+                       activeforeground='#eef6ff', relief='flat').pack(side='right', padx=(0, 10))
+        self._bindings_search = tk.Entry(head, width=22, bg='#0f1721', fg='#eaf4ff',
+                                         insertbackground='white', relief='flat')
+        self._bindings_search.pack(side='right', padx=(0, 12), ipady=3)
+        self._bindings_search.bind('<KeyRelease>', lambda e: self._refresh_bindings())
+        tk.Label(head, text='search', bg='#101722', fg='#6f8398').pack(side='right', padx=(0, 6))
+
+        table = self._bindings_table = tk.Frame(panel, bg='#101722')
+        columns = ('mode', 'action', 'bound', 'map', 'source')
+        self.bindings_view = ttk.Treeview(table, columns=columns, show='headings',
+                                          style='Dark.Treeview')
+        for name, title, width in (('mode', 'Mode', 60), ('action', 'Action', 260),
+                                   ('bound', 'Bound to', 160), ('map', 'Action map', 180),
+                                   ('source', '', 50)):
+            self.bindings_view.heading(name, text=title)
+            self.bindings_view.column(name, width=width, anchor='w', stretch=(name == 'action'))
+        self.bindings_view.tag_configure('rebind', foreground=theme.ACCENT)
+        self.bindings_view.tag_configure('conflict', foreground=theme.WARN)
+        bar = ttk.Scrollbar(table, orient='vertical', command=self.bindings_view.yview)
+        self.bindings_view.configure(yscrollcommand=bar.set)
+        self.bindings_view.pack(side='left', fill='both', expand=True)
+        bar.pack(side='left', fill='y')
+        # Not packed yet: _toggle_bindings does that, in front of the status line.
+
+        # What to do when there is no export yet: shown only then.
+        self._export_help = tk.Frame(panel, bg='#101722')
+        tk.Button(self._export_help, text='Copy command', command=self._copy_export_command,
+                  bg='#253448', fg='#eef6ff', activebackground='#2a4661',
+                  relief='flat', padx=10, pady=2).pack(side='left', padx=(0, 6))
+        tk.Button(self._export_help, text='Open folder', command=self._open_mappings_folder,
+                  bg='#253448', fg='#eef6ff', activebackground='#2a4661',
+                  relief='flat', padx=10, pady=2).pack(side='left')
+        self._export_help_note = tk.Label(self._export_help, text='', bg='#101722', fg='#6f8398',
+                                          font=('Consolas', 9), anchor='w')
+        self._export_help_note.pack(side='left', padx=(10, 0))
+
+        self.bindings_status = tk.Label(panel, text='', bg='#101722', fg='#6f8398',
+                                        font=('Consolas', 9), anchor='w', justify='left')
+        self.bindings_status.pack(side='bottom', fill='x', pady=(4, 0))
+        paned.add(panel, stretch='never', minsize=64)
 
         self._paint_sheet_buttons()
+        self._paint_bindings_toggle()
+        self._sync_zoom_widgets()
         notebook.bind('<<NotebookTabChanged>>', self._on_tab_changed, add='+')
 
-    def _toggle_rebinds(self, open_=None):
-        self._rebinds_open = (not self._rebinds_open) if open_ is None else open_
-        if self._rebinds_open:
-            self._rebinds_table.pack(fill='x', pady=(4, 0), before=self.rebinds_status)
-        else:
-            self._rebinds_table.pack_forget()
-        self._paint_rebinds_toggle()
-
-    def _paint_rebinds_toggle(self):
-        count = len(self.rebinds_view.get_children())
-        self._rebinds_toggle.config(text='%s Your rebinds (%d)' % (
-            '▾' if self._rebinds_open else '▸', count))
+    # -- the sheet ------------------------------------------------------------
 
     def _on_tab_changed(self, _event=None):
         if self._keybinds_loaded:
@@ -1105,121 +1154,339 @@ class App(tk.Tk):
         if self.notebook.select() != str(self._keybinds_tab):
             return
         self._keybinds_loaded = True
-        self._refresh_rebinds()
-        self._show_sheet()
+        self._reload_bindings()
+        self._apply_zoom(fit=True)
 
     def _on_sheet_resize(self, _event=None):
-        if self._keybinds_loaded and self._sheet_zoom == 'fit':
-            self._show_sheet()
+        """A window drag fires dozens of these; re-fit once it settles."""
+        if not (self._keybinds_loaded and self._sheet_fit):
+            return
+        if self._sheet_fit_after is not None:
+            self.after_cancel(self._sheet_fit_after)
+        self._sheet_fit_after = self.after(100, lambda: self._apply_zoom(fit=True))
 
     def _select_sheet(self, mode):
+        if mode == self._sheet_mode:
+            return
         self._sheet_mode = mode
+        # One scaled page at a time. At 250% each is 77 MB; two is too many.
+        for other in list(self._sheet_scaled):
+            if other != mode:
+                del self._sheet_scaled[other]
         self._paint_sheet_buttons()
         if self._keybinds_loaded:
-            self._show_sheet()
-            self._refresh_rebinds()
+            self._apply_zoom(reset_view=True)
+            self._refresh_bindings()
 
-    def _set_zoom(self, step):
-        self._sheet_zoom = step
-        self._paint_sheet_buttons()
+    def _on_zoom_slider(self, value):
+        # Scale runs its command for .set() as well, and not until Tk is
+        # next idle - after any flag set around the call has been cleared.
+        # The echo of our own set carries the value we already hold; a drag
+        # that lands on the same value changes nothing either way.
+        if self._sheet_syncing or int(float(value)) == self._sheet_pct:
+            return
+        self._apply_zoom(int(float(value)), fit=False)
+
+    def _on_zoom_entry(self, _event=None):
+        text = self._sheet_entry.get().strip().rstrip('%')
+        try:
+            self._apply_zoom(int(text), fit=False)
+        except ValueError:
+            self._sync_zoom_widgets()            # put back what it was
+
+    def _fit_pct(self):
+        base = self._sheet_image(self._sheet_mode)
+        width = self.sheet_canvas.winfo_width()
+        if base is None or width <= 1:
+            return 100
+        return int(width * 100 // base.width())
+
+    def _apply_zoom(self, pct=None, fit=None, reset_view=False):
+        """The one way the zoom changes, however it was asked for."""
+        if fit is not None:
+            self._sheet_fit = fit
+        if self._sheet_fit:
+            pct = self._fit_pct()
+        if pct is None:
+            pct = self._sheet_pct
+        self._sheet_pct = max(ZOOM_MIN, min(ZOOM_MAX, int(pct)))
+        self._sheet_generation += 1              # whatever is in flight is now stale
+        self._sheet_rendering = False
+        self._sync_zoom_widgets()
         if self._keybinds_loaded:
-            self._show_sheet()
+            self._show_sheet(reset_view=reset_view)
+            self._schedule_render()
 
-    def _zoom_step(self, direction):
-        current = self._fit_index() if self._sheet_zoom == 'fit' else self._sheet_zoom
-        self._set_zoom(max(0, min(len(ZOOM_LADDER) - 1, current + direction)))
+    def _sync_zoom_widgets(self):
+        self._sheet_syncing = True
+        try:
+            self._sheet_slider.set(self._sheet_pct)
+            self._sheet_entry.delete(0, 'end')
+            self._sheet_entry.insert(0, str(self._sheet_pct))
+        finally:
+            self._sheet_syncing = False
+        self._paint_sheet_buttons()
 
     def _paint_sheet_buttons(self):
         for mode, button in self._sheet_mode_buttons.items():
             button.config(bg='#2a4661' if mode == self._sheet_mode else '#253448')
-        for step, button in self._sheet_zoom_buttons.items():
-            button.config(bg='#2a4661' if step == self._sheet_zoom else '#253448')
+        for label, button in self._sheet_zoom_buttons.items():
+            selected = (label == 'Fit' and self._sheet_fit) or (
+                not self._sheet_fit and label == '%d%%' % self._sheet_pct)
+            button.config(bg='#2a4661' if selected else '#253448')
+
+    def _paint_zoom_label(self):
+        text = '%d%%' % self._sheet_pct
+        if self._sheet_fit:
+            text += '  (fit)'
+        if self._sheet_rendering:
+            text += '  rendering...'
+        elif self._sheet_preview_only and self._sheet_pct != 100:
+            text += '  (preview)'
+        self._sheet_zoom_label.config(text=text)
 
     def _sheet_image(self, mode):
-        """The page as loaded, or None if the file is not there."""
+        """The page as shipped, or None if the file is not there.
+
+        With the PNG missing but the PDF present, the renderer's 2000px copy
+        serves instead - a partial install heals itself the first time.
+        """
         if mode not in self._sheet_base:
+            page = [m for m, _ in SHEETS].index(mode) + 1
             path = os.path.join(KEYBINDS_DIR, dict(SHEETS)[mode])
+            if not os.path.isfile(path):
+                cached = self._sheet_renderer.available(page, 2000)
+                if cached is None and self._sheet_renderer.usable():
+                    self._heal_sheet(mode, page)
+                path = str(cached) if cached else path
             try:
                 self._sheet_base[mode] = tk.PhotoImage(master=self, file=path)
             except tk.TclError:
                 self._sheet_base[mode] = None
         return self._sheet_base[mode]
 
-    def _fit_index(self):
-        """The largest step, at most 100%, that fits the canvas width."""
-        base = self._sheet_image(self._sheet_mode)
-        width = self.sheet_canvas.winfo_width()
-        if base is None or width <= 1:
-            return 3
-        best = 0
-        for i, (num, den) in enumerate(ZOOM_LADDER[:4]):
-            if base.width() * num / den <= width:
-                best = i
-        return best
+    def _heal_sheet(self, mode, page):
+        """The shipped PNG is gone but the PDF is here: make the 2000px page."""
+        if getattr(self, '_sheet_healing', None) == mode:
+            return
+        self._sheet_healing = mode
+        renderer = self._sheet_renderer
 
-    def _scaled(self, mode, num, den):
-        """The page at num/den, made in one Tk copy and kept until the zoom changes."""
+        def work():
+            path = renderer.render(page, 2000, cancelled=self.stop_event.is_set)
+            if self.stop_event.is_set():
+                return
+            try:
+                self.after(0, done, path)
+            except (RuntimeError, tk.TclError):
+                pass
+
+        def done(path):
+            self._sheet_healing = None
+            if path is None or mode != self._sheet_mode:
+                return
+            self._sheet_base.pop(mode, None)     # was None; load the render instead
+            self._apply_zoom()
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show_sheet(self, reset_view=False):
+        """Stage one: something on screen at once - the crisp render if it is
+        cached, otherwise the shipped page scaled the fast, rough way."""
+        canvas = self.sheet_canvas
+        mode, pct = self._sheet_mode, self._sheet_pct
         base = self._sheet_image(mode)
         if base is None:
-            return None
-        if (num, den) == (1, 1):
-            return base
-        cached = self._sheet_scaled.get(mode)
-        if cached and cached[0] == (num, den):
-            return cached[1]
-        scaled = tk.PhotoImage(master=self)
-        # -zoom and -subsample together: the destination is written directly
-        # at the final size, with no intermediate at zoom alone.
-        scaled.tk.call(scaled, 'copy', base, '-zoom', num, num, '-subsample', den, den)
-        self._sheet_scaled[mode] = ((num, den), scaled)
-        return scaled
-
-    def _show_sheet(self):
-        canvas = self.sheet_canvas
-        canvas.delete('all')
-        index = self._fit_index() if self._sheet_zoom == 'fit' else self._sheet_zoom
-        num, den = ZOOM_LADDER[index]
-        image = self._scaled(self._sheet_mode, num, den)
-        if image is None:
+            canvas.delete('all')
             canvas.configure(scrollregion=(0, 0, 0, 0))
             canvas.create_text(20, 20, anchor='nw', fill='#91a7bd', font=('Segoe UI', 10),
-                               text='Sheet not installed: data\\keybinds\\%s - run the updater.'
-                                    % dict(SHEETS)[self._sheet_mode])
+                               text='Sheet not installed: data\\keybinds\\%s (or sheet.pdf) '
+                                    '- run the updater.' % dict(SHEETS)[mode])
             self._sheet_zoom_label.config(text='')
             return
+        keep = (0.0, 0.0) if reset_view else (canvas.xview()[0], canvas.yview()[0])
+        cached = self._sheet_scaled.get(mode)
+        if cached and cached[0] == pct:
+            image = cached[1]
+        elif pct == 100:
+            image = base
+            self._sheet_scaled[mode] = (100, base, True)
+        else:
+            ratio = Fraction(pct, 100).limit_denominator(12)
+            image = tk.PhotoImage(master=self)
+            # -zoom and -subsample together: written straight at the final
+            # size, no intermediate at zoom alone.
+            image.tk.call(image, 'copy', base, '-zoom', ratio.numerator, ratio.numerator,
+                          '-subsample', ratio.denominator, ratio.denominator)
+            self._sheet_scaled[mode] = (pct, image, False)
+        canvas.delete('all')
         canvas.create_image(0, 0, anchor='nw', image=image)
         canvas.configure(scrollregion=(0, 0, image.width(), image.height()))
-        canvas.xview_moveto(0)
-        canvas.yview_moveto(0)
-        self._sheet_zoom_label.config(text='%d%%%s' % (
-            round(100 * num / den), '  (fit)' if self._sheet_zoom == 'fit' else ''))
+        canvas.xview_moveto(keep[0])
+        canvas.yview_moveto(keep[1])
+        self._paint_zoom_label()
 
-    def _refresh_rebinds(self):
-        """What the player changed, from the profile the game last wrote to."""
+    def _schedule_render(self):
+        """Stage two, after the slider has stopped: the exact render."""
+        if self._sheet_render_after is not None:
+            self.after_cancel(self._sheet_render_after)
+            self._sheet_render_after = None
+        cached = self._sheet_scaled.get(self._sheet_mode)
+        if cached and cached[0] == self._sheet_pct and cached[2]:
+            return                               # already crisp
+        if self._sheet_pct == 100 or not self._sheet_renderer.usable():
+            self._sheet_preview_only = self._sheet_pct != 100
+            self._paint_zoom_label()
+            return
+        self._sheet_render_after = self.after(RENDER_DEBOUNCE_MS, self._start_render)
+
+    def _start_render(self):
+        self._sheet_render_after = None
+        base = self._sheet_image(self._sheet_mode)
+        if base is None:
+            return
+        mode, pct, generation = self._sheet_mode, self._sheet_pct, self._sheet_generation
+        page = [m for m, _ in SHEETS].index(mode) + 1
+        width = base.width() * pct // 100
+        ready = self._sheet_renderer.available(page, width)
+        if ready is not None:
+            self._sheet_rendered(generation, mode, pct, ready)
+            return
+        self._sheet_rendering = True
+        self._paint_zoom_label()
+        renderer = self._sheet_renderer
+
+        def work():
+            path = renderer.render(page, width, cancelled=lambda: (
+                generation != self._sheet_generation or self.stop_event.is_set()))
+            if self.stop_event.is_set():
+                return
+            try:
+                self.after(0, self._sheet_rendered, generation, mode, pct, path)
+            except (RuntimeError, tk.TclError):
+                pass                             # the window went away meanwhile
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _sheet_rendered(self, generation, mode, pct, path):
+        if generation != self._sheet_generation:
+            return                               # zoom or page changed since; ignore
+        self._sheet_rendering = False
+        if path is None:
+            self._sheet_preview_only = True
+            self._paint_zoom_label()
+            return
+        try:
+            image = tk.PhotoImage(master=self, file=str(path))
+        except tk.TclError:
+            self._sheet_preview_only = True
+            self._paint_zoom_label()
+            return
+        self._sheet_preview_only = False
+        self._sheet_scaled[mode] = (pct, image, True)
+        self._show_sheet()
+
+    # -- the table ------------------------------------------------------------
+
+    def _toggle_bindings(self, open_=None):
+        self._bindings_open = (not self._bindings_open) if open_ is None else open_
+        if self._bindings_open:
+            self._bindings_table.pack(fill='both', expand=True, pady=(4, 0),
+                                      before=self.bindings_status)
+            paned = self._keybinds_paned
+            if paned.winfo_height() > 1:
+                paned.sash_place(0, 0, int(paned.winfo_height() * 0.55))
+        else:
+            self._bindings_table.pack_forget()
+        self._paint_bindings_toggle()
+
+    def _paint_bindings_toggle(self):
+        count = len(self.bindings_view.get_children())
+        self._bindings_toggle.config(text='%s Bindings (%d)' % (
+            '▾' if self._bindings_open else '▸', count))
+
+    def _reload_bindings(self):
+        """Read the files again; everything else is filtering what was read."""
         log = find_game_log()
         live = log.parent if log else None
-        path = find_actionmaps(live) if live else None
-        rows = read_rebinds(path) if path else []
-        view = self.rebinds_view
+        rebinds_path = find_actionmaps(live) if live else None
+        rebinds = read_actionmaps(rebinds_path) if rebinds_path else []
+        export_path, exported = load_full_export(live) if live else (None, [])
+        self._bindings = merge(exported, rebinds)
+        self._binding_conflicts = conflicts(self._bindings)
+        self._bindings_source = (rebinds_path, export_path, len(rebinds))
+        if export_path is None:
+            self._export_help.pack(fill='x', pady=(6, 0), before=self.bindings_status)
+            self._export_help_note.config(text='in the game press ` and run:  ' + EXPORT_COMMAND)
+        else:
+            self._export_help.pack_forget()
+        self._refresh_bindings()
+
+    def _refresh_bindings(self):
+        """Fill the table from what was last read, filtered by mode and search."""
+        view = self.bindings_view
         view.delete(*view.get_children())
-        shown = 0
-        for rebind in rows:
-            mode = mode_of(rebind.actionmap)
-            if not self._show_all_modes.get() and mode != self._sheet_mode:
+        show_all = self._show_all_modes.get()
+        view['displaycolumns'] = ('mode', 'action', 'bound', 'map', 'source') if show_all \
+            else ('action', 'bound', 'map', 'source')
+        needle = self._bindings_search.get().strip().lower()
+        for b in self._bindings:
+            if b.source == 'default' and not b.input:
+                continue                         # an unbound default is not a binding
+            if not b.device:
                 continue
-            bound = describe_input(rebind.input) or '(unbound)'
-            if rebind.multitap > 1:
-                bound += '  x%d' % rebind.multitap
-            if rebind.activation:
-                bound += '  (%s)' % rebind.activation
-            view.insert('', 'end', values=(mode, describe_action(rebind.action),
-                                          bound, rebind.actionmap))
-            shown += 1
-        status = describe_status(path, rows)
-        if rows and shown != len(rows):
-            status += '  -  %d shown for %s' % (shown, self._sheet_mode)
-        self.rebinds_status.config(text=status)
-        self._paint_rebinds_toggle()
+            mode = mode_of(b.actionmap)
+            if not show_all and mode != self._sheet_mode:
+                continue
+            label = describe_action(b.action)
+            bound = describe_input(b.input) or '(unbound)'
+            if b.multitap > 1:
+                bound += '  x%d' % b.multitap
+            if b.activation:
+                bound += '  (%s)' % b.activation
+            if needle and needle not in (label + ' ' + b.action + ' ' + bound + ' ' + b.actionmap).lower():
+                continue
+            if (mode, b.input) in self._binding_conflicts:
+                tag = 'conflict'
+            elif b.source == 'rebind':
+                tag = 'rebind'
+            else:
+                tag = ''
+            view.insert('', 'end', values=(mode, label, bound, b.actionmap,
+                                          'yours' if b.source == 'rebind' else ''),
+                        tags=(tag,) if tag else ())
+        rebinds_path, export_path, yours = getattr(self, '_bindings_source', (None, None, 0))
+        if rebinds_path is None:
+            status = describe_status(None, [])
+        elif export_path is None:
+            status = 'No full export yet - showing your %d rebind%s from %s.' % (
+                yours, '' if yours == 1 else 's', rebinds_path.name)
+        else:
+            actions = len({(b.actionmap, b.action) for b in self._bindings})
+            try:
+                stale = rebinds_path.stat().st_mtime > export_path.stat().st_mtime + 1
+            except OSError:
+                stale = False
+            status = describe_export_status(export_path, actions, yours, stale)
+        self.bindings_status.config(text=status)
+        self._paint_bindings_toggle()
+
+    def _copy_export_command(self):
+        self.clipboard_clear()
+        self.clipboard_append(EXPORT_COMMAND)
+        self._export_help_note.config(text='Copied. In the game press ` then paste and Enter; '
+                                           'then Reload here.')
+
+    def _open_mappings_folder(self):
+        log = find_game_log()
+        folder = mappings_dir(log.parent) if log else None
+        if folder is None:
+            return
+        target = folder if folder.is_dir() else folder.parent.parent
+        try:
+            os.startfile(str(target))
+        except OSError:
+            pass
 
     def _build_perf_tab(self, notebook):
         """Frame rate and network detail, alongside the header graph."""

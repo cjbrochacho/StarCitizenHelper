@@ -21,8 +21,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from helper.keybinds import (Rebind, describe_action, describe_input, describe_status,
-                             device, find_actionmaps, mode_of, read_rebinds)
+from helper.keybinds import (Binding, Rebind, conflicts, describe_action, describe_input,
+                             describe_status, device, find_actionmaps, find_exports,
+                             is_full_export, load_full_export, merge, mode_of,
+                             read_actionmaps, read_rebinds)
 
 PASSED = 0
 FAILED = 0
@@ -70,6 +72,39 @@ REAL = """<ActionMaps>
 """
 
 
+#: A slice of what `pp_rebindkeys export all` writes: the same format, every
+#: action, the unbound ones as a bare device.
+EXPORT = """<ActionMaps>
+ <ActionProfiles version="1" optionsVersion="2" rebindVersion="2" profileName="default">
+  <actionmap name="spaceship_general">
+   <action name="v_toggle_all_doors"><rebind input="kb1_k"/><rebind input="mo1_ "/></action>
+   <action name="v_toggle_landing_system"><rebind input="kb1_n"/></action>
+  </actionmap>
+  <actionmap name="seat_general">
+   <action name="v_enter_remote_turret_1"><rebind input="kb1_ "/></action>
+  </actionmap>
+  <actionmap name="player">
+   <action name="pl_jump"><rebind input="kb1_space"/></action>
+   <action name="pl_fire"><rebind input="mo1_mouse1"/></action>
+  </actionmap>
+ </ActionProfiles>
+</ActionMaps>
+"""
+
+
+def export_rows():
+    path = written(EXPORT)
+    try:
+        return read_actionmaps(path)
+    finally:
+        path.unlink()
+
+
+def big_export(count):
+    """`count` distinct actions, for the size threshold."""
+    return [Rebind("player", "pl_%d" % i, "kb1_a", device="keyboard") for i in range(count)]
+
+
 def written(text):
     """A temporary actionmaps.xml holding `text`; the caller cleans up."""
     handle = tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False, encoding="utf-8")
@@ -92,7 +127,8 @@ def _real():
     assert len(rows) == 5, rows
     assert [r.actionmap for r in rows] == ["seat_general"] * 3 + ["spaceship_general"] * 2
     assert [r.input for r in rows] == ["kb1_slash"] * 3 + ["kb1_rctrl+k", "kb1_lalt+k"]
-    assert rows[4] == Rebind("spaceship_general", "v_toggle_all_doors", "kb1_lalt+k")
+    assert rows[4] == Rebind("spaceship_general", "v_toggle_all_doors", "kb1_lalt+k",
+                             device="keyboard")
 
 
 def _empty():
@@ -124,6 +160,7 @@ def _cleared():
     finally:
         path.unlink()
     assert [r.input for r in rows] == ["", ""], rows
+    assert [r.device for r in rows] == ["", "keyboard"], "the device of a cleared binding was lost"
 
 
 def _two_devices():
@@ -275,7 +312,183 @@ check("the newest profile without one is None, not an older one", _newest_withou
 
 # --- 6 ---------------------------------------------------------------------
 
-print("\n6. the status line")
+print("\n6. reading a full export")
+
+
+def _export_rows():
+    rows = export_rows()
+    assert [(r.action, r.input, r.device) for r in rows] == [
+        ("v_toggle_all_doors", "kb1_k", "keyboard"),
+        ("v_toggle_all_doors", "", "mouse"),
+        ("v_toggle_landing_system", "kb1_n", "keyboard"),
+        ("v_enter_remote_turret_1", "", "keyboard"),
+        ("pl_jump", "kb1_space", "keyboard"),
+        ("pl_fire", "mo1_mouse1", "mouse"),
+    ], rows
+
+
+def _threshold():
+    assert not is_full_export(big_export(149))
+    assert is_full_export(big_export(150))
+    real = written(REAL)
+    try:
+        assert not is_full_export(read_actionmaps(real)), "five rebinds are not a full export"
+    finally:
+        real.unlink()
+
+
+def _exports_newest_first():
+    with tempfile.TemporaryDirectory() as tmp:
+        live = Path(tmp)
+        _profile(live, 0)
+        folder = live / "USER" / "client" / "0" / "Controls" / "Mappings"
+        folder.mkdir(parents=True)
+        older = folder / "layout_old_exported.xml"
+        newer = folder / "layout_new_exported.xml"
+        older.write_text(EXPORT)
+        newer.write_text(EXPORT)
+        stamp = time.time() - 3600
+        os.utime(older, (stamp, stamp))
+        (folder / "not_an_export.xml").write_text("<x/>")
+        assert find_exports(live) == [newer, older]
+
+
+def _exports_none():
+    with tempfile.TemporaryDirectory() as tmp:
+        live = Path(tmp)
+        _profile(live, 0)
+        assert find_exports(live) == [], "no Mappings folder should mean no exports"
+    assert find_exports(None) == []
+
+
+def _load_full():
+    with tempfile.TemporaryDirectory() as tmp:
+        live = Path(tmp)
+        _profile(live, 0)
+        folder = live / "USER" / "client" / "0" / "Controls" / "Mappings"
+        folder.mkdir(parents=True)
+        small = folder / "layout_small_exported.xml"
+        small.write_text(EXPORT)                       # newest, but only five actions
+        big = folder / "layout_big_exported.xml"
+        actions = "".join('<action name="pl_%d"><rebind input="kb1_a"/></action>' % i for i in range(200))
+        big.write_text('<ActionMaps><actionmap name="player">%s</actionmap></ActionMaps>' % actions)
+        stamp = time.time() - 3600
+        os.utime(big, (stamp, stamp))
+        path, rows = load_full_export(live)
+        assert path == big, "a small newer file was preferred over the full older one"
+        assert len(rows) == 200
+        small.unlink()
+        big.unlink()
+        assert load_full_export(live) == (None, [])
+
+
+check("every row, in order, with its device - cleared ones included", _export_rows)
+check("a full export has at least 150 actions", _threshold)
+check("exports are found newest first, and only real ones", _exports_newest_first)
+check("no folder, no exports", _exports_none)
+check("the newest full export wins, whatever else is there", _load_full)
+
+
+# --- 7 ---------------------------------------------------------------------
+
+print("\n7. laying the player's rebinds over the export")
+
+
+def _override():
+    rows = merge(export_rows(), [Rebind("spaceship_general", "v_toggle_all_doors", "kb1_lalt+k", device="keyboard")])
+    assert rows[0] == Binding("spaceship_general", "v_toggle_all_doors", "kb1_lalt+k", "rebind", device="keyboard")
+    assert rows[1].source == "default" and rows[1].device == "mouse", "the mouse row was touched"
+    assert len(rows) == 6, "a replacement changed the row count"
+
+
+def _cleared_stays():
+    rows = merge(export_rows(), [Rebind("player", "pl_jump", "", device="keyboard")])
+    jump = [r for r in rows if r.action == "pl_jump"]
+    assert len(jump) == 1 and jump[0].input == "" and jump[0].source == "rebind", jump
+
+
+def _extra_appended():
+    rows = merge(export_rows(), [Rebind("player", "pl_new_thing", "kb1_x", device="keyboard")])
+    assert rows[-1] == Binding("player", "pl_new_thing", "kb1_x", "rebind", device="keyboard")
+    assert [r.action for r in rows[:-1]] == [r.action for r in export_rows()], "order changed"
+
+
+def _last_wins():
+    rows = merge(export_rows(), [
+        Rebind("player", "pl_jump", "kb1_a", device="keyboard"),
+        Rebind("player", "pl_jump", "kb1_b", device="keyboard"),
+    ])
+    jump = [r for r in rows if r.action == "pl_jump"]
+    assert len(jump) == 1 and jump[0].input == "kb1_b", jump
+
+
+def _no_export():
+    rebinds = [Rebind("player", "pl_jump", "kb1_a", device="keyboard"),
+               Rebind("player", "pl_fire", "kb1_b", device="keyboard")]
+    rows = merge([], rebinds)
+    assert [(r.action, r.source) for r in rows] == [("pl_jump", "rebind"), ("pl_fire", "rebind")]
+
+
+check("a rebind replaces its row in place, other devices untouched", _override)
+check("a cleared binding stays, empty and marked as the player's", _cleared_stays)
+check("an action the export never heard of goes on the end", _extra_appended)
+check("two rebinds for one device: the later one", _last_wins)
+check("with no export, the rebinds alone", _no_export)
+
+
+# --- 8 ---------------------------------------------------------------------
+
+print("\n8. conflicts")
+
+
+def _conflict():
+    rows = [Binding("spaceship_general", "v_a", "kb1_k", "default", device="keyboard"),
+            Binding("spaceship_weapons", "v_b", "kb1_k", "rebind", device="keyboard")]
+    found = conflicts(rows)
+    assert found == {("Flight", "kb1_k"): [("spaceship_general", "v_a"), ("spaceship_weapons", "v_b")]}, found
+
+
+def _defaults_only():
+    rows = [Binding("spaceship_general", "v_a", "kb1_k", "default", device="keyboard"),
+            Binding("mining", "v_b", "kb1_k", "default", device="keyboard")]
+    assert conflicts(rows) == {}, "the game's own shared keys are not conflicts"
+
+
+def _across_modes():
+    rows = [Binding("spaceship_general", "v_a", "kb1_k", "rebind", device="keyboard"),
+            Binding("player", "pl_b", "kb1_k", "rebind", device="keyboard")]
+    assert conflicts(rows) == {}, "flight and FPS are never active together"
+
+
+def _ignored_inputs():
+    rows = [Binding("player", "pl_a", "", "rebind", device="keyboard"),
+            Binding("player", "pl_b", "", "rebind", device="keyboard"),
+            Binding("player", "pl_c", "js1_button1", "rebind", device="joystick"),
+            Binding("player", "pl_d", "js1_button1", "rebind", device="joystick")]
+    assert conflicts(rows) == {}
+
+
+def _real_turrets():
+    real = written(REAL)
+    try:
+        rows = merge([], read_actionmaps(real))
+    finally:
+        real.unlink()
+    found = conflicts(rows)
+    assert list(found) == [("Flight", "kb1_slash")], found
+    assert len(found[("Flight", "kb1_slash")]) == 3
+
+
+check("one key, two actions, one of them the player's", _conflict)
+check("defaults sharing a key are left alone", _defaults_only)
+check("the same key in flight and on foot is fine", _across_modes)
+check("unbound and joystick inputs never count", _ignored_inputs)
+check("the real file: three turrets on one key", _real_turrets)
+
+
+# --- 9 ---------------------------------------------------------------------
+
+print("\n9. the status line")
 
 
 def _status():
