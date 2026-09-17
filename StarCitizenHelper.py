@@ -36,7 +36,12 @@ from helper.window import (apply_window_icon, force_foreground, foreground_hwnd,
 #: checkout reads them directly, but a zip install has neither git nor tags, so
 #: the number has to travel inside the source. Bumped when a release is tagged;
 #: the tag name is this with a "v" in front.
-__version__ = '3.1.0'
+#:
+#: Dated, YYYY.MM.DD, since 2026.09.16 - with .N appended if a day needs a
+#: second one. A version that says when it was made answers the question that
+#: is actually asked of it. helper.update reads this line from the copy on
+#: GitHub to say whether an install is current, so it stays on one line.
+__version__ = '2026.09.16'
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
@@ -106,12 +111,12 @@ def _describe():
 def current_revision():
     """Short, human-showable id for what is actually running.
 
-    A release shows its version plainly - "v3.0.0". A checkout past the last
-    tag says how far past it is - "v3.0.0+18 (dev)" - because that is the
-    state the app is normally run in while being worked on, and a bare commit
-    hash there says nothing about which release it is near. The sha is left
-    out of the string entirely; it is still read separately for the freshness
-    check, which needs an exact forty-character match to compare against.
+    A release shows its version plainly - "v2026.09.16". A checkout past the
+    last tag says how far past it is - "v2026.09.16+18 (dev)" - because that
+    is the state the app is normally run in while being worked on, and a bare
+    commit hash there says nothing about which release it is near. The sha is
+    left out of the string entirely. Whether this is the latest is a separate
+    question, answered by comparing __version__ with the copy on GitHub.
     """
     sha, is_dev = _read_revision()
     if is_dev:
@@ -376,8 +381,10 @@ class App(tk.Tk):
         self.last_keepalive_at = None
         self.next_scan = 0
         self.running_macro = ''
-        self._revision_sha, _ = _read_revision()
+        _, self._revision_is_git = _read_revision()
         self.revision = current_revision()
+        self._online_version = None          # set by the freshness check
+        self._checking_online = False
 
         self._build_ui()
         self._register_hotkeys()
@@ -436,17 +443,28 @@ class App(tk.Tk):
         after(0, ...) rather than touching a widget from off the main thread.
         """
         try:
-            from helper.update import latest_sha
-            remote = latest_sha()
+            from helper.update import online_version
+            online = online_version()
         except Exception:
-            remote = None
-        self.after(0, self._apply_revision_freshness, remote)
+            online = None
+        # A "Check now" that finishes after the window has gone must not try
+        # to schedule anything on it.
+        if not self.stop_event.is_set():
+            self.after(0, self._apply_revision_freshness, online)
 
-    def _apply_revision_freshness(self, remote):
-        if not remote or not self._revision_sha or getattr(self, 'wordmark', None) is None:
-            return
-        suffix = ' (latest)' if remote == self._revision_sha else ' (update available)'
-        self.wordmark.set_note(self.revision + suffix)
+    def _apply_revision_freshness(self, online):
+        """Always says something - including that it could not check.
+
+        Before, an unreachable GitHub left the note bare, which looked exactly
+        like a check that had not happened yet. Now there are three answers
+        and every one of them is written down.
+        """
+        from helper.update import freshness
+        self._online_version = online
+        self._checking_online = False
+        if getattr(self, 'wordmark', None) is not None:
+            self.wordmark.set_note('%s (%s)' % (self.revision, freshness(__version__, online)))
+        self._refresh_updates_tab()
 
     def _build_ui(self):
         style = ttk.Style(self)
@@ -583,6 +601,7 @@ class App(tk.Tk):
         self._build_telemetry_tab(notebook)
         self._build_history_tab(notebook)
         self._build_log_tab(notebook)
+        self._build_updates_tab(notebook)
 
     def _add_checkbox(self, parent, label, key, note='', on_toggle=None):
         """A boolean setting that persists itself immediately on click.
@@ -1107,6 +1126,113 @@ class App(tk.Tk):
         except Exception as exc:               # never let the HUD kill the UI loop
             self.log_queue.put('HUD error: %s' % exc)
         self.after(100, self._refresh_hud)
+
+    # -- Updates --------------------------------------------------------------
+
+    def _build_updates_tab(self, notebook):
+        """Whether this is the latest, and a way to make it so.
+
+        The launcher updates on its own at every start, so most people never
+        need this. It is here for the two questions the header note cannot
+        answer on its own - "could it even reach GitHub?" and "what is the
+        latest, then?" - and for the one action: updating now, on purpose,
+        even with auto_update switched off.
+        """
+        frame = tk.Frame(notebook, bg='#101722')
+        notebook.add(frame, text='Updates')
+
+        tk.Label(frame, text='Updates', bg='#101722', fg='#eef6ff',
+                 font=('Segoe UI Semibold', 13)).pack(anchor='w', padx=18, pady=(16, 2))
+        tk.Label(frame, text='The launcher checks GitHub every time it starts and installs '
+                             'whatever is newer before the window opens. This is the same '
+                             'check, on demand, with the answer shown - and a way to run the '
+                             'update now, which closes the app and starts the launcher again '
+                             'in update mode.',
+                 bg='#101722', fg='#91a7bd', wraplength=760, justify='left'
+                 ).pack(anchor='w', padx=18, pady=(0, 12))
+
+        self.updates_status = tk.Label(frame, text='', bg='#101722', fg='#eef6ff',
+                                       font=('Consolas', 10), justify='left')
+        self.updates_status.pack(anchor='w', padx=18)
+
+        row = tk.Frame(frame, bg='#101722')
+        row.pack(anchor='w', padx=18, pady=(14, 6))
+        tk.Button(row, text='Check now', command=self._check_updates_now,
+                  bg='#253448', fg='#eef6ff', activebackground='#2a4661',
+                  relief='flat', padx=14, pady=6).pack(side='left', padx=(0, 8))
+        self.update_button = tk.Button(row, text='Update now', command=self._update_now,
+                                       bg='#466f91', fg='white', relief='flat',
+                                       padx=14, pady=6, width=16)
+        self.update_button.pack(side='left', padx=(0, 8))
+        if self._revision_is_git:
+            # Somebody's working copy. The updater would refuse it anyway;
+            # better that the button says so than that it looks broken.
+            self.update_button.config(state='disabled', bg='#253448')
+
+        tk.Label(frame, text='Preferences', bg='#101722', fg='#91a7bd',
+                 font=('Segoe UI Semibold', 10)).pack(anchor='w', padx=18, pady=(14, 2))
+        self._add_checkbox(frame, 'Update automatically at launch', 'auto_update',
+                           note='(Update now works either way)')
+        self._refresh_updates_tab()
+
+    def _refresh_updates_tab(self):
+        """Three lines: whether GitHub answered, what it said, what is here."""
+        if getattr(self, 'updates_status', None) is None:
+            return
+        if self._checking_online:
+            github, online = 'checking...', '...'
+        elif self._online_version:
+            github, online = 'reachable', 'v' + self._online_version
+        else:
+            github, online = 'unreachable', 'unknown'
+        lines = ['GitHub:      %s' % github,
+                 'Latest:      %s' % online,
+                 'Installed:   %s' % self.revision]
+        if self._revision_is_git:
+            lines.append('')
+            lines.append('This is a git checkout - update it with git pull.')
+            lines.append('Update now is disabled here so it cannot overwrite your work.')
+        self.updates_status.config(text='\n'.join(lines))
+
+    def _check_updates_now(self):
+        """The startup check again, by request - same thread, same landing."""
+        if self._checking_online:
+            return
+        self._checking_online = True
+        self._refresh_updates_tab()
+        threading.Thread(target=self._check_latest_revision, daemon=True).start()
+
+    def _update_now(self):
+        """Close, and hand over to the launcher in update mode.
+
+        Not done in-process, on purpose. PresentMon.exe is held open while a
+        capture runs, the launcher can only be replaced by the launcher, and
+        new code is only picked up at import - so the honest way to update a
+        running app is to stop being one. The launcher already knows how to
+        do every step of this; /update just tells it the user asked.
+        """
+        if self._revision_is_git:
+            return
+        if not messagebox.askyesno(
+                'Update now',
+                'Close Star Citizen Helper and fetch the latest version?\n\n'
+                'The launcher opens the app again when it is done.', parent=self):
+            return
+        launcher = os.path.join(_DIR, 'StarCitizenHelper.bat')
+        try:
+            # First, and fully: this terminates PresentMon and waits for it,
+            # so vendor\PresentMon.exe is unlocked by the time cmd starts.
+            self.close()
+        finally:
+            # The string form, with /s: a list would be re-quoted by
+            # list2cmdline and cmd strips those quotes again when the path
+            # has a space or a bracket in it. A new console because pythonw
+            # has none, and the messages need somewhere to land. Nothing is
+            # inherited, so no pipe of ours outlives us.
+            subprocess.Popen(
+                '%s /s /c ""%s" /update"' % (os.environ.get('COMSPEC', 'cmd.exe'), launcher),
+                cwd=_DIR, close_fds=True, stdin=None, stdout=None, stderr=None,
+                creationflags=subprocess.CREATE_NEW_CONSOLE)
 
     def _build_history_tab(self, notebook):
         """Where you have been, so a crash does not lose your ship."""

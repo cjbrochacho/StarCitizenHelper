@@ -1,9 +1,11 @@
 # Star Citizen Helper
 
-**Latest release: v3.1.0 — 2026-09-09.** See [all releases](https://github.com/cjbrochacho/StarCitizenHelper/tags)
-for the full history; each one is a tagged commit, so `git checkout v3.0.0` always gets you exactly
-that point, not a moving target. Releases from v3.0.0 on are `vMAJOR.MINOR.PATCH`; the earlier
-`v1` and `v2` tags predate that and are left as they are.
+**Latest release: v2026.09.16.** See [all releases](https://github.com/cjbrochacho/StarCitizenHelper/tags)
+for the full history; each one is a tagged commit, so `git checkout v2026.09.16` always gets you
+exactly that point, not a moving target. Releases are dated - `vYYYY.MM.DD`, with `.N` on the end
+if a day needs a second one - so the number answers the question actually asked of it: how old
+is this? `v3.0.0` and `v3.1.0` used `vMAJOR.MINOR.PATCH`; `v1` and `v2` predate even that. All are
+left as they are.
 
 A Windows utility for Star Citizen. It keeps your session alive while you are away, automates
 the keypresses you would otherwise spam by hand, and shows what your frame rate and your
@@ -23,11 +25,15 @@ connection are actually doing — all from one window that sits behind the game.
 
 ## Getting started
 
-**Double-click `StarCitizenHelper.bat`.** That is the only thing you ever run.
+**Double-click `StarCitizenHelper.bat`.** That is the only thing you ever run - and on its own it
+is enough. Save it into a folder of its own and double-click it there; if the rest of the app is
+not beside it, it fetches that first. Don't run it from inside the zip: Explorer extracts a
+double-clicked file to a temporary folder, and installing there would vanish with it. The
+launcher notices and says so.
 
-The first launch sets everything up — installs Python if you don't have it, fetches the one
-package it needs, draws the icon, and puts a **Star Citizen Helper** shortcut on your desktop —
-then starts the app. Every launch after that just starts the app.
+The first launch sets everything up — fetches the app files if they are missing, installs Python
+if you don't have it, fetches the one package it needs, draws the icon, and puts a **Star Citizen
+Helper** shortcut on your desktop — then starts the app. Every launch after that just starts the app.
 
 There is no separate installer step to remember. Each step checks first and acts only if
 something is missing, so a normal launch adds roughly 150 ms.
@@ -90,8 +96,8 @@ These buttons are always visible, whichever tab is open:
 | **Stop & Release** | Releases any keys KeepRunning is holding |
 | **EMERGENCY DISABLE ALL** | Instantly releases Shift, Ctrl, Alt, Win, W, A, S, D and Tab |
 
-Seven tabs: **Keepalive**, **Scan Ships**, **KeepRunning**, **Macros**, **Performance**,
-**Server History**, **Activity Log**.
+Nine tabs: **Keepalive**, **Scan Ships**, **KeepRunning**, **Macros**, **Performance**,
+**Telemetry**, **Server History**, **Activity Log**, **Updates**.
 
 ---
 
@@ -467,7 +473,11 @@ within a second.
 ## Updating
 
 The launcher brings the install up to date before it starts the app, so there is nothing to
-download by hand and no reason to visit GitHub again after the first time.
+download by hand and no reason to visit GitHub at all - not even the first time. A launcher with
+no app beside it fetches the app: the updater lives in `helper/update.py`, inside the very tree it
+fetches, so the launcher gets that tree first, with nothing but PowerShell, and only when it is
+missing. The one extra cost is a second 320 KB download on that first launch, because the record
+of what is installed is left for the updater to write.
 
 It asks GitHub for the newest commit on `main`, and if that is not what is installed it fetches
 the source archive and writes it over the install. `settings.json` is never touched, and neither
@@ -490,7 +500,31 @@ archive that does not look like this project — each one means "no update today
 anyway. Files are written to a temporary name and renamed into place, so an update interrupted
 half way leaves the old file rather than a broken one.
 
-Set `"auto_update": false` in `settings.json` to pin the version you have.
+What it will not do is pretend. A file that could not be replaced - `PresentMon.exe` held open by
+an instance still capturing is the usual one - is named in the message, and the install is **not**
+marked as updated until every file is; the next launch simply tries again. The launcher leaves that
+message on screen for a few seconds rather than closing over it, and stops with an error only when
+the app files are missing outright.
+
+### The Updates tab
+
+The launcher's check, on demand, with the answer shown. Three lines: whether GitHub could be
+reached, the latest release number online, and the one installed. **Check now** asks again.
+**Update now** closes the app and starts the launcher in update mode (`StarCitizenHelper.bat
+/update`), which fetches and installs whatever is newer and then opens the app again - and it does
+this whether or not automatic updates are on. The **Update automatically at launch** box on the same
+tab is the `auto_update` setting.
+
+The version in the header carries the same answer, always: `(latest)` when the installed number
+matches the one online, `(update available)` when it does not, and `(unable to verify)` when GitHub
+could not be reached - so an unreachable check never looks like one that has not happened yet. The
+number compared is `__version__` in `StarCitizenHelper.py`, read from the copy on `main`; that is
+what the updater would install, and the raw file has no request limit the way the API does.
+
+On a git checkout, Update now is disabled and the tab says why: the updater never touches a
+working copy, and `git pull` is the update there.
+
+Set `"auto_update": false` in `settings.json`, or untick the box, to pin the version you have.
 
 ---
 
@@ -548,6 +582,8 @@ StarCitizenHelper.py     the app
 StarCitizenHelper.bat    the only thing you run: sets up if needed, then launches
 test_telemetry.py        what the collector must not get wrong
 test_docs.py             what this file must not get wrong
+test_update.py           what the updater must not get wrong
+test_launcher.py         a lone launcher installs the app - needs the network
 
 helper/
   __init__.py            marks the package
@@ -579,14 +615,24 @@ settings.json            written on first save (git-ignored)
 Everything under `helper/` is standard library plus `ctypes`. The one binary is
 `vendor/PresentMon.exe`, which is run as a child process and never loaded into anything.
 
-The two test files are scripts, not a framework - run either with `py -3 <file>` and it
-exits non-zero if something is wrong. Neither needs the game, a window or a network.
-`test_docs.py` is what keeps this README honest: it reads the settings block above as if
-it were code and fails when the app has a setting this file does not mention.
+The test files are scripts, not a framework - run any with `py -3 <file>` and it exits
+non-zero if something is wrong. None needs the game or a window, and only `test_launcher.py`
+needs the network: it copies the launcher alone into an empty folder and runs it, which is
+the first-launch case exactly, and installs whatever is on `main` right now - so it belongs
+after a push, before a tag. `test_docs.py` is what keeps this README honest: it reads the
+settings block, the layout above and the release number as if they were code, and fails when
+the app has something this file does not mention.
 
 ---
 
 ## Troubleshooting
+
+**Nothing happens when I double-click the launcher.**
+If it was opened from inside the zip, the window says so and stops: extract it, or save the
+`.bat` on its own into a folder, and run it there. If the app files were missing and the
+download failed, the message stays on screen - check the connection and run it again. A launcher
+that closes instantly with no message at all is the old behaviour, and means an old launcher;
+the current one fetches the app if it is not there.
 
 **The game stutters, and you suspect this app is why.**
 Turn off **Measure frame rate (runs PresentMon)** on the Performance tab, or set

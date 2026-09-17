@@ -25,6 +25,7 @@ something a test should do to a machine.
 """
 
 import ast
+import datetime
 import io
 import json
 import re
@@ -66,10 +67,14 @@ def _module_string(name):
     raise AssertionError("%s is not a module-level literal any more" % name)
 
 
+#: Releases are dated - YYYY.MM.DD, with .N for a second one that day.
+DATED = r"[0-9]{4}[.][0-9]{2}[.][0-9]{2}(?:[.][0-9]+)?"
+
+
 def _readme_release():
     """The version in the banner at the top of the README."""
     readme = io.open(ROOT / "README.md", encoding="utf-8").read()
-    match = re.search(r"Latest release: v([0-9]+[.][0-9]+[.][0-9]+)", readme)
+    match = re.search(r"Latest release: v(" + DATED + r")", readme)
     assert match, "the README no longer states a latest release"
     return match.group(1)
 
@@ -153,7 +158,19 @@ def _version_matches_readme():
         % (source, banner))
 
 
+def _version_is_a_date():
+    """The number is a date, and a real one: 2026.13.01 is not a release."""
+    version = _module_string("__version__")
+    assert re.fullmatch(DATED, version), (
+        "__version__ is %r; releases are YYYY.MM.DD (optionally .N)" % version)
+    try:
+        datetime.datetime.strptime(version[:10], "%Y.%m.%d")
+    except ValueError:
+        raise AssertionError("__version__ %r is not a real date" % version)
+
+
 check("__version__ agrees with the README banner", _version_matches_readme)
+check("and it is a real date", _version_is_a_date)
 
 
 print("")

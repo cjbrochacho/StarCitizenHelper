@@ -1,11 +1,106 @@
 @echo off
 setlocal EnableDelayedExpansion
-cd /d "%~dp0"
+rem pushd rather than cd: a UNC path gets a temporary drive letter, where cd
+rem would refuse and leave us running from the wrong folder.
+pushd "%~dp0"
 title Star Citizen Helper
+
+rem /update is the app's "Update now" button: fetch even if auto_update is off.
+set "UPDATE_ARGS="
+if /i "%~1"=="/update" set "UPDATE_ARGS=--force"
 
 rem Everything below is a check first and an action only if needed, so a normal
 rem launch costs a fraction of a second. First run does the whole setup.
 
+rem ── App files ─────────────────────────────────────────────────────────────
+rem The updater is helper/update.py - inside the very tree it fetches. So a
+rem launcher on its own, which the README says is all you need, had nothing
+rem to run it with: "No module named helper.update", ignored, then a launch
+rem of a file that was not there. This fetches the tree first, once, and
+rem only when it is missing. Python is not needed for it; PowerShell is.
+if exist "%~dp0helper\update.py" goto :have_files
+
+rem Double-clicking the .bat inside the zip in Explorer extracts just that one
+rem file to a temp folder and runs it there. Installing into that folder would
+rem vanish with it, so say what to do instead.
+echo "%~dp0"| findstr /i /l /c:"Temp1_" /c:"AppData\Local\Temp" >nul
+if not errorlevel 1 (
+    echo.
+    echo   This launcher is running from a temporary folder - usually because it
+    echo   was opened from inside the zip. Save StarCitizenHelper.bat into a folder
+    echo   of its own, then double-click it there.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo.
+echo   Setting up Star Citizen Helper for the first time.
+echo   Fetching the app files - about 320 KB...
+echo.
+set "SCH_BOOT_ZIP=%TEMP%\StarCitizenHelper-boot.zip"
+set "SCH_BOOT_DIR=%TEMP%\StarCitizenHelper-boot"
+rem Paths reach PowerShell through the environment, not inside its quotes: a
+rem name with an apostrophe in it would end a single-quoted string early.
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';" ^
+    "[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor 3072;" ^
+    "try {" ^
+    "  Invoke-WebRequest -UseBasicParsing -TimeoutSec 60 -Uri 'https://codeload.github.com/cjbrochacho/StarCitizenHelper/zip/refs/heads/main' -OutFile $env:SCH_BOOT_ZIP;" ^
+    "  if (Test-Path -LiteralPath $env:SCH_BOOT_DIR) { Remove-Item -LiteralPath $env:SCH_BOOT_DIR -Recurse -Force };" ^
+    "  Expand-Archive -LiteralPath $env:SCH_BOOT_ZIP -DestinationPath $env:SCH_BOOT_DIR -Force" ^
+    "} catch { Write-Host ('  ' + $_.Exception.Message); exit 1 }"
+if errorlevel 1 (
+    echo.
+    echo   [ERROR] The download failed. Check your connection and run this again.
+    echo.
+    pause
+    exit /b 1
+)
+
+rem The folder name inside the archive is fixed by the branch - see
+rem helper.update.download, which fetches this same zip.
+if not exist "%SCH_BOOT_DIR%\StarCitizenHelper-main\helper\update.py" (
+    echo.
+    echo   [ERROR] What was downloaded did not look like the app, so it was not installed.
+    echo.
+    rmdir /s /q "%SCH_BOOT_DIR%" >nul 2>&1
+    del /q "%SCH_BOOT_ZIP%" >nul 2>&1
+    pause
+    exit /b 1
+)
+
+if not exist "%~dp0assets" mkdir "%~dp0assets" >nul 2>&1
+rem Never this file: cmd reads a batch by offset as it runs - see the note at
+rem the end. The newer launcher waits in assets\ and is swapped in on exit.
+copy /y "%SCH_BOOT_DIR%\StarCitizenHelper-main\StarCitizenHelper.bat" "%~dp0assets\pending.bat" >nul
+rem robocopy merges into whatever is already here, so a tree that is only
+rem partly there is repaired rather than refused. The trailing dot matters: a
+rem quoted path ending in a backslash reads to robocopy as an escaped quote.
+robocopy "%SCH_BOOT_DIR%\StarCitizenHelper-main" "%~dp0." /E /XF StarCitizenHelper.bat /NFL /NDL /NJH /NJS /NP >nul
+if errorlevel 8 (
+    echo.
+    echo   [ERROR] The app files could not be written here.
+    echo.
+    pause
+    exit /b 1
+)
+rmdir /s /q "%SCH_BOOT_DIR%" >nul 2>&1
+del /q "%SCH_BOOT_ZIP%" >nul 2>&1
+
+if not exist "%~dp0helper\update.py" (
+    echo.
+    echo   [ERROR] The app files are still missing after the download.
+    echo.
+    pause
+    exit /b 1
+)
+rem assets\.version is deliberately not written here. helper.update runs a
+rem moment later, finds no record of what is installed, and fetches the zip
+rem once more - 320 KB, on the first launch only - so that there is exactly
+rem one place that decides what counts as installed.
+
+:have_files
 rem ── Python ────────────────────────────────────────────────────────────────
 call :find_python
 if defined PY_CMD goto :python_ready
@@ -71,8 +166,23 @@ rem ── Update ────────────────────�
 rem Before the app starts, not after: with nothing loaded yet the files can be
 rem replaced cleanly, and what launches a moment later is already the new one.
 rem Never fatal - no network just means no update, and the app still runs.
+rem What it does report, by exit code, is an install that cannot be trusted:
+rem files missing, or an update that only half applied. That message should
+rem be read, not closed over.
 if not exist "%~dp0assets" mkdir "%~dp0assets" >nul 2>&1
-%PY_CMD% -m helper.update
+%PY_CMD% -m helper.update %UPDATE_ARGS%
+set "UPDATE_RC=%errorlevel%"
+if not "%UPDATE_RC%"=="0" (
+    if not exist "%~dp0StarCitizenHelper.py" (
+        echo.
+        echo   [ERROR] The app files are incomplete, so it cannot start. Run this again.
+        echo.
+        pause
+        exit /b 1
+    )
+    timeout /t 4 >nul
+)
+if defined UPDATE_ARGS if "%UPDATE_RC%"=="0" timeout /t 3 >nul
 
 rem ── Icon and desktop shortcut ─────────────────────────────────────────────
 rem Both are generated rather than shipped, because a .lnk stores absolute
@@ -96,7 +206,9 @@ rem Everything above has already checked that the app can run, so hand off to
 rem the windowed interpreter and exit. Staying attached would leave this
 rem console in the taskbar alongside the app for the whole session.
 call :find_pythonw
-start "" %PYW_CMD% "%~dp0StarCitizenHelper.py"
+rem SCH_NO_LAUNCH is for test_launcher.py, which runs this whole file end to
+rem end in a scratch folder and does not want a window at the end of it.
+if not defined SCH_NO_LAUNCH start "" %PYW_CMD% "%~dp0StarCitizenHelper.py"
 
 rem An update cannot rewrite this file while it is running: cmd reads a batch
 rem by file offset as it goes, so replacing it underneath makes it run whatever
