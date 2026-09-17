@@ -1233,6 +1233,14 @@ class App(tk.Tk):
         self.bindings_status = tk.Label(panel, text='', bg='#101722', fg='#6f8398',
                                         font=('Consolas', 9), anchor='w', justify='left')
         self.bindings_status.pack(side='bottom', fill='x', pady=(4, 0))
+        # What has been done to the bindings, in order, with the outcome of
+        # each - so the game's console never has to be the confirmation.
+        self._bindings_log = tk.Text(panel, height=4, bg='#0f1721', fg='#b5c9dc',
+                                     font=('Consolas', 9), relief='flat', wrap='word',
+                                     padx=8, pady=4, state='disabled', cursor='arrow')
+        self._bindings_log.tag_configure('ok', foreground=theme.ACCENT)
+        self._bindings_log.tag_configure('warn', foreground=theme.WARN)
+        self._bindings_log.tag_configure('when', foreground='#6f8398')
         paned.add(panel, stretch='never', minsize=100)
 
         self._paint_sheet_buttons()
@@ -1505,6 +1513,8 @@ class App(tk.Tk):
                                       before=self.bindings_status)
             self._bindings_detail_row.pack(side='bottom', fill='x', pady=(4, 0),
                                            before=self.bindings_status)
+            self._bindings_log.pack(side='bottom', fill='x', pady=(4, 0),
+                                    before=self._bindings_detail_row)
             self._place_bindings_sash()
         else:
             self._stop_chord()
@@ -1512,12 +1522,13 @@ class App(tk.Tk):
             self._bindings_file_row.pack_forget()
             self._bindings_table.pack_forget()
             self._bindings_detail_row.pack_forget()
+            self._bindings_log.pack_forget()
             self._place_bindings_sash()
         self._paint_bindings_toggle()
 
     #: What the bindings panel needs to be worth looking at: the head row,
     #: the filter row, a few table rows, the detail line and the status.
-    BINDINGS_PANEL_OPEN = 352
+    BINDINGS_PANEL_OPEN = 430
     BINDINGS_PANEL_CLOSED = 64
 
     def _place_bindings_sash(self, attempts=10):
@@ -1691,15 +1702,23 @@ class App(tk.Tk):
     def _paint_binding_detail(self):
         b = self._selected_binding
         self._bindings_detail.config(text=describe_detail(b) if b else '')
-        self._copy_button.config(state='normal' if b else 'disabled')
-        self._macro_button.config(
-            state='normal' if b and to_keyboard_syntax(b.input) else 'disabled')
+        self._enable(self._copy_button, bool(b), '#253448')
+        self._enable(self._macro_button, bool(b and to_keyboard_syntax(b.input)), '#253448')
         kb = self._keyboard_row(b) if b else None
         can = b is not None and not self._applying
-        self._set_buttons['Set...'].config(state='normal' if can else 'disabled')
-        self._set_buttons['Unbind'].config(state='normal' if can and kb and kb.input else 'disabled')
+        self._enable(self._set_buttons['Set...'], can)
+        self._enable(self._set_buttons['Unbind'], bool(can and kb and kb.input))
         at_default = kb is None or is_at_default(self._shipped_rows, kb)
-        self._set_buttons['Reset'].config(state='normal' if can and not at_default else 'disabled')
+        self._enable(self._set_buttons['Reset'], can and not at_default)
+
+    @staticmethod
+    def _enable(button, on, active_bg='#466f91'):
+        """A disabled button that can still be read: Tk's own disabled text is
+        a light grey that vanishes on these blues, so the whole button dims."""
+        if on:
+            button.config(state='normal', bg=active_bg)
+        else:
+            button.config(state='disabled', bg='#1c2938', disabledforeground='#5f7590')
 
     def _keyboard_row(self, b):
         """The keyboard binding of the selected action - what Set changes."""
@@ -1834,11 +1853,16 @@ class App(tk.Tk):
                     '%s is also bound to:\n%s\n\nBind %s to it anyway?' % (shown, others, change.label),
                     parent=self):
                 return
-        what = ('Reset %s' % change.label) if reset else ('Set %s to %s' % (change.label, shown))
+        if reset:
+            what, outcome = 'Reset %s to %s' % (change.label, shown), 'reset'
+        elif not new_input:
+            what, outcome = 'Unbind %s' % change.label, 'cleared'
+        else:
+            what, outcome = 'Set %s to %s' % (change.label, shown), 'applied'
         expect = [(b.actionmap, b.action, new_input, reset)]
-        self._apply_mapping(list(change.rows), what, expect)
+        self._apply_mapping(list(change.rows), what, expect, outcome)
 
-    def _apply_mapping(self, rows, what, expect):
+    def _apply_mapping(self, rows, what, expect, outcome='applied'):
         """Back up, write the mapping file, and have the game load it.
 
         The game loads a mapping file by name from its own Mappings folder
@@ -1863,11 +1887,11 @@ class App(tk.Tk):
         self._paint_binding_detail()
         try:
             backup = backup_actionmaps(rebinds_path, BACKUP_DIR)
-            self.log_queue.put('%s: backed up actionmaps.xml to %s' % (what, backup)
+            self._note_binding('%s: backed up actionmaps.xml to %s' % (what, backup)
                                if backup else '%s: nothing to back up yet' % what)
             path = write_mapping(folder / HELPER_MAPPING, rows)
             command = command_for(HELPER_MAPPING)
-            self.log_queue.put('%s: wrote %s' % (what, path))
+            self._note_binding('%s: wrote %s' % (what, path))
         except (OSError, ValueError) as exc:
             self._applying = False
             self._paint_binding_detail()
@@ -1880,6 +1904,8 @@ class App(tk.Tk):
             self._paint_binding_detail()
             self.bindings_status.config(text='%s - written. Start the game, press %s and run: %s (copied)'
                                         % (what, self.cfg.get('console_key') or '`', command))
+            self._note_binding('%s - written; the game is not running, so the command is on the clipboard'
+                               % what, 'warn')
             messagebox.showinfo('Written, not yet loaded',
                                 'The game is not running, so the change is written but not loaded.\n\n'
                                 'When it is, press %s to open the console and paste:\n%s\n\n'
@@ -1901,51 +1927,57 @@ class App(tk.Tk):
         if self.hold_active or self.hold_pending:
             # Typing releases every held key anyway; do it deliberately.
             self._release()
-            self.log_queue.put('%s: KeepRunning released so the console can be typed into' % what)
+            self._note_binding('%s: KeepRunning released so the console can be typed into' % what)
         self._console_busy = True
         self.bindings_status.config(text='%s - typing into the game\'s console...' % what)
-        threading.Thread(target=self._type_console, args=(command, console_key, what, expect),
+        threading.Thread(target=self._type_console, args=(command, console_key, what, expect, outcome),
                          daemon=True).start()
 
-    def _type_console(self, command, console_key, what, expect):
+    def _type_console(self, command, console_key, what, expect, outcome):
         """On a worker thread: bring the game forward, type, hand focus back."""
         typed = False
         target = window_for_pid(process_pid('StarCitizen.exe'))
         previous = foreground_hwnd()
         try:
             if not force_foreground(target):
-                self.log_queue.put('%s: could not bring Star Citizen forward' % what)
+                self._note_binding('%s: could not bring Star Citizen forward' % what)
                 return
             time.sleep(0.08)
             started = tick()
-            self.injected_until = time.monotonic() + 3.0
+            self.injected_until = time.monotonic() + 4.0
             keyboard.press_and_release(console_key)
             time.sleep(0.25)
             # Scan codes, not unicode events: the game does not read the latter.
             keyboard.write(command, delay=0.02, exact=False)
             keyboard.press_and_release('enter')
-            time.sleep(0.15)
-            keyboard.press_and_release(console_key)          # and close it again
+            # The game prints the command's result before it listens again; a
+            # close sent too soon simply never happens. Then a held tap.
+            time.sleep(0.6)
+            keyboard.press(console_key)
+            time.sleep(0.06)
+            keyboard.release(console_key)
+            time.sleep(0.1)
             self.injected_until = time.monotonic() + 0.20
             note_injection(started, tick())
             typed = True
-            self.log_queue.put('%s: typed "%s" into the console' % (what, command))
+            self._note_binding('%s: typed "%s" into the console and closed it' % (what, command))
         except Exception as exc:
-            self.log_queue.put('%s: typing failed - %s' % (what, exc))
+            self._note_binding('%s: typing failed - %s' % (what, exc))
         finally:
             if previous and previous != target:
                 force_foreground(previous)
             self._console_busy = False
-            self._post(self._after_apply, what, command, expect, 0, typed)
+            self._post(self._after_apply, what, command, expect, 0, typed, outcome)
 
-    def _after_apply(self, what, command, expect, attempt, typed):
+    def _after_apply(self, what, command, expect, attempt, typed, outcome='applied'):
         """Look at actionmaps.xml a moment later and say whether the game took it."""
         if not typed:
-            self._finish_apply(what, command, confirmed=False)
+            self._finish_apply(what, command, False, outcome)
             return
-        self.after(1500 if attempt == 0 else 3500, lambda: self._verify_apply(what, command, expect, attempt))
+        self.after(1500 if attempt == 0 else 3500,
+                   lambda: self._verify_apply(what, command, expect, attempt, outcome))
 
-    def _verify_apply(self, what, command, expect, attempt):
+    def _verify_apply(self, what, command, expect, attempt, outcome='applied'):
         self._reload_bindings()
         rows = {(b.actionmap, b.action, b.device): b for b in self._bindings}
         confirmed = []
@@ -1954,21 +1986,24 @@ class App(tk.Tk):
             if row is None:
                 confirmed.append(not new_input)          # gone entirely counts as unbound
                 continue
-            same = chord_key(row.input) == chord_key(new_input)
-            confirmed.append(same and (row.source == 'rebind' or reset))
+            # The value is what was asked for. Whether the game kept a rebind
+            # entry or folded it back into its default is its own business -
+            # an unbind of an action whose default is unbound comes back as
+            # the default row, and that is the right answer.
+            confirmed.append(chord_key(row.input) == chord_key(new_input))
         if all(confirmed) if len(expect) <= 3 else any(confirmed):
-            self._finish_apply(what, command, confirmed=True)
+            self._finish_apply(what, command, True, outcome)
         elif attempt == 0:
-            self._after_apply(what, command, expect, 1, True)
+            self._after_apply(what, command, expect, 1, True, outcome)
         else:
-            self._finish_apply(what, command, confirmed=False)
+            self._finish_apply(what, command, False, outcome)
 
-    def _finish_apply(self, what, command, confirmed):
+    def _finish_apply(self, what, command, confirmed, outcome='applied'):
         self._applying = False
         self._paint_binding_detail()
         if confirmed:
-            self.bindings_status.config(text='%s - confirmed by the game.' % what)
-            self.log_queue.put('%s - confirmed' % what)
+            self.bindings_status.config(text='%s - %s.' % (what, outcome))
+            self._note_binding('%s - %s' % (what, outcome), 'ok')
         else:
             self.clipboard_clear()
             self.clipboard_append(command)
@@ -1976,9 +2011,32 @@ class App(tk.Tk):
             self.bindings_status.config(
                 text='%s - written, but the game has not picked it up. Press %s and run: %s (copied)'
                      % (what, key, command))
-            self.log_queue.put('%s - not confirmed; the command is on the clipboard' % what)
+            self._note_binding('%s - written, but the game has not picked it up (command copied)' % what,
+                               'warn')
 
     # -- the bindings file ------------------------------------------------------
+
+    def _note_binding(self, line, tag=''):
+        """A line in the tab's own log, and in the Activity Log too."""
+        self.log_queue.put(line)
+        widget = getattr(self, '_bindings_log', None)
+        if widget is None:
+            return
+        try:
+            widget.config(state='normal')
+            widget.insert('end', time.strftime('%H:%M:%S  '), 'when')
+            widget.insert('end', line + '\n', tag)
+            lines = int(widget.index('end-1c').split('.')[0])
+            if lines > 40:
+                widget.delete('1.0', '%d.0' % (lines - 40 + 1))
+            widget.see('end')
+        except tk.TclError:
+            pass
+        finally:
+            try:
+                widget.config(state='disabled')
+            except tk.TclError:
+                pass
 
     def _persist_console_key(self, _event=None):
         value = self.field_vars['console_key'].get().strip()
@@ -2004,7 +2062,7 @@ class App(tk.Tk):
         except OSError as exc:
             messagebox.showerror('Could not back up', str(exc), parent=self)
             return
-        self.log_queue.put('Bindings backed up to ' + path)
+        self._note_binding('Bindings backed up to ' + path)
         messagebox.showinfo('Backed up', 'Your bindings were copied to:\n' + path, parent=self)
 
     def _restore_bindings(self):
@@ -2062,7 +2120,7 @@ class App(tk.Tk):
         except OSError as exc:
             messagebox.showerror('Could not export', str(exc), parent=self)
             return
-        self.log_queue.put('Bindings exported to ' + path)
+        self._note_binding('Bindings exported to ' + path)
         messagebox.showinfo('Exported', 'Every binding, with the game\'s names, is in:\n' + path, parent=self)
 
     def _build_perf_tab(self, notebook):

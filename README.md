@@ -333,9 +333,12 @@ the game's exports have; and - if the game is running - the app brings it forwar
 console, types `pp_rebindkeys layout_sch_helper_exported.xml`, presses Enter, closes the console
 and gives you your window back. That is the game's own way of loading a mapping file, the one
 SCJMapper and Joystick Gremlin use; the game merges it and saves it itself. A moment later the
-app re-reads `actionmaps.xml` and the status line says **confirmed** - or, if the game has not
-picked it up within a few seconds, that the command is on the clipboard for you to paste. With
-the game closed the file is written and the command copied for later; nothing is typed.
+app re-reads `actionmaps.xml` and says what happened - **applied**, **cleared** or **reset** -
+in the small log under the table, which keeps the last forty things done to your bindings with
+the time of each (the Activity Log has them too). If the game has not picked the change up within
+a few seconds, the log says so and the command is on the clipboard for you to paste. With the
+game closed the file is written and the command copied for later; nothing is typed. The console
+is closed again once the command has run; if it is ever left open, press the console key.
 
 While the console is being typed into, Ship Scan and Keepalive stand aside (a Tab would
 autocomplete in the console) and KeepRunning is released (typing would drop its held keys
