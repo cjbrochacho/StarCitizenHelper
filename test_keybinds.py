@@ -21,9 +21,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from helper import keybinds
 from helper.keybinds import (Binding, Rebind, conflicts, describe_action, describe_input,
                              describe_status, device, find_actionmaps, find_exports,
-                             is_full_export, load_full_export, merge, mode_of,
+                             is_full_export, load_full_export, load_shipped_defaults, merge, mode_of,
                              read_actionmaps, read_rebinds)
 
 PASSED = 0
@@ -237,15 +238,40 @@ print("\n3. naming the action")
 
 
 def _actions():
-    assert describe_action("v_toggle_all_doors") == "Toggle all doors"      # override
-    assert describe_action("v_strafe_forward") == "Strafe forward"          # prefix + sentence case
-    assert describe_action("pl_hud_toggle") == "HUD toggle"                 # kept upper
-    assert describe_action("ui_something_new") == "Something new"
-    assert describe_action("weird") == "Weird"
-    assert describe_action("") == ""
+    keybinds._labels_cache = {}                     # no shipped names: the guess alone
+    try:
+        assert describe_action("v_toggle_all_doors") == "Toggle all doors"      # override
+        assert describe_action("v_strafe_forward") == "Strafe forward"          # prefix + sentence case
+        assert describe_action("pl_hud_toggle") == "HUD toggle"                 # kept upper
+        assert describe_action("ui_something_new") == "Something new"
+        assert describe_action("weird") == "Weird"
+        assert describe_action("") == ""
+    finally:
+        keybinds._labels_cache = None
 
 
-check("overrides first, then a readable guess", _actions)
+def _labels_first():
+    keybinds._labels_cache = {"actions": {"v_x": {"label": "The game's own name"}},
+                              "maps": {"weird_map": {"mode": "FPS"}}}
+    try:
+        assert describe_action("v_x") == "The game's own name"
+        assert describe_action("v_toggle_all_doors") == "Toggle all doors", "fell through to the override"
+        assert mode_of("weird_map") == "FPS", "the game's category should win over the prefix guess"
+        assert mode_of("spaceship_x") == "Flight", "and the prefix guess still stands in"
+    finally:
+        keybinds._labels_cache = None
+
+
+def _shipped():
+    path, rows, game = load_shipped_defaults()
+    assert path is not None and len(rows) > 1000, "the shipped defaults are missing or thin"
+    assert game and game[0].isdigit(), game
+    assert describe_action("v_toggle_all_doors") != "Toggle all doors", "labels.json is not being read"
+
+
+check("with no shipped names: overrides first, then a readable guess", _actions)
+check("with shipped names: the game's own, then the rest", _labels_first)
+check("the defaults that ship are real and named", _shipped)
 
 
 # --- 4 ---------------------------------------------------------------------

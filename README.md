@@ -256,34 +256,40 @@ decoded until you first open the tab, so a launch that never looks at it costs n
 
 ### Bindings
 
-Under the sheet, **Bindings** is your actual bindings: every action the game has, what it is
-bound to right now, which action map it belongs to, and `yours` against the ones you changed.
-Drag the sash between sheet and table to give either more room; the heading folds the table
-away and shows the count. The table is filtered to the mode shown unless you tick **show all
-modes**; type in **search** to narrow it by action, key or map.
+Under the sheet, **Bindings** is the game's actual bindings: every action, what it is bound to,
+which action map it belongs to, and `yours` against the ones you changed - with the names the
+game itself uses ("Open/Close Doors (Toggle)", not `v_toggle_all_doors`). Drag the sash between
+sheet and table to give either more room; the heading folds the table away and shows the count.
+The table is filtered to the mode shown unless you tick **show all modes**; type in **search** to
+narrow it by action, key or map.
 
-The game keeps only your *changes* in a readable file - `actionmaps.xml`, the one its options
-screen writes - and the defaults are inside `Data.p4k`, an archive nothing outside the game can
-open. But the game will write the whole list out itself. Once, in the game, open the console with
-`` ` `` and run
-
-```
-pp_rebindkeys export all sch
-```
-
-(or Options > Keybindings > Advanced Controls Customization > Export). That writes
-`layout_sch_exported.xml` into `USER\client\<n>\Controls\Mappings\`; press **Reload** here and
-the full table appears, with your `actionmaps.xml` laid over it. Until you do, the tab shows the
-command with a **Copy command** button, and the table holds just your rebinds.
-
-The export is a snapshot. Rebinding something afterwards is fine - `actionmaps.xml` is read live
-and wins - but *resetting* a binding to its default is not in that file, so the status line will
-ask you to export again when `actionmaps.xml` is newer than the export.
+Where the list comes from: the game keeps only your *changes* in a readable file
+(`actionmaps.xml`, the one its options screen writes). The defaults - every action and its
+key - live in `defaultProfile.xml` inside `Data.p4k`, together with the English names in
+`global.ini`. This app ships a copy of both, boiled down to `data/keybinds/defaults.xml` and
+`labels.json`, taken from the game build named in the status line; your `actionmaps.xml` is
+read live and laid over them, so **Reload** after changing a binding in the game shows it here.
+The sheet is a community chart for one version; the table is exact for the build the defaults
+came from, and says so if the installed game has moved on.
 
 A row in orange is a key bound to more than one action in the same mode, where at least one of
 them is yours. The game's own defaults share keys on purpose - press and hold on one key, mining
 and salvage under a modifier - so those are left alone; a clash you made, or made worse, is
-flagged. Three actions of yours on one key will show as three orange rows.
+flagged, including against a default you may not have known was there.
+
+Refreshing the defaults for a new patch is two commands, no tools to install (Python 3.14 or
+newer, for its Zstandard support):
+
+```
+py -3 data\keybinds\extract_defaults.py
+py -3 data\keybinds\build_defaults.py
+```
+
+The first reads the two files straight out of `Data.p4k` - they are plain zstd inside a ZIP64,
+about 2.6 MB read from a 157 GB archive - into a git-ignored `_extracted` folder; the second
+decodes CryEngine's binary XML and writes the two shipped files. Nothing in the game folder is
+touched. (The game's own console export, `pp_rebindkeys export all <name>`, writes only your
+rebinds in 4.x; the app still checks for a complete one in case that changes.)
 
 Setting a binding from here is planned: capture the keys, write a one-action mapping file, and
 have the game load it with `pp_rebindkeys`. Not in this version.
@@ -651,6 +657,7 @@ test_launcher.py         a lone launcher installs the app - needs the network
 test_keybinds.py         what the key bindings reader must not get wrong
 test_window.py           what the window-position helpers must not get wrong
 test_sheet.py            what the sheet renderer must not get wrong
+test_defaults.py         what the defaults pipeline must not get wrong
 
 helper/
   __init__.py            marks the package
@@ -666,7 +673,8 @@ helper/
   hud.py                 the header graph and its readout
   overlay.py             the same readout, floating over the game
   idle.py                desktop-wide idle detection
-  keybinds.py            bindings: the game's export, the player's rebinds, merged
+  keybinds.py            bindings: the shipped defaults, the player's rebinds, merged
+  cryxml.py              CryEngine's binary XML, read back into ElementTree
   sheet.py               the sheet at any zoom, rendered from its PDF on demand
   scroll.py              a tab that scrolls, and one wheel handler for the window
   window.py              finds the game window; snap focus; taskbar icon; remembers where this one was
@@ -684,6 +692,10 @@ data/keybinds/
   SOURCE.md              where the sheet came from, and how to refresh it
   sheet.pdf              the sheet itself - rendered from at every zoom level
   render_sheet.ps1       renders the PDF to PNG with nothing but Windows; one page or all
+  defaults.xml           every default binding, from the game's own defaultProfile.xml
+  labels.json            the game's English names for actions and action maps
+  extract_defaults.py    maintainer: pulls defaultProfile.xml and global.ini out of Data.p4k
+  build_defaults.py      maintainer: turns those into defaults.xml and labels.json
 
 assets/                  generated icon, shortcut marker, sheet renders (git-ignored)
 settings.json            written on first save (git-ignored)

@@ -40,3 +40,21 @@ with the renders included, ask *Those Guys With Ships* / *Texas Space Navy*
 whether they are happy for it to be shipped this way, and record the answer
 here. That question now covers the PDF itself as well as renders of it -
 shipping the original is the stronger act of the two.
+
+# Where the defaults come from
+
+`defaults.xml` and `labels.json` are made from two files inside the game's own
+`Data.p4k`: `Data\Libs\Config\defaultProfile.xml` (every action and its default
+binding, in CryEngine's binary XML) and `Data\Localization\english\global.ini`
+(every UI string). They are the game's data, not a community source, and are
+exact for the build stamped in both files (`game="..."`).
+
+To refresh after a patch, with Python 3.14 or newer:
+
+```
+py -3 extract_defaults.py     # reads the two files out of Data.p4k into _extracted\ (git-ignored)
+py -3 build_defaults.py       # writes defaults.xml and labels.json beside this file
+```
+
+Then run `py -3 ..\..\test_defaults.py` and commit the two files. Nothing in the
+game folder is written to.

@@ -1,0 +1,2858 @@
+{
+ "actions": {
+  "ammoRepool": {
+   "description": "",
+   "label": "Repool Ammunition"
+  },
+  "attack1": {
+   "description": "",
+   "label": "Firearm - Attack"
+  },
+  "attackSecondary": {
+   "description": "",
+   "label": "Tool - Secondary Fire"
+  },
+  "consume": {
+   "description": "",
+   "label": "Firearm - Attack"
+  },
+  "crouch": {
+   "description": "",
+   "label": "Crouch"
+  },
+  "customize": {
+   "description": "Customize Weapon",
+   "label": "Customize Weapon"
+  },
+  "cycle_chat_lobby": {
+   "description": "Press to cycle through subscribed lobbies in chat",
+   "label": "Cycle Chat Lobby"
+  },
+  "dismiss_corpse_marker": {
+   "description": "",
+   "label": "Dismiss Corpse Marker"
+  },
+  "downedRevivalRequest": {
+   "description": "",
+   "label": "Request Rescue (while Incapacitated)"
+  },
+  "drop": {
+   "description": "Drop Item",
+   "label": "Drop Item"
+  },
+  "emote_agree": {
+   "description": "",
+   "label": "Agree"
+  },
+  "emote_angry": {
+   "description": "",
+   "label": "Angry"
+  },
+  "emote_atease": {
+   "description": "",
+   "label": "At Ease"
+  },
+  "emote_attention": {
+   "description": "",
+   "label": "Attention"
+  },
+  "emote_blah": {
+   "description": "",
+   "label": "Blah"
+  },
+  "emote_bored": {
+   "description": "",
+   "label": "Bored"
+  },
+  "emote_bow": {
+   "description": "",
+   "label": "Bow"
+  },
+  "emote_burp": {
+   "description": "",
+   "label": "Burp"
+  },
+  "emote_cheer": {
+   "description": "",
+   "label": "Cheer"
+  },
+  "emote_chicken": {
+   "description": "",
+   "label": "Chicken"
+  },
+  "emote_clap": {
+   "description": "",
+   "label": "Clap"
+  },
+  "emote_come": {
+   "description": "",
+   "label": "Come"
+  },
+  "emote_cry": {
+   "description": "",
+   "label": "Cry"
+  },
+  "emote_cs_forward": {
+   "description": "",
+   "label": "Forward"
+  },
+  "emote_cs_left": {
+   "description": "",
+   "label": "Left"
+  },
+  "emote_cs_no": {
+   "description": "",
+   "label": "No"
+  },
+  "emote_cs_right": {
+   "description": "",
+   "label": "Right"
+  },
+  "emote_cs_stop": {
+   "description": "",
+   "label": "Stop"
+  },
+  "emote_cs_yes": {
+   "description": "",
+   "label": "Yes"
+  },
+  "emote_dance": {
+   "description": "",
+   "label": "Dance"
+  },
+  "emote_disagree": {
+   "description": "",
+   "label": "Disagree"
+  },
+  "emote_failure": {
+   "description": "",
+   "label": "Failure"
+  },
+  "emote_flex": {
+   "description": "",
+   "label": "Flex"
+  },
+  "emote_flirt": {
+   "description": "",
+   "label": "Flirt"
+  },
+  "emote_gasp": {
+   "description": "",
+   "label": "Gasp"
+  },
+  "emote_gloat": {
+   "description": "",
+   "label": "Gloat"
+  },
+  "emote_greet": {
+   "description": "",
+   "label": "Greet"
+  },
+  "emote_laugh": {
+   "description": "",
+   "label": "Laugh"
+  },
+  "emote_launch": {
+   "description": "Confirms the launch of the vehicle",
+   "label": "Confirm Launch"
+  },
+  "emote_point": {
+   "description": "",
+   "label": "Point"
+  },
+  "emote_rude": {
+   "description": "",
+   "label": "Rude"
+  },
+  "emote_salute": {
+   "description": "",
+   "label": "Salute"
+  },
+  "emote_sit": {
+   "description": "",
+   "label": "Sit"
+  },
+  "emote_sleep": {
+   "description": "",
+   "label": "Sleep"
+  },
+  "emote_smell": {
+   "description": "",
+   "label": "Smell"
+  },
+  "emote_taunt": {
+   "description": "",
+   "label": "Taunt"
+  },
+  "emote_threaten": {
+   "description": "",
+   "label": "Threaten"
+  },
+  "emote_wait": {
+   "description": "",
+   "label": "Wait"
+  },
+  "emote_wave": {
+   "description": "",
+   "label": "Wave"
+  },
+  "emote_whistle": {
+   "description": "",
+   "label": "Whistle"
+  },
+  "eva_boost": {
+   "description": "",
+   "label": "Boost"
+  },
+  "eva_brake": {
+   "description": "",
+   "label": "Brake"
+  },
+  "eva_roll": {
+   "description": "",
+   "label": "Roll Left/Right"
+  },
+  "eva_roll_left": {
+   "description": "",
+   "label": "Roll Left"
+  },
+  "eva_roll_right": {
+   "description": "",
+   "label": "Roll Right"
+  },
+  "eva_strafe_back": {
+   "description": "",
+   "label": "Strafe Backward"
+  },
+  "eva_strafe_down": {
+   "description": "",
+   "label": "Strafe Down"
+  },
+  "eva_strafe_forward": {
+   "description": "",
+   "label": "Strafe Forward"
+  },
+  "eva_strafe_lateral": {
+   "description": "",
+   "label": "Strafe Left/Right"
+  },
+  "eva_strafe_left": {
+   "description": "",
+   "label": "Strafe Left"
+  },
+  "eva_strafe_longitudinal": {
+   "description": "",
+   "label": "Strafe Forward/Backward"
+  },
+  "eva_strafe_right": {
+   "description": "",
+   "label": "Strafe Right"
+  },
+  "eva_strafe_up": {
+   "description": "",
+   "label": "Strafe Up"
+  },
+  "eva_strafe_vertical": {
+   "description": "",
+   "label": "Strafe Up/Down"
+  },
+  "eva_toggle_headlook_mode": {
+   "description": "",
+   "label": "Freelook (Hold)"
+  },
+  "eva_view_pitch": {
+   "description": "",
+   "label": "View Up/Down"
+  },
+  "eva_view_pitch_down": {
+   "description": "",
+   "label": "View Down"
+  },
+  "eva_view_pitch_mouse": {
+   "description": "",
+   "label": "View Up/Down"
+  },
+  "eva_view_pitch_up": {
+   "description": "",
+   "label": "View Up"
+  },
+  "eva_view_yaw": {
+   "description": "",
+   "label": "View Left/Right"
+  },
+  "eva_view_yaw_left": {
+   "description": "",
+   "label": "View Left"
+  },
+  "eva_view_yaw_mouse": {
+   "description": "",
+   "label": "View Left/Right"
+  },
+  "eva_view_yaw_right": {
+   "description": "",
+   "label": "View Right"
+  },
+  "fixed_speed_decrement": {
+   "description": "",
+   "label": "Default Movement Speed Decrease"
+  },
+  "fixed_speed_increment": {
+   "description": "",
+   "label": "Default Movement Speed Increase"
+  },
+  "focus_on_chat_textinput": {
+   "description": "",
+   "label": "Chat Window Focus"
+  },
+  "foip_cyclechannel": {
+   "description": "Cycle through audio channels",
+   "label": "Cycle through audio channels"
+  },
+  "foip_pushtotalk": {
+   "description": "VOIP Push To Talk",
+   "label": "VOIP Push To Talk"
+  },
+  "foip_pushtotalk_proximity": {
+   "description": "VOIP Push To Talk (Proximity only)",
+   "label": "VOIP Push To Talk (Proximity only)"
+  },
+  "foip_recalibrate": {
+   "description": "FOIP Recalibrate",
+   "label": "FOIP Recalibrate"
+  },
+  "foip_viewownplayer": {
+   "description": "FOIP Selfie Cam",
+   "label": "FOIP Selfie Cam"
+  },
+  "force_respawn": {
+   "description": "",
+   "label": "Force Re-spawn (E.V.A. / On Foot)"
+  },
+  "free_thirdperson_camera": {
+   "description": "Holding allows free view camera in third person",
+   "label": "Free View Camera (Hold)"
+  },
+  "gp_crouch": {
+   "description": "",
+   "label": "Crouch"
+  },
+  "gp_jump": {
+   "description": "",
+   "label": "Jump"
+  },
+  "gp_movex": {
+   "description": "",
+   "label": "Move Left / Right"
+  },
+  "gp_movey": {
+   "description": "",
+   "label": "Move Forward / Backward"
+  },
+  "gp_rotatepitch": {
+   "description": "",
+   "label": "Look (Pitch)"
+  },
+  "gp_rotateyaw": {
+   "description": "",
+   "label": "Look (Yaw)"
+  },
+  "headtrack_camera_enabled": {
+   "description": "Enables or disables head tracking in external cameras.",
+   "label": "Enable / Disable Head Tracking for 3rd Person Camera (Toggle)"
+  },
+  "headtrack_enabled": {
+   "description": "Switches head tracking on / off (Toggle)",
+   "label": "Enable Head Tracking (Toggle)"
+  },
+  "headtrack_hold": {
+   "description": "Enables head tracking as long as the button is held down",
+   "label": "Head Tracking (Hold)"
+  },
+  "headtrack_recenter_device": {
+   "description": "Recenters head tracking device inputs.",
+   "label": "Recenter Head Tracking Device (except TrackIR)"
+  },
+  "hmd_lens_display_toggle": {
+   "description": "Enables / Disables the Visor",
+   "label": "[Experimental] VR - Visor Toggle On / Off"
+  },
+  "hmd_recenter": {
+   "description": "Recenters the VR headset",
+   "label": "[Experimental] VR - Recenter Device"
+  },
+  "hmd_theater_mode_toggle": {
+   "description": "Enables / Disables Theater Mode",
+   "label": "[Experimental] VR - Toggle Theater Mode"
+  },
+  "hmd_toggle": {
+   "description": "Enables/disables VR gameplay",
+   "label": "[Experimental] VR - Toggle On / Off"
+  },
+  "holster": {
+   "description": "",
+   "label": "Holster Weapon"
+  },
+  "incapacitatedRespawn": {
+   "description": "",
+   "label": "Regen (while Incapacitated)"
+  },
+  "inspect": {
+   "description": "Inspect Item",
+   "label": "Inspect Item"
+  },
+  "jump": {
+   "description": "",
+   "label": "Jump"
+  },
+  "jump_hold": {
+   "description": "",
+   "label": "Jump Thrusters - Activate (hold)"
+  },
+  "jump_release": {
+   "description": "",
+   "label": "Jump Thrusters - Release"
+  },
+  "leanleft": {
+   "description": "",
+   "label": "Lean Left"
+  },
+  "leanright": {
+   "description": "",
+   "label": "Lean Right"
+  },
+  "ledgegrab": {
+   "description": "",
+   "label": "Climb Ledges"
+  },
+  "melee_AttackHeavyLeft": {
+   "description": "",
+   "label": "Melee - Attack Heavy Left (Hold)"
+  },
+  "melee_AttackHeavyRight": {
+   "description": "",
+   "label": "Melee - Attack Heavy Right (Hold)"
+  },
+  "melee_AttackLightLeft": {
+   "description": "",
+   "label": "Melee - Attack Light Left"
+  },
+  "melee_AttackLightRight": {
+   "description": "",
+   "label": "Melee - Attack Light Right"
+  },
+  "melee_AttackSyringeStab": {
+   "description": "",
+   "label": "Medical Pen - Inject Other"
+  },
+  "melee_block": {
+   "description": "",
+   "label": "Melee - Block (Hold)"
+  },
+  "melee_dodgeBack": {
+   "description": "",
+   "label": "Dodge Back"
+  },
+  "melee_dodgeLeft": {
+   "description": "",
+   "label": "Dodge left"
+  },
+  "melee_dodgeRight": {
+   "description": "",
+   "label": "Dodge Right"
+  },
+  "mobiglas": {
+   "description": "",
+   "label": "mobiGlas (Toggle)"
+  },
+  "moveback": {
+   "description": "",
+   "label": "Move Backwards"
+  },
+  "moveforward": {
+   "description": "",
+   "label": "Move Forward"
+  },
+  "moveleft": {
+   "description": "",
+   "label": "Move Left"
+  },
+  "moveright": {
+   "description": "",
+   "label": "Move Right"
+  },
+  "nextweapon": {
+   "description": "",
+   "label": "Next Weapon"
+  },
+  "notification_accept": {
+   "description": "Notifications - Accept Prompt",
+   "label": "Notifications - Accept Prompt"
+  },
+  "notification_decline": {
+   "description": "Notifications - Decline Prompt",
+   "label": "Notifications - Decline Prompt"
+  },
+  "pc_camera_orbit": {
+   "description": "",
+   "label": "Inventory Orbit Camera Mode"
+  },
+  "pc_focus": {
+   "description": "Focus",
+   "label": "Focus"
+  },
+  "pc_interaction_mode": {
+   "description": "Interaction Mode",
+   "label": "Interaction Mode"
+  },
+  "pc_interaction_select": {
+   "description": "Activate Interaction",
+   "label": "Activate Inner Thought"
+  },
+  "pc_personal_back": {
+   "description": "",
+   "label": "Exit"
+  },
+  "pc_personal_thought": {
+   "description": "Personal Inner Thought",
+   "label": "Personal Inner Thought (PIT)"
+  },
+  "pc_pit_emotes": {
+   "description": "",
+   "label": "Emotes - PIT Category"
+  },
+  "pc_pit_empty_backpack": {
+   "description": "",
+   "label": "Store All Commodities"
+  },
+  "pc_pit_flight_systems": {
+   "description": "",
+   "label": "Flight Systems - PIT Category"
+  },
+  "pc_pit_inventory": {
+   "description": "",
+   "label": "Toggle Inventory (short press)"
+  },
+  "pc_pit_item_actions": {
+   "description": "",
+   "label": "Item Actions - PIT Category"
+  },
+  "pc_pit_item_drop": {
+   "description": "",
+   "label": "Drop Item"
+  },
+  "pc_pit_looting": {
+   "description": "",
+   "label": "Toogle Loot Screen (hold)"
+  },
+  "pc_pit_looting_toggle_view": {
+   "description": "",
+   "label": "Toggle Looting View"
+  },
+  "pc_pit_miningmode_actions": {
+   "description": "",
+   "label": "Mining Mode Actions - PIT Category"
+  },
+  "pc_pit_mobiglas_actions": {
+   "description": "",
+   "label": "Mobiglas Actions - PIT Category"
+  },
+  "pc_pit_player_actions": {
+   "description": "",
+   "label": "Player Actions - PIT Category"
+  },
+  "pc_pit_remote_turrets": {
+   "description": "",
+   "label": "Remote Turret - PIT Category"
+  },
+  "pc_pit_ship_systems": {
+   "description": "",
+   "label": "Ship Systems - PIT Category"
+  },
+  "pc_pit_vehicle_actions": {
+   "description": "",
+   "label": "Vehicle Actions - PIT Category"
+  },
+  "pc_pit_weapon_selection": {
+   "description": "",
+   "label": "Weapon Selection - PIT Category"
+  },
+  "pc_pit_weapons_systems": {
+   "description": "",
+   "label": "Weapon Systems - PIT Category"
+  },
+  "pc_qs_consumables": {
+   "description": "",
+   "label": "Consumable Select Radial Menu"
+  },
+  "pc_qs_grenades": {
+   "description": "",
+   "label": "Throwable Select Radial Menu"
+  },
+  "pc_qs_weapons_pit_primary": {
+   "description": "",
+   "label": "Weapon Select Radial Menu"
+  },
+  "pc_qs_weapons_pit_secondary": {
+   "description": "",
+   "label": "Weapon Select Radial Menu"
+  },
+  "pc_qs_weapons_pit_sidearm": {
+   "description": "",
+   "label": "Weapon Select Radial Menu"
+  },
+  "pc_screen_focus_down": {
+   "description": "",
+   "label": "MFD Down"
+  },
+  "pc_screen_focus_left": {
+   "description": "",
+   "label": "MFD Left"
+  },
+  "pc_screen_focus_right": {
+   "description": "",
+   "label": "MFD Right"
+  },
+  "pc_screen_focus_up": {
+   "description": "",
+   "label": "MFD Up"
+  },
+  "pc_select": {
+   "description": "Activate Interaction",
+   "label": "Activate Inner Thought"
+  },
+  "pc_zoom_in": {
+   "description": "Interaction Mode Zoom In",
+   "label": "Interaction Mode Zoom In"
+  },
+  "pc_zoom_out": {
+   "description": "Interaction Mode Zoom Out",
+   "label": "Interaction Mode Zoom Out"
+  },
+  "pl_exit": {
+   "description": "",
+   "label": "Exit seat"
+  },
+  "pl_hud_open_scoreboard": {
+   "description": "",
+   "label": "Scoreboard"
+  },
+  "port_modification_select": {
+   "description": "",
+   "label": "Port Modification Interact"
+  },
+  "prevweapon": {
+   "description": "",
+   "label": "Previous Weapon"
+  },
+  "prone": {
+   "description": "",
+   "label": "Prone"
+  },
+  "prone_rollleft": {
+   "description": "",
+   "label": "Roll Left (while Prone)"
+  },
+  "prone_rollright": {
+   "description": "",
+   "label": "Roll Right (while Prone)"
+  },
+  "reload": {
+   "description": "",
+   "label": "Reload"
+  },
+  "reloadSecondary": {
+   "description": "",
+   "label": "Reload Secondary Fire"
+  },
+  "respawn": {
+   "description": "",
+   "label": "Re-spawn"
+  },
+  "selectUnarmedCombat": {
+   "description": "",
+   "label": "Unarmed Combat"
+  },
+  "select_gadget_pit": {
+   "description": "",
+   "label": "Select Gadget"
+  },
+  "select_meleeweapon_pit": {
+   "description": "Select Melee",
+   "label": "Select Melee"
+  },
+  "select_primary_pit": {
+   "description": "",
+   "label": "Select Primary Weapon"
+  },
+  "select_secondary_pit": {
+   "description": "",
+   "label": "Select Secondary Weapon"
+  },
+  "select_sidearm_pit": {
+   "description": "",
+   "label": "Select Sidearm"
+  },
+  "ship_recall": {
+   "description": "Activate ship recall on the last flying vehicle used",
+   "label": "Recall Last Vehicle"
+  },
+  "spectate_gen_nextmode": {
+   "description": "",
+   "label": "Spectator Camera Mode (Next)"
+  },
+  "spectate_gen_prevmode": {
+   "description": "",
+   "label": "Spectator Camera Mode (Previous)"
+  },
+  "spectate_next_target": {
+   "description": "",
+   "label": "Spectator Camera Target (Next)"
+  },
+  "spectate_prev_target": {
+   "description": "",
+   "label": "Spectator Camera Target (Previous)"
+  },
+  "spectate_rotatepitch": {
+   "description": "",
+   "label": "Spectator Camera Rotate Pitch"
+  },
+  "spectate_rotatepitch_mouse": {
+   "description": "",
+   "label": "Spectator Camera Rotate Pitch"
+  },
+  "spectate_rotateyaw": {
+   "description": "",
+   "label": "Spectator Camera Rotate Yaw"
+  },
+  "spectate_rotateyaw_mouse": {
+   "description": "",
+   "label": "Spectator Camera Rotate Yaw"
+  },
+  "spectate_toggle_hud": {
+   "description": "",
+   "label": "Spectator Camera HUD (Toggle)"
+  },
+  "spectate_toggle_lock_target": {
+   "description": "",
+   "label": "Spectator Camera Lock Target"
+  },
+  "spectate_zoom": {
+   "description": "",
+   "label": "Spectator Camera Zoom"
+  },
+  "spectate_zoom_in": {
+   "description": "",
+   "label": "Spectator Camera Zoom In"
+  },
+  "spectate_zoom_out": {
+   "description": "",
+   "label": "Spectator Camera Zoom Out"
+  },
+  "sprint": {
+   "description": "",
+   "label": "Sprint"
+  },
+  "stabilize": {
+   "description": "",
+   "label": "Hold Breath (ADS)"
+  },
+  "stopwatch_reset": {
+   "description": "",
+   "label": "Reset (Long Press)"
+  },
+  "stopwatch_trigger": {
+   "description": "",
+   "label": "Start / Pause (Short Press)"
+  },
+  "takedown_nonLethal": {
+   "description": "",
+   "label": "Melee - Attack (Ranged Weapon + Takedowns)"
+  },
+  "thirdperson": {
+   "description": "",
+   "label": "Third Person View (Toggle)"
+  },
+  "throw_overhand": {
+   "description": "",
+   "label": "Throw - Overarm & Two-Handed"
+  },
+  "throw_underhand": {
+   "description": "",
+   "label": "Throw - Underarm"
+  },
+  "toggleAttachHelmet": {
+   "description": "Toggle Equip Helmet",
+   "label": "Helmet\\n(Equip)"
+  },
+  "toggleEquipHelmet": {
+   "description": "Toggle Equip Helmet",
+   "label": "Toggle Equip Helmet"
+  },
+  "toggleHelmetState": {
+   "description": "",
+   "label": "Default Movement Speed Increase"
+  },
+  "toggle_chat": {
+   "description": "",
+   "label": "Chat Window (Toggle)"
+  },
+  "toggle_contact": {
+   "description": "",
+   "label": "CommLink App (Toggle)"
+  },
+  "toggle_flashlight": {
+   "description": "",
+   "label": "Flashlight (Toggle)"
+  },
+  "toggle_lowered": {
+   "description": "",
+   "label": "Weapon Stance (Toggle)"
+  },
+  "tractor_beam_decrease_distance": {
+   "description": "Decreases the target distance for an object controlled with the Tractor Beam.",
+   "label": "Tractor Beam - Decrease Distance"
+  },
+  "tractor_beam_increase_distance": {
+   "description": "Increases the target distance for an object controlled with the Tractor Beam.",
+   "label": "Tractor Beam - Increase Distance"
+  },
+  "turret_change_position": {
+   "description": "",
+   "label": "Change Turret Position"
+  },
+  "turret_esp_hold": {
+   "description": "",
+   "label": "Turret E.S.P. - Enable Temporarily (Hold)"
+  },
+  "turret_esp_toggle": {
+   "description": "Enables / Disables Turret E.S.P.",
+   "label": "Turret E.S.P. Toggle On / Off"
+  },
+  "turret_gyromode": {
+   "description": "Turret Gyro Stabilization (Toggle)",
+   "label": "Turret Gyro Stabilization (Toggle)"
+  },
+  "turret_limiter_abs": {
+   "description": "",
+   "label": "Turret - Speed Limiter (abs)"
+  },
+  "turret_limiter_rel": {
+   "description": "",
+   "label": "Turret - Speed Limiter (rel)"
+  },
+  "turret_limiter_rel_decrease": {
+   "description": "Decreases the speed of the turret.",
+   "label": "Turret - Speed Limiter - Decrease (rel)"
+  },
+  "turret_limiter_rel_increase": {
+   "description": "Increases the speed of the turret.",
+   "label": "Turret - Speed Limiter - Increase (rel)"
+  },
+  "turret_limiter_toggle": {
+   "description": "Toggles the limiter for the rotational turret speed",
+   "label": "Turret - Speed Limiter - On/Off (Hold/Toggle)"
+  },
+  "turret_mouse_mode_cycle": {
+   "description": "",
+   "label": "Turret Mouse Mode - Cycle Modes"
+  },
+  "turret_mouse_mode_set_1to1": {
+   "description": "",
+   "label": "Turret Mouse Mode - Relative Dragging"
+  },
+  "turret_mouse_mode_set_pointer": {
+   "description": "",
+   "label": "Turret Mouse Mode - Pointer"
+  },
+  "turret_mouse_mode_set_vjoy": {
+   "description": "",
+   "label": "Turret Mouse Mode - VJoy Dragging"
+  },
+  "turret_pitch": {
+   "description": "",
+   "label": "Pitch"
+  },
+  "turret_pitch_down": {
+   "description": "",
+   "label": "Pitch down"
+  },
+  "turret_pitch_mouse": {
+   "description": "",
+   "label": "Pitch"
+  },
+  "turret_pitch_up": {
+   "description": "",
+   "label": "Pitch up"
+  },
+  "turret_recenter": {
+   "description": "",
+   "label": "Recenter Turret (Hold)"
+  },
+  "turret_remote_cycle_next": {
+   "description": "",
+   "label": "Next Remote Turret"
+  },
+  "turret_remote_cycle_prev": {
+   "description": "",
+   "label": "Previous Remote Turret"
+  },
+  "turret_remote_exit": {
+   "description": "",
+   "label": "Exit Remote Turret"
+  },
+  "turret_toggle_mouse_mode": {
+   "description": "Enables / Disables relative mouse mode for turrets",
+   "label": "Toggle Turret Mouse Movement (VJoy, FPS style)"
+  },
+  "turret_yaw": {
+   "description": "",
+   "label": "Yaw"
+  },
+  "turret_yaw_left": {
+   "description": "",
+   "label": "Yaw left"
+  },
+  "turret_yaw_mouse": {
+   "description": "",
+   "label": "Yaw"
+  },
+  "turret_yaw_right": {
+   "description": "",
+   "label": "Yaw right"
+  },
+  "ui_notification_accept": {
+   "description": "",
+   "label": "Accept Invite"
+  },
+  "ui_notification_decline": {
+   "description": "",
+   "label": "Reject Invite"
+  },
+  "ui_notification_ignore": {
+   "description": "Ignore Invite",
+   "label": "Ignore Invite (hold)"
+  },
+  "v_accel_range_abs": {
+   "description": "Acceleration Limiter (abs)",
+   "label": "Acceleration Limiter (abs)"
+  },
+  "v_accel_range_decrement": {
+   "description": "Acceleration Limiter - Step Down (tap)",
+   "label": "Acceleration Limiter - Step Down (tap)"
+  },
+  "v_accel_range_down": {
+   "description": "Acceleration Limiter - Decrease (hold)",
+   "label": "Acceleration Limiter - Decrease (hold)"
+  },
+  "v_accel_range_increment": {
+   "description": "Acceleration Limiter - Step Up (tap)",
+   "label": "Acceleration Limiter - Step Up (tap)"
+  },
+  "v_accel_range_rel": {
+   "description": "Acceleration Limiter (rel)",
+   "label": "Acceleration Limiter (rel)"
+  },
+  "v_accel_range_up": {
+   "description": "Acceleration Limiter - Increase (hold)",
+   "label": "Acceleration Limiter - Increase (hold)"
+  },
+  "v_afterburner": {
+   "description": "",
+   "label": "Boost"
+  },
+  "v_atc_loading_area_request": {
+   "description": "",
+   "label": "Request Cargo Loading"
+  },
+  "v_atc_request": {
+   "description": "Contacts ATC and other landing services.",
+   "label": "Request Landing"
+  },
+  "v_auto_precision_mode_off": {
+   "description": "",
+   "label": "Automatic Precision Mode - Disable"
+  },
+  "v_auto_precision_mode_on": {
+   "description": "",
+   "label": "Automatic Precision Mode - Enable"
+  },
+  "v_auto_precision_mode_toggle": {
+   "description": "",
+   "label": "Automatic Precision Mode - Toggle"
+  },
+  "v_auto_targeting_disable_long": {
+   "description": "Auto Targeting - Toggle Off (Long Press)",
+   "label": "Auto Targeting - Toggle Off (Long Press)"
+  },
+  "v_auto_targeting_disable_short": {
+   "description": "Auto Targeting - Toggle Off (Short Press)",
+   "label": "Auto Targeting - Toggle Off (Short Press)"
+  },
+  "v_auto_targeting_enable_long": {
+   "description": "Auto Targeting - Toggle On (Long Press)",
+   "label": "Auto Targeting - Toggle On (Long Press)"
+  },
+  "v_auto_targeting_enable_short": {
+   "description": "Auto Targeting - Toggle On (Short Press)",
+   "label": "Auto Targeting - Toggle On (Short Press)"
+  },
+  "v_auto_targeting_toggle_long": {
+   "description": "Auto Targeting - Toggle On/Off (Long Press)",
+   "label": "Auto Targeting - Toggle On/Off (Long Press)"
+  },
+  "v_auto_targeting_toggle_short": {
+   "description": "Auto Targeting - Toggle On/Off (Short Press)",
+   "label": "Auto Targeting - Toggle On/Off (Short Press)"
+  },
+  "v_autoland": {
+   "description": "Activate Autoland",
+   "label": "Autoland"
+  },
+  "v_brake": {
+   "description": "",
+   "label": "Brake"
+  },
+  "v_close_all_doors": {
+   "description": "Close All Doors",
+   "label": "Close All Doors"
+  },
+  "v_cooler_throttle_down": {
+   "description": "",
+   "label": "Decrease Cooler Rate"
+  },
+  "v_cooler_throttle_up": {
+   "description": "",
+   "label": "Increase Cooler Rate"
+  },
+  "v_cycle_pitch_ladder_mode": {
+   "description": "Cycles the pitch ladder mode between off, HUD, look direction and mixed.",
+   "label": "Cycle Pitch Ladder Mode"
+  },
+  "v_dec_scan_focus_level": {
+   "description": "Decrease the angle of the Scanning Cone",
+   "label": "Decrease Scanning Angle"
+  },
+  "v_decrease_mining_throttle": {
+   "description": "Decrease Mining Laser Power",
+   "label": "Decrease Mining Laser Power"
+  },
+  "v_deploy_landing_system": {
+   "description": "",
+   "label": "Landing System (Deploy)"
+  },
+  "v_dock_toggle_view": {
+   "description": "Toggles the docking camera.",
+   "label": "Toggle Docking Camera"
+  },
+  "v_eject": {
+   "description": "",
+   "label": "Eject"
+  },
+  "v_emergency_exit": {
+   "description": "Press LShift + H to engage emergency exit",
+   "label": "Emergency Exit Seat"
+  },
+  "v_engineering_assignment_engine_decrease": {
+   "description": "",
+   "label": "Engines - Decrease (Tap)"
+  },
+  "v_engineering_assignment_engine_increase": {
+   "description": "",
+   "label": "Engines - Increase (Tap)"
+  },
+  "v_engineering_assignment_reset": {
+   "description": "",
+   "label": "Reset Assignments"
+  },
+  "v_engineering_assignment_shields_decrease": {
+   "description": "",
+   "label": "Shields - Decrease (Tap)"
+  },
+  "v_engineering_assignment_shields_increase": {
+   "description": "",
+   "label": "Shields - Increase (Tap)"
+  },
+  "v_engineering_assignment_weapons_decrease": {
+   "description": "",
+   "label": "Weapons - Decrease (Tap)"
+  },
+  "v_engineering_assignment_weapons_increase": {
+   "description": "",
+   "label": "Weapons - Increase (Tap)"
+  },
+  "v_enter_remote_turret_1": {
+   "description": "",
+   "label": "Enter Remote Turret 1"
+  },
+  "v_enter_remote_turret_2": {
+   "description": "",
+   "label": "Enter Remote Turret 2"
+  },
+  "v_enter_remote_turret_3": {
+   "description": "",
+   "label": "Enter Remote Turret 3"
+  },
+  "v_flight_advanced_hud_off": {
+   "description": "Advanced HUD - Disable",
+   "label": "Advanced HUD - Disable"
+  },
+  "v_flight_advanced_hud_on": {
+   "description": "Advanced HUD - Enable",
+   "label": "Advanced HUD - Enable"
+  },
+  "v_flight_advanced_hud_toggle": {
+   "description": "Advanced HUD - Toggle",
+   "label": "Advanced HUD - Toggle"
+  },
+  "v_flightready": {
+   "description": "Flight / Systems Ready",
+   "label": "Flight / Systems Ready"
+  },
+  "v_horn": {
+   "description": "",
+   "label": "Horn"
+  },
+  "v_hud_open_scoreboard": {
+   "description": "",
+   "label": "Scoreboard"
+  },
+  "v_ifcs_core_off": {
+   "description": "IFCS - Core - Disable",
+   "label": "IFCS - Core - Disable"
+  },
+  "v_ifcs_core_on": {
+   "description": "IFCS - Core - Enable",
+   "label": "IFCS - Core - Enable"
+  },
+  "v_ifcs_core_toggle": {
+   "description": "IFCS - Core - Toggle On / Off",
+   "label": "IFCS - Core - Toggle On / Off"
+  },
+  "v_ifcs_esp_hold": {
+   "description": "",
+   "label": "E.S.P. - Enable Temporarily (Hold)"
+  },
+  "v_ifcs_gravity_compensation_off": {
+   "description": "IFCS - Gravity Compensation - Disable",
+   "label": "IFCS - Gravity Compensation - Disable"
+  },
+  "v_ifcs_gravity_compensation_on": {
+   "description": "IFCS - Gravity Compensation - Enable",
+   "label": "IFCS - Gravity Compensation - Enable"
+  },
+  "v_ifcs_gravity_compensation_toggle": {
+   "description": "IFCS - Gravity Compensation - Toggle",
+   "label": "IFCS - Gravity Compensation - Toggle"
+  },
+  "v_ifcs_gsafe_off": {
+   "description": "G-Force safety off",
+   "label": "G-Force safety off"
+  },
+  "v_ifcs_gsafe_on": {
+   "description": "G-Force safety on",
+   "label": "G-Force safety on"
+  },
+  "v_ifcs_proximity_assist_off": {
+   "description": "IFCS - Proximity Assist - Disable",
+   "label": "IFCS - Proximity Assist - Disable"
+  },
+  "v_ifcs_proximity_assist_on": {
+   "description": "IFCS - Proximity Assist - Enable",
+   "label": "IFCS - Proximity Assist - Enable"
+  },
+  "v_ifcs_proximity_assist_toggle": {
+   "description": "IFCS - Proximity Assist - Toggle",
+   "label": "IFCS - Proximity Assist - Toggle"
+  },
+  "v_ifcs_reset_gmeter_max": {
+   "description": "Resets the max endured Gs for the accelerometer.",
+   "label": "Reset Flight Accelerometer"
+  },
+  "v_ifcs_speed_limiter_abs": {
+   "description": "Speed Limiter (abs)",
+   "label": "Speed Limiter (abs)"
+  },
+  "v_ifcs_speed_limiter_decrement": {
+   "description": "Speed Limiter - Step Down (tap)",
+   "label": "Speed Limiter - Step Down (tap)"
+  },
+  "v_ifcs_speed_limiter_down": {
+   "description": "Speed Limiter - Decrease (hold)",
+   "label": "Speed Limiter - Decrease (hold)"
+  },
+  "v_ifcs_speed_limiter_increment": {
+   "description": "Speed Limiter - Step Up (tap)",
+   "label": "Speed Limiter - Step Up (tap)"
+  },
+  "v_ifcs_speed_limiter_off": {
+   "description": "Speed Limiter - Disable",
+   "label": "Speed Limiter - Disable"
+  },
+  "v_ifcs_speed_limiter_on": {
+   "description": "Speed Limiter - Enable",
+   "label": "Speed Limiter - Enable"
+  },
+  "v_ifcs_speed_limiter_rel": {
+   "description": "Speed Limiter (rel)",
+   "label": "Speed Limiter (rel)"
+  },
+  "v_ifcs_speed_limiter_toggle": {
+   "description": "Speed Limiter - Enable / Disable",
+   "label": "Speed Limiter - Enable / Disable"
+  },
+  "v_ifcs_speed_limiter_up": {
+   "description": "Speed Limiter - Increase (hold)",
+   "label": "Speed Limiter - Increase (hold)"
+  },
+  "v_ifcs_stability_off": {
+   "description": "IFCS - Stability - Disable",
+   "label": "IFCS - Stability - Disable"
+  },
+  "v_ifcs_stability_on": {
+   "description": "IFCS - Stability - Enable",
+   "label": "IFCS - Stability - Enable"
+  },
+  "v_ifcs_stability_toggle": {
+   "description": "IFCS - Stability - Toggle",
+   "label": "IFCS - Stability - Toggle"
+  },
+  "v_ifcs_throttle_set_normal": {
+   "description": "",
+   "label": "Throttle - Cruise Mode - Disable"
+  },
+  "v_ifcs_throttle_set_sticky": {
+   "description": "",
+   "label": "Throttle - Cruise Mode - Enable"
+  },
+  "v_ifcs_throttle_swap_mode": {
+   "description": "",
+   "label": "Throttle - Cruise Mode - Toggle"
+  },
+  "v_ifcs_toggle_esp": {
+   "description": "",
+   "label": "E.S.P. - Toggle On / Off (Press)"
+  },
+  "v_ifcs_toggle_gforce_safety": {
+   "description": "",
+   "label": "G-Force Safety On/Off (Toggle / Hold)"
+  },
+  "v_ifcs_wind_compensation_off": {
+   "description": "IFCS - Wind Compensation - Disable",
+   "label": "IFCS - Wind Compensation - Disable"
+  },
+  "v_ifcs_wind_compensation_on": {
+   "description": "IFCS - Wind Compensation - Enable",
+   "label": "IFCS - Wind Compensation - Enable"
+  },
+  "v_ifcs_wind_compensation_toggle": {
+   "description": "IFCS - Wind Compensation - Toggle",
+   "label": "IFCS - Wind Compensation - Toggle"
+  },
+  "v_inc_scan_focus_level": {
+   "description": "Increase the angle of the Scanning Cone",
+   "label": "Increase Scanning Angle"
+  },
+  "v_increase_mining_throttle": {
+   "description": "Increase Mining Laser Power",
+   "label": "Increase Mining Laser Power"
+  },
+  "v_invoke_ping": {
+   "description": "Activates the Ping Wave",
+   "label": "Activate Ping (Hold & Release)"
+  },
+  "v_jettison_volatile_cargo": {
+   "description": "Jettison Cargo",
+   "label": "Jettison Cargo"
+  },
+  "v_light_amplification_off": {
+   "description": "",
+   "label": "Light Amplification Off"
+  },
+  "v_light_amplification_on": {
+   "description": "",
+   "label": "Light Amplification On"
+  },
+  "v_light_amplification_toggle": {
+   "description": "",
+   "label": "Light Amplification Toggle"
+  },
+  "v_lights": {
+   "description": "",
+   "label": "Headlights (Toggle)"
+  },
+  "v_lights_off": {
+   "description": "",
+   "label": "Headlights\\n(Enable)"
+  },
+  "v_lights_on": {
+   "description": "",
+   "label": "Headlights\\n(Enable)"
+  },
+  "v_lock_all_doors": {
+   "description": "Lock All Doors",
+   "label": "Lock All Doors"
+  },
+  "v_lock_all_ports": {
+   "description": "",
+   "label": "Port Lock All"
+  },
+  "v_lock_rotation": {
+   "description": "While active no rotational inputs are allowed to your ship. This is useful for arresting movement when you lost control using a mouse.",
+   "label": "Lock Pitch / Yaw Movement (Toggle / Hold)"
+  },
+  "v_look_ahead_enable": {
+   "description": "Enables and disables Look Ahead Mode",
+   "label": "Enable / Disable Look Ahead"
+  },
+  "v_look_ahead_start_target_tracking": {
+   "description": "Allows you to track a locked target with your head",
+   "label": "Enable / Disable Target Padlock (Toggle, Hold)"
+  },
+  "v_master_mode_cycle_long": {
+   "description": "",
+   "label": "Cycle Master Mode (Long Press)"
+  },
+  "v_master_mode_set_nav": {
+   "description": "",
+   "label": "Set Master Mode to Nav"
+  },
+  "v_master_mode_set_scm": {
+   "description": "",
+   "label": "Set Master Mode to SCM"
+  },
+  "v_mfd_interact_cycle_backwards_long": {
+   "description": "",
+   "label": "MFD - Cycle Page - Backwards (Long Press)"
+  },
+  "v_mfd_interact_cycle_backwards_short": {
+   "description": "",
+   "label": "MFD - Cycle Page - Backwards (Short Press)"
+  },
+  "v_mfd_interact_cycle_forwards_long": {
+   "description": "",
+   "label": "MFD - Cycle Page - Forwards (Long Press)"
+  },
+  "v_mfd_interact_cycle_forwards_short": {
+   "description": "",
+   "label": "MFD - Cycle Page - Forwards (Short Press)"
+  },
+  "v_mfd_movement_down_long": {
+   "description": "",
+   "label": "MFD - Movement - Down (Long Press)"
+  },
+  "v_mfd_movement_down_short": {
+   "description": "",
+   "label": "MFD - Movement - Down (Short Press)"
+  },
+  "v_mfd_movement_left_long": {
+   "description": "",
+   "label": "MFD - Movement - Left (Long Press)"
+  },
+  "v_mfd_movement_left_short": {
+   "description": "",
+   "label": "MFD - Movement - Left (Short Press)"
+  },
+  "v_mfd_movement_right_long": {
+   "description": "",
+   "label": "MFD - Movement - Right (Long Press)"
+  },
+  "v_mfd_movement_right_short": {
+   "description": "",
+   "label": "MFD - Movement - Right (Short Press)"
+  },
+  "v_mfd_movement_up_long": {
+   "description": "",
+   "label": "MFD - Movement - Up (Long Press)"
+  },
+  "v_mfd_movement_up_short": {
+   "description": "",
+   "label": "MFD - Movement - Up (Short Press)"
+  },
+  "v_mfd_select_view_comms_long": {
+   "description": "",
+   "label": "MFD - Set Page - Communications (Long Press)"
+  },
+  "v_mfd_select_view_comms_short": {
+   "description": "",
+   "label": "MFD - Set Page - Communications (Short Press)"
+  },
+  "v_mfd_select_view_configuration_long": {
+   "description": "",
+   "label": "MFD - Set Page - Vehicle Configuration (Long Press)"
+  },
+  "v_mfd_select_view_configuration_short": {
+   "description": "",
+   "label": "MFD - Set Page - Vehicle Configuration (Short Press)"
+  },
+  "v_mfd_select_view_diagnostics_long": {
+   "description": "",
+   "label": "MFD - Set Page - Diagnostics (Long Press)"
+  },
+  "v_mfd_select_view_diagnostics_short": {
+   "description": "",
+   "label": "MFD - Set Page - Diagnostics (Short Press)"
+  },
+  "v_mfd_select_view_ifcs_long": {
+   "description": "",
+   "label": "MFD - Set Page - IFCS (Long Press)"
+  },
+  "v_mfd_select_view_ifcs_short": {
+   "description": "",
+   "label": "MFD - Set Page - IFCS (Short Press)"
+  },
+  "v_mfd_select_view_resource_network_long": {
+   "description": "",
+   "label": "MFD - Set Page - Resource Network (Long Press)"
+  },
+  "v_mfd_select_view_resource_network_short": {
+   "description": "",
+   "label": "MFD - Set Page - Resource Network (Short Press)"
+  },
+  "v_mfd_select_view_scanning_long": {
+   "description": "",
+   "label": "MFD - Set Page - Scanning (Long Press)"
+  },
+  "v_mfd_select_view_scanning_short": {
+   "description": "",
+   "label": "MFD - Set Page - Scanning (Short Press)"
+  },
+  "v_mfd_select_view_self_status_long": {
+   "description": "",
+   "label": "MFD - Set Page - Self Status (Long Press)"
+  },
+  "v_mfd_select_view_self_status_short": {
+   "description": "",
+   "label": "MFD - Set Page - Self Status (Short Press)"
+  },
+  "v_mfd_select_view_target_status_long": {
+   "description": "",
+   "label": "MFD - Set Page - Target Status (Long Press)"
+  },
+  "v_mfd_select_view_target_status_short": {
+   "description": "",
+   "label": "MFD - Set Page - Target Status (Short Press)"
+  },
+  "v_mfd_soft_select_cast_left_long": {
+   "description": "",
+   "label": "MFD - Select - Left Cast (Long Press)"
+  },
+  "v_mfd_soft_select_cast_left_short": {
+   "description": "",
+   "label": "MFD - Select - Left Cast (Short Press)"
+  },
+  "v_mfd_soft_select_cast_right_long": {
+   "description": "",
+   "label": "MFD - Select - Right Cast (Long Press)"
+  },
+  "v_mfd_soft_select_cast_right_short": {
+   "description": "",
+   "label": "MFD - Select - Right Cast (Short Press)"
+  },
+  "v_mfd_soft_select_mfd_10_long": {
+   "description": "",
+   "label": "MFD - Select - MDF 10 (Long Press)"
+  },
+  "v_mfd_soft_select_mfd_10_short": {
+   "description": "",
+   "label": "MFD - Select - MFD 10 (Short Press)"
+  },
+  "v_mfd_soft_select_mfd_1_long": {
+   "description": "",
+   "label": "MFD - Select - MFD 1 (Long Press)"
+  },
+  "v_mfd_soft_select_mfd_1_short": {
+   "description": "",
+   "label": "MFD - Select - MFD 1 (Short Press)"
+  },
+  "v_mfd_soft_select_mfd_2_long": {
+   "description": "",
+   "label": "MFD - Select - MFD 2 (Long Press)"
+  },
+  "v_mfd_soft_select_mfd_2_short": {
+   "description": "",
+   "label": "MFD - Select - MFD 2 (Short Press)"
+  },
+  "v_mfd_soft_select_mfd_3_long": {
+   "description": "",
+   "label": "MFD - Select - MFD 3 (Long Press)"
+  },
+  "v_mfd_soft_select_mfd_3_short": {
+   "description": "",
+   "label": "MFD - Select - MFD 3 (Short Press)"
+  },
+  "v_mfd_soft_select_mfd_4_long": {
+   "description": "",
+   "label": "MFD - Select - MFD 4 (Long Press)"
+  },
+  "v_mfd_soft_select_mfd_4_short": {
+   "description": "",
+   "label": "MFD - Select - MFD 4 (Short Press)"
+  },
+  "v_mfd_soft_select_mfd_5_long": {
+   "description": "",
+   "label": "MFD - Select - MFD 5 (Long Press)"
+  },
+  "v_mfd_soft_select_mfd_5_short": {
+   "description": "",
+   "label": "MFD - Select - MFD 5 (Short Press)"
+  },
+  "v_mfd_soft_select_mfd_6_long": {
+   "description": "",
+   "label": "MFD - Select - MFD 6 (Long Press)"
+  },
+  "v_mfd_soft_select_mfd_6_short": {
+   "description": "",
+   "label": "MFD - Select - MFD 6 (Short Press)"
+  },
+  "v_mfd_soft_select_mfd_7_long": {
+   "description": "",
+   "label": "MFD - Select - MFD 7 (Long Press)"
+  },
+  "v_mfd_soft_select_mfd_7_short": {
+   "description": "",
+   "label": "MFD - Select - MFD 7 (Short Press)"
+  },
+  "v_mfd_soft_select_mfd_8_long": {
+   "description": "",
+   "label": "MFD - Select - MFD 8 (Long Press)"
+  },
+  "v_mfd_soft_select_mfd_8_short": {
+   "description": "",
+   "label": "MFD - Select - MFD 8 (Short Press)"
+  },
+  "v_mfd_soft_select_mfd_9_long": {
+   "description": "",
+   "label": "MFD - Select - MFD 9 (Long Press)"
+  },
+  "v_mfd_soft_select_mfd_9_short": {
+   "description": "",
+   "label": "MFD - Select - MFD 9 (Short Press)"
+  },
+  "v_mfd_soft_select_mfd_primary_long": {
+   "description": "",
+   "label": "MFD - Select - Primary (Long Press)"
+  },
+  "v_mfd_soft_select_mfd_primary_short": {
+   "description": "",
+   "label": "MFD - Select - Primary (Short Press)"
+  },
+  "v_mgv_switch_brake_on_idle": {
+   "description": "",
+   "label": "Toggle Auto Braking On Idle"
+  },
+  "v_mining_throttle": {
+   "description": "Increase / Decrease Mining Laser Power",
+   "label": "Increase / Decrease Mining Laser Power"
+  },
+  "v_mining_use_consumable1": {
+   "description": "Activate a Mining Module",
+   "label": "Activate Mining Module (Slot 1)"
+  },
+  "v_mining_use_consumable2": {
+   "description": "Activate a Mining Module",
+   "label": "Activate Mining Module (Slot 2)"
+  },
+  "v_mining_use_consumable3": {
+   "description": "Activate a Mining Module",
+   "label": "Activate Mining Module (Slot 3)"
+  },
+  "v_mining_use_permanent_modifier": {
+   "description": "Activate a Mining Module",
+   "label": "Toggle Laser Beam (High / low)"
+  },
+  "v_move": {
+   "description": "",
+   "label": "Drive Forward / Backward"
+  },
+  "v_move_back": {
+   "description": "",
+   "label": "Drive Backward"
+  },
+  "v_move_forward": {
+   "description": "",
+   "label": "Drive Forward"
+  },
+  "v_open_all_doors": {
+   "description": "Open All Doors",
+   "label": "Open All Doors"
+  },
+  "v_operator_mode_cycle_back": {
+   "description": "",
+   "label": "Previous Operator Mode"
+  },
+  "v_operator_mode_cycle_forward": {
+   "description": "",
+   "label": "Next Operator Mode"
+  },
+  "v_pitch": {
+   "description": "Pitch Up / Down (HOTAS)",
+   "label": "Pitch Up / Down (Axis / HOTAS)"
+  },
+  "v_pitch_down": {
+   "description": "",
+   "label": "Ground Vehicles - Pitch Down"
+  },
+  "v_pitch_mouse": {
+   "description": "Pitch Up / Down (Mouse)",
+   "label": "Pitch Up / Down (Mouse)"
+  },
+  "v_pitch_up": {
+   "description": "",
+   "label": "Ground Vehicles - Pitch Up"
+  },
+  "v_power_set_off": {
+   "description": "Set Power Off",
+   "label": "Set Power Off"
+  },
+  "v_power_set_on": {
+   "description": "Set Power On",
+   "label": "Set Power On"
+  },
+  "v_power_set_shields_off": {
+   "description": "Set Shields Power Off",
+   "label": "Set Shields Power Off"
+  },
+  "v_power_set_shields_on": {
+   "description": "Set Shields Power On",
+   "label": "Set Shields Power On"
+  },
+  "v_power_set_thrusters_off": {
+   "description": "Set Thrusters Power Off",
+   "label": "Set Thrusters Power Off"
+  },
+  "v_power_set_thrusters_on": {
+   "description": "",
+   "label": "Set Thrusters Power On"
+  },
+  "v_power_set_weapons_off": {
+   "description": "Set Weapons Power Off",
+   "label": "Set Weapons Power Off"
+  },
+  "v_power_set_weapons_on": {
+   "description": "Set Weapons Power On",
+   "label": "Set Weapons Power On"
+  },
+  "v_power_throttle_down": {
+   "description": "",
+   "label": "Decrease Throttle"
+  },
+  "v_power_throttle_max": {
+   "description": "",
+   "label": "Increase Throttle to Max"
+  },
+  "v_power_throttle_min": {
+   "description": "",
+   "label": "Decrease Throttle to Min"
+  },
+  "v_power_throttle_up": {
+   "description": "",
+   "label": "Increase Throttle"
+  },
+  "v_power_toggle": {
+   "description": "Toggle Power - All",
+   "label": "Toggle Power - All"
+  },
+  "v_power_toggle_shields": {
+   "description": "",
+   "label": "Toggle Power - Shields"
+  },
+  "v_power_toggle_thrusters": {
+   "description": "",
+   "label": "Toggle Power - Thrusters"
+  },
+  "v_power_toggle_weapons": {
+   "description": "",
+   "label": "Toggle Power - Weapons"
+  },
+  "v_retract_landing_system": {
+   "description": "",
+   "label": "Landing System (Retract)"
+  },
+  "v_roll": {
+   "description": "",
+   "label": "Roll"
+  },
+  "v_roll_left": {
+   "description": "",
+   "label": "Roll left"
+  },
+  "v_roll_mouse": {
+   "description": "",
+   "label": "Roll"
+  },
+  "v_roll_right": {
+   "description": "",
+   "label": "Roll right"
+  },
+  "v_salvage_beam_spacing_abs": {
+   "description": "Adjust the absolute spacing between the Vulture's two salvage heads.",
+   "label": "Absolute Beam Spacing"
+  },
+  "v_salvage_beam_spacing_rel": {
+   "description": "Adjust the relative spacing between the Vulture's two salvage heads.",
+   "label": "Relative Beam Spacing"
+  },
+  "v_salvage_cycle_modifiers_left": {
+   "description": "Cycle through available modifiers on the left salvage head or salvage turret.",
+   "label": "Cycle Left Salvage Modifiers"
+  },
+  "v_salvage_cycle_modifiers_right": {
+   "description": "Cycle through available modifiers on the right salvage head or salvage turret.",
+   "label": "Cycle Right Salvage Modifiers"
+  },
+  "v_salvage_decrease_beam_spacing": {
+   "description": "Decrease the spacing between the Vulture's two salvage heads.",
+   "label": "Decrease Beam Spacing"
+  },
+  "v_salvage_increase_beam_spacing": {
+   "description": "Increase the spacing between the Vulture's two salvage heads.",
+   "label": "Increase Beam Spacing"
+  },
+  "v_salvage_reset_gimbal": {
+   "description": "",
+   "label": "Salvage Mode Gimbal Reset"
+  },
+  "v_salvage_toggle_beam_spacing_axis": {
+   "description": "Set the orientation axis of the salvage beam to vertical or horizontal.",
+   "label": "Salvage Beam Axis (Toggle)"
+  },
+  "v_salvage_toggle_gimbal_mode": {
+   "description": "Toggle between gimbled and fixed salvage targeting modes.",
+   "label": "Salvage Mode Gimbal (Toggle)"
+  },
+  "v_scanning_trigger_scan": {
+   "description": "Activates the Scanning",
+   "label": "Activate Scanning"
+  },
+  "v_self_destruct": {
+   "description": "",
+   "label": "Self Destruct"
+  },
+  "v_set_refuel_mode": {
+   "description": "",
+   "label": "Set Refuel Operator Mode"
+  },
+  "v_shield_raise_level_back": {
+   "description": "",
+   "label": "Shield raise level back"
+  },
+  "v_shield_raise_level_down": {
+   "description": "",
+   "label": "Shield raise level bottom"
+  },
+  "v_shield_raise_level_forward": {
+   "description": "",
+   "label": "Shield raise level front"
+  },
+  "v_shield_raise_level_left": {
+   "description": "",
+   "label": "Shield raise level left"
+  },
+  "v_shield_raise_level_right": {
+   "description": "",
+   "label": "Shield raise level right"
+  },
+  "v_shield_raise_level_up": {
+   "description": "",
+   "label": "Shield raise level top"
+  },
+  "v_shield_reset_level": {
+   "description": "",
+   "label": "Shield reset levels"
+  },
+  "v_space_brake": {
+   "description": "",
+   "label": "Spacebrake"
+  },
+  "v_starmap": {
+   "description": "Map",
+   "label": "Map"
+  },
+  "v_strafe_back": {
+   "description": "",
+   "label": "Throttle - Decrease"
+  },
+  "v_strafe_down": {
+   "description": "",
+   "label": "Strafe down (abs.)"
+  },
+  "v_strafe_forward": {
+   "description": "",
+   "label": "Throttle - Increase"
+  },
+  "v_strafe_lateral": {
+   "description": "",
+   "label": "Strafe left / right (abs.)"
+  },
+  "v_strafe_left": {
+   "description": "",
+   "label": "Strafe left (abs.)"
+  },
+  "v_strafe_longitudinal": {
+   "description": "",
+   "label": "Throttle - Forward / Back"
+  },
+  "v_strafe_longitudinal_invert": {
+   "description": "Inverts Strafe Longitudinal Absolute Axis Half (Neutral - Backward)",
+   "label": "Throttle - Forward / Back Invert"
+  },
+  "v_strafe_right": {
+   "description": "",
+   "label": "Strafe right (abs.)"
+  },
+  "v_strafe_trim_reset_long": {
+   "description": "Throttle - Trim - Release (Long Press)",
+   "label": "Throttle - Trim - Release (Long Press)"
+  },
+  "v_strafe_trim_reset_short": {
+   "description": "Throttle - Trim - Release (Short Press)",
+   "label": "Throttle - Trim - Release (Short Press)"
+  },
+  "v_strafe_trim_set_100_long": {
+   "description": "Throttle - Trim - Set To 100% (Long Press)",
+   "label": "Throttle - Trim - Set To 100% (Long Press)"
+  },
+  "v_strafe_trim_set_100_short": {
+   "description": "Throttle - Trim - Set To 100% (Short Press)",
+   "label": "Throttle - Trim - Set To 100% (Short Press)"
+  },
+  "v_strafe_trim_set_50_long": {
+   "description": "Throttle - Trim - Set To 50% (Long Press)",
+   "label": "Throttle - Trim - Set To 50% (Long Press)"
+  },
+  "v_strafe_trim_set_50_short": {
+   "description": "Throttle - Trim - Set To 50% (Short Press)",
+   "label": "Throttle - Trim - Set To 50% (Short Press)"
+  },
+  "v_strafe_trim_set_long": {
+   "description": "Throttle - Trim - Set (Long Press)",
+   "label": "Throttle - Trim - Set (Long Press)"
+  },
+  "v_strafe_trim_set_short": {
+   "description": "Throttle - Trim - Set (Short Press)",
+   "label": "Throttle - Trim - Set (Short Press)"
+  },
+  "v_strafe_up": {
+   "description": "",
+   "label": "Strafe up (abs.)"
+  },
+  "v_strafe_vertical": {
+   "description": "",
+   "label": "Strafe up / down (abs.)"
+  },
+  "v_target_cycle_all_back": {
+   "description": "",
+   "label": "Cycle Lock - All - Back"
+  },
+  "v_target_cycle_all_fwd": {
+   "description": "",
+   "label": "Cycle Lock - All - Forward"
+  },
+  "v_target_cycle_all_reset": {
+   "description": "",
+   "label": "Cycle Lock - All - Reset to Closest"
+  },
+  "v_target_cycle_attacker_back": {
+   "description": "",
+   "label": "Cycle Lock - Attackers - Back"
+  },
+  "v_target_cycle_attacker_fwd": {
+   "description": "",
+   "label": "Cycle Lock - Attackers - Forward"
+  },
+  "v_target_cycle_attacker_reset": {
+   "description": "",
+   "label": "Cycle Lock - Attackers - Reset to Closest"
+  },
+  "v_target_cycle_friendly_back": {
+   "description": "",
+   "label": "Cycle Lock - Friendlies - Back"
+  },
+  "v_target_cycle_friendly_fwd": {
+   "description": "",
+   "label": "Cycle Lock - Friendlies - Forward"
+  },
+  "v_target_cycle_friendly_reset": {
+   "description": "",
+   "label": "Cycle Lock - Friendlies - Reset to Closest"
+  },
+  "v_target_cycle_hostile_back": {
+   "description": "",
+   "label": "Cycle Lock - Hostiles - Back"
+  },
+  "v_target_cycle_hostile_fwd": {
+   "description": "",
+   "label": "Cycle Lock - Hostiles - Forward"
+  },
+  "v_target_cycle_hostile_reset": {
+   "description": "",
+   "label": "Cycle Lock - Hostiles - Reset to Closest"
+  },
+  "v_target_cycle_in_view_back": {
+   "description": "",
+   "label": "Cycle Lock - In View - Back"
+  },
+  "v_target_cycle_in_view_fwd": {
+   "description": "",
+   "label": "Cycle Lock - In View - Forward"
+  },
+  "v_target_cycle_in_view_reset": {
+   "description": "",
+   "label": "Cycle Lock - In View - Under Reticle"
+  },
+  "v_target_cycle_pinned_back": {
+   "description": "",
+   "label": "Cycle Lock - Pinned - Back"
+  },
+  "v_target_cycle_pinned_fwd": {
+   "description": "",
+   "label": "Cycle Lock - Pinned - Forward"
+  },
+  "v_target_cycle_pinned_reset": {
+   "description": "",
+   "label": "Cycle Lock - Pinned - Reset to First"
+  },
+  "v_target_cycle_subitem_back": {
+   "description": "",
+   "label": "Cycle Lock - Sub-Target - Back"
+  },
+  "v_target_cycle_subitem_fwd": {
+   "description": "",
+   "label": "Cycle Lock - Sub-Target - Forward"
+  },
+  "v_target_cycle_subitem_reset": {
+   "description": "",
+   "label": "Cycle Lock - Sub-Target - Reset to Main Target"
+  },
+  "v_target_hail": {
+   "description": "HailTarget",
+   "label": "Hail Target"
+  },
+  "v_target_lock_selected": {
+   "description": "Lock Selected Target",
+   "label": "Lock Selected Target"
+  },
+  "v_target_pin_selected": {
+   "description": "",
+   "label": "Pin Selected Target"
+  },
+  "v_target_pin_selected_hold": {
+   "description": "",
+   "label": "Pin Selected Target (Hold)"
+  },
+  "v_target_remove_all_pins": {
+   "description": "",
+   "label": "Remove All Pinned Targets"
+  },
+  "v_target_toggle_lock_index_1": {
+   "description": "",
+   "label": "Pin Index 1 - Lock / Unlock Pinned Target"
+  },
+  "v_target_toggle_lock_index_2": {
+   "description": "",
+   "label": "Pin Index 2 - Lock / Unlock Pinned Target"
+  },
+  "v_target_toggle_lock_index_3": {
+   "description": "",
+   "label": "Pin Index 3 - Lock / Unlock Pinned Target"
+  },
+  "v_target_toggle_pin_index_1": {
+   "description": "",
+   "label": "Pin Index 1 - Pin / Unpin Selected Target"
+  },
+  "v_target_toggle_pin_index_1_hold": {
+   "description": "",
+   "label": "Pin Index 1 - Pin / Unpin Selected Target (Hold)"
+  },
+  "v_target_toggle_pin_index_2": {
+   "description": "",
+   "label": "Pin Index 2 - Pin / Unpin Selected Target"
+  },
+  "v_target_toggle_pin_index_2_hold": {
+   "description": "",
+   "label": "Pin Index 2 - Pin / Unpin Selected Target (Hold)"
+  },
+  "v_target_toggle_pin_index_3": {
+   "description": "",
+   "label": "Pin Index 3 - Pin / Unpin Selected Target"
+  },
+  "v_target_toggle_pin_index_3_hold": {
+   "description": "",
+   "label": "Pin Index 3 - Pin / Unpin Selected Target (Hold)"
+  },
+  "v_target_tracking_auto_zoom": {
+   "description": "Allows you to enable and disable auto zoom on selected targets.",
+   "label": "Auto Zoom On Selected Target On / Off (Toggle, Hold)"
+  },
+  "v_target_under_reticle": {
+   "description": "Lock Target Under Reticle",
+   "label": "Lock Target Under Reticle"
+  },
+  "v_target_unlock": {
+   "description": "Unlock Current Target",
+   "label": "Unlock Current Target"
+  },
+  "v_target_unpin_selected": {
+   "description": "",
+   "label": "Unpin Selected Target"
+  },
+  "v_target_unpin_selected_hold": {
+   "description": "",
+   "label": "Unpin Selected Target (Hold)"
+  },
+  "v_toggle_all_doorlocks": {
+   "description": "Toggle Lock/Unlock Doors",
+   "label": "Lock/Unlock Doors (Toggle)"
+  },
+  "v_toggle_all_doors": {
+   "description": "Toggle Open/Close Doors",
+   "label": "Open/Close Doors (Toggle)"
+  },
+  "v_toggle_all_portlocks": {
+   "description": "Toggle Open/Close Ports",
+   "label": "Port Lock Toggle All"
+  },
+  "v_toggle_docking_request": {
+   "description": "",
+   "label": "Docking\\n(Initiate)"
+  },
+  "v_toggle_jump_request": {
+   "description": "",
+   "label": "Jump Drive - Request Jump"
+  },
+  "v_toggle_landing_system": {
+   "description": "",
+   "label": "Landing System (Toggle)"
+  },
+  "v_toggle_mining_laser_fire": {
+   "description": "Fire Mining Laser (Toggle)",
+   "label": "Fire Mining Laser (Toggle)"
+  },
+  "v_toggle_mining_laser_type": {
+   "description": "Switch Mining Laser (Toggle)",
+   "label": "Switch Mining Laser (Toggle)"
+  },
+  "v_toggle_mining_mode": {
+   "description": "Mining Mode Toggle",
+   "label": ""
+  },
+  "v_toggle_qdrive_engagement": {
+   "description": "Engages the quantum drive.",
+   "label": "Engage Quantum Drive (Hold)"
+  },
+  "v_toggle_refuel_mode": {
+   "description": "",
+   "label": "Toggle Refuel Operator Mode"
+  },
+  "v_toggle_relative_mouse_mode": {
+   "description": "Switches the mouse behavior for ship rotations between a relative (FPS style) and a Vjoy mode.",
+   "label": "Cycle mouse mode (VJoy / Relative)"
+  },
+  "v_toggle_salvage_mode": {
+   "description": "Activate salvage mode when seated.",
+   "label": ""
+  },
+  "v_toggle_yaw_roll_swap": {
+   "description": "",
+   "label": "Swap Yaw / Roll (Toggle)"
+  },
+  "v_transform_cycle": {
+   "description": "Cycle between the vehicle's expanded and retracted configurations.",
+   "label": "Cycle Configuration"
+  },
+  "v_transform_deploy": {
+   "description": "Expands the vehicle's configuration.",
+   "label": "Expand Configuration"
+  },
+  "v_transform_retract": {
+   "description": "Retracts the vehicle's configuration.",
+   "label": "Retract Configuration"
+  },
+  "v_unlock_all_doors": {
+   "description": "Unlock All Doors",
+   "label": "Unlock All Doors"
+  },
+  "v_unlock_all_ports": {
+   "description": "",
+   "label": "Port Unlock All"
+  },
+  "v_view_cycle_fwd": {
+   "description": "",
+   "label": "Cycle camera view"
+  },
+  "v_view_dynamic_zoom_abs": {
+   "description": "Axis assignment for dynamic zoom",
+   "label": "Dynamic Zoom In and Out (abs.)"
+  },
+  "v_view_dynamic_zoom_abs_toggle": {
+   "description": "Holds the dynamic zoom as long as the button is held",
+   "label": "Dynamic Zoom Toggle (abs.)"
+  },
+  "v_view_dynamic_zoom_rel": {
+   "description": "",
+   "label": "Dynamic Zoom In and Out (rel.)"
+  },
+  "v_view_dynamic_zoom_rel_in": {
+   "description": "",
+   "label": "Dynamic Zoom In (rel.)"
+  },
+  "v_view_dynamic_zoom_rel_out": {
+   "description": "",
+   "label": "Dynamic Zoom Out (rel.)"
+  },
+  "v_view_freelook_mode": {
+   "description": "",
+   "label": "Freelook (Hold)"
+  },
+  "v_view_look_behind": {
+   "description": "",
+   "label": "Look behind"
+  },
+  "v_view_mode": {
+   "description": "",
+   "label": "Cycle camera orbit mode"
+  },
+  "v_view_pitch": {
+   "description": "",
+   "label": "Look up / down"
+  },
+  "v_view_pitch_down": {
+   "description": "",
+   "label": "Look down"
+  },
+  "v_view_pitch_mouse": {
+   "description": "",
+   "label": "Look up / down"
+  },
+  "v_view_pitch_up": {
+   "description": "",
+   "label": "Look up"
+  },
+  "v_view_yaw": {
+   "description": "",
+   "label": "Look left / right"
+  },
+  "v_view_yaw_left": {
+   "description": "",
+   "label": "Look left"
+  },
+  "v_view_yaw_mouse": {
+   "description": "",
+   "label": "Look left / right"
+  },
+  "v_view_yaw_right": {
+   "description": "",
+   "label": "Look right"
+  },
+  "v_view_zoom_in": {
+   "description": "",
+   "label": "Zoom in (3rd person view)"
+  },
+  "v_view_zoom_out": {
+   "description": "",
+   "label": "Zoom out (3rd person view)"
+  },
+  "v_vtol_toggle": {
+   "description": "",
+   "label": "Toggle VTOL"
+  },
+  "v_weapon_aim_type_cycle": {
+   "description": "",
+   "label": "Aim Mode - Cycle"
+  },
+  "v_weapon_aim_type_set_auto": {
+   "description": "",
+   "label": "Aim Mode - Set to Automatic"
+  },
+  "v_weapon_aim_type_set_painting": {
+   "description": "",
+   "label": "Aim Mode - Set to Painting"
+  },
+  "v_weapon_aim_type_set_pip_aiming": {
+   "description": "",
+   "label": "Aim Mode - Set to PIP Aiming"
+  },
+  "v_weapon_bombing_hud_range_decrease": {
+   "description": "",
+   "label": "Bombs - Decrease HUD Range"
+  },
+  "v_weapon_bombing_hud_range_increase": {
+   "description": "Increases range by one step in the bomb alignment HUD",
+   "label": "Bombs - Increase HUD Range"
+  },
+  "v_weapon_bombing_hud_range_reset": {
+   "description": "Resets to the default range in the bomb alignment HUD",
+   "label": "Bombs - Reset HUD Range"
+  },
+  "v_weapon_convergence_distance_abs": {
+   "description": "Manual Convergence Distance (abs.)",
+   "label": "Manual Convergence Distance (abs.)"
+  },
+  "v_weapon_convergence_distance_rel": {
+   "description": "Sets the manual convergence distance on a relative axis",
+   "label": "Manual Convergence Distance (rel.)"
+  },
+  "v_weapon_convergence_distance_rel_decrease": {
+   "description": "Decreases the Manual Convergence Distance",
+   "label": "Manual Convergence Distance - Decrease"
+  },
+  "v_weapon_convergence_distance_rel_increase": {
+   "description": "Increases the Manual Convergence Distance",
+   "label": "Manual Convergence Distance - Increase"
+  },
+  "v_weapon_convergence_distance_set_default": {
+   "description": "Resets the Manual Convergence Distance to the default value",
+   "label": "Manual Convergence Distance - Reset"
+  },
+  "v_weapon_countermeasure_decoy_burst_decrease": {
+   "description": "Decreases the burst size by one.",
+   "label": "Decoy - Decrease Burst Size (tap)"
+  },
+  "v_weapon_countermeasure_decoy_burst_increase": {
+   "description": "Increases the burst size by one.",
+   "label": "Decoy - Increase Burst Size (tap)"
+  },
+  "v_weapon_countermeasure_decoy_launch": {
+   "description": "Launches a decoy countermeasure.",
+   "label": "Decoy - Launch Burst (tap), Set and Launch Burst (hold)"
+  },
+  "v_weapon_countermeasure_decoy_launch_panic": {
+   "description": "Launches a large percentage of the countermeasure magazine.",
+   "label": "Decoy - Panic Launch (tap)"
+  },
+  "v_weapon_countermeasure_noise_launch": {
+   "description": "Deploys a noise countermeasure.",
+   "label": "Noise - Deploy (Tap)"
+  },
+  "v_weapon_cycle_missile_back": {
+   "description": "",
+   "label": "Cycle Previous Missile Type"
+  },
+  "v_weapon_cycle_missile_fwd": {
+   "description": "",
+   "label": "Cycle Next Missile Type"
+  },
+  "v_weapon_decrease_max_missiles": {
+   "description": "",
+   "label": "Decrease Number of Armed Missiles"
+  },
+  "v_weapon_gimbals_state_set_locked": {
+   "description": "",
+   "label": "Gimbal State - Set Locked"
+  },
+  "v_weapon_gimbals_state_set_unlocked": {
+   "description": "",
+   "label": "Gimbal State - Set Unlocked"
+  },
+  "v_weapon_gimbals_state_toggle": {
+   "description": "",
+   "label": "Gimbal State - Toggle Locked / Unlocked"
+  },
+  "v_weapon_gimbals_unlocked_cycle_source": {
+   "description": "",
+   "label": "Gimbal State - Unlocked - Cycle Source (VJoy / View)"
+  },
+  "v_weapon_increase_max_missiles": {
+   "description": "",
+   "label": "Increase Number of Armed Missiles"
+  },
+  "v_weapon_launch_missile": {
+   "description": "",
+   "label": "Launch Missiles (Hold)"
+  },
+  "v_weapon_pip_combination_type_set_combined_weapon_group": {
+   "description": "",
+   "label": "PIP Combination Type: Set One PIP Per Weapon Type"
+  },
+  "v_weapon_pip_combination_type_set_single": {
+   "description": "",
+   "label": "PIP Combination Type: Set One PIP Per Weapon"
+  },
+  "v_weapon_pip_combination_type_toggle": {
+   "description": "",
+   "label": "PIP Combination Type: Toggle"
+  },
+  "v_weapon_pip_fade_off": {
+   "description": "PIP Fading Off",
+   "label": "PIP Fading Off"
+  },
+  "v_weapon_pip_fade_on": {
+   "description": "PIP Fading On",
+   "label": "PIP Fading On"
+  },
+  "v_weapon_pip_fade_toggle": {
+   "description": "PIP Fading Toggle",
+   "label": "PIP Fading Toggle"
+  },
+  "v_weapon_pip_prec_line_off": {
+   "description": "PIP Precision Lines Off",
+   "label": "PIP Precision Lines Off"
+  },
+  "v_weapon_pip_prec_line_on": {
+   "description": "PIP Precision Lines On",
+   "label": "PIP Precision Lines On"
+  },
+  "v_weapon_pip_prec_line_toggle": {
+   "description": "PIP Precision Lines Toggle",
+   "label": "PIP Precision Lines Toggle"
+  },
+  "v_weapon_pip_set_lag": {
+   "description": "",
+   "label": "Set Lag PIPs"
+  },
+  "v_weapon_pip_set_lead": {
+   "description": "",
+   "label": "Set Lead PIPs"
+  },
+  "v_weapon_pip_toggle_lead_lag": {
+   "description": "",
+   "label": "Toggle Lead / Lag PIPs"
+  },
+  "v_weapon_preset_attack": {
+   "description": "",
+   "label": "Weapon Preset - Fire"
+  },
+  "v_weapon_preset_emp": {
+   "description": "Weapon Presets - Set EMPs",
+   "label": "Weapon Presets - Set EMPs"
+  },
+  "v_weapon_preset_fire_guns0": {
+   "description": "Weapon Presets - Fire Guns Group 1",
+   "label": "Weapon Presets - Fire Guns Group 1"
+  },
+  "v_weapon_preset_fire_guns1": {
+   "description": "Weapon Presets - Fire Guns Group 2",
+   "label": "Weapon Presets - Fire Guns Group 2"
+  },
+  "v_weapon_preset_fire_guns2": {
+   "description": "Weapon Presets - Fire Guns Group 3",
+   "label": "Weapon Presets - Fire Guns Group 3"
+  },
+  "v_weapon_preset_fire_guns3": {
+   "description": "Weapon Presets - Fire Guns Group 4",
+   "label": "Weapon Presets - Fire Guns Group 4"
+  },
+  "v_weapon_preset_guns0": {
+   "description": "Weapon Presets - Set Guns Group 1",
+   "label": "Weapon Presets - Set Guns Group 1"
+  },
+  "v_weapon_preset_guns1": {
+   "description": "Weapon Presets - Set Guns Group 2",
+   "label": "Weapon Presets - Set Guns Group 2"
+  },
+  "v_weapon_preset_guns2": {
+   "description": "Weapon Presets - Set Guns Group 3",
+   "label": "Weapon Presets - Set Guns Group 3"
+  },
+  "v_weapon_preset_guns3": {
+   "description": "Weapon Presets - Set Guns Group 4",
+   "label": "Weapon Presets - Set Guns Group 4"
+  },
+  "v_weapon_preset_next": {
+   "description": "",
+   "label": "Weapon Presets - Next"
+  },
+  "v_weapon_preset_next_overflow": {
+   "description": "Weapon Presets - Next (Overflow)",
+   "label": "Weapon Presets - Next (Overflow)"
+  },
+  "v_weapon_preset_prev": {
+   "description": "",
+   "label": "Weapon Presets - Previous"
+  },
+  "v_weapon_preset_prev_overflow": {
+   "description": "Weapon Presets - Previous (Overflow)",
+   "label": "Weapon Presets - Previous (Overflow)"
+  },
+  "v_weapon_preset_qid": {
+   "description": "Weapon Presets - Set QIDs",
+   "label": "Weapon Presets - Set QIDs"
+  },
+  "v_weapon_preset_qid_jammer": {
+   "description": "Weapon Presets - Set Quantum Jammers (short range)",
+   "label": "Weapon Presets - Set Quantum Jammers (short range)"
+  },
+  "v_weapon_preset_qid_pulse": {
+   "description": "Weapon Presets - Set Quantum Snares / Pulse (long range)",
+   "label": "Weapon Presets - Set Quantum Snares / Pulse (long range)"
+  },
+  "v_weapon_reset_max_missiles": {
+   "description": "",
+   "label": "Reset Number of Armed Missiles"
+  },
+  "v_weapon_staggered_fire_off": {
+   "description": "",
+   "label": "Staggered Fire - Off"
+  },
+  "v_weapon_staggered_fire_on": {
+   "description": "",
+   "label": "Staggered Fire - On"
+  },
+  "v_weapon_staggered_fire_toggle": {
+   "description": "",
+   "label": "Staggered Fire - Toggle On / Off"
+  },
+  "v_weapon_suppress_aim_assists_hold": {
+   "description": "",
+   "label": "Suppress Aim Assists (Hold)"
+  },
+  "v_weapon_toggle_launch_missile": {
+   "description": "",
+   "label": "Launch Missiles (Tap)"
+  },
+  "v_weapon_ui_scale_off": {
+   "description": "Gunnery UI Magnification Off",
+   "label": "Gunnery UI Magnification Off"
+  },
+  "v_weapon_ui_scale_on": {
+   "description": "Gunnery UI Magnification On",
+   "label": "Gunnery UI Magnification On"
+  },
+  "v_weapon_ui_scale_toggle": {
+   "description": "",
+   "label": "Gunnery UI Magnification Toggle"
+  },
+  "v_yaw": {
+   "description": "Yaw Left / Right (HOTAS)",
+   "label": "Yaw Left / Right (Axis / HOTAS)"
+  },
+  "v_yaw_left": {
+   "description": "",
+   "label": "Turn Left"
+  },
+  "v_yaw_mouse": {
+   "description": "Yaw Left / Right (Mouse)",
+   "label": "Yaw Left / Right (Mouse)"
+  },
+  "v_yaw_right": {
+   "description": "",
+   "label": "Turn Right"
+  },
+  "view_enable_camview_mode": {
+   "description": "",
+   "label": "Advanced Camera Controls Modifier (Hold)"
+  },
+  "view_fov_in": {
+   "description": "",
+   "label": "Increase FoV"
+  },
+  "view_fov_out": {
+   "description": "",
+   "label": "Decrease FoV"
+  },
+  "view_fstop_out": {
+   "description": "",
+   "label": "Decrease DoF"
+  },
+  "view_load_view_1": {
+   "description": "",
+   "label": "Load View 1"
+  },
+  "view_load_view_2": {
+   "description": "",
+   "label": "Load View 2"
+  },
+  "view_load_view_3": {
+   "description": "",
+   "label": "Load View 3"
+  },
+  "view_load_view_4": {
+   "description": "",
+   "label": "Load View 4"
+  },
+  "view_load_view_5": {
+   "description": "",
+   "label": "Load View 5"
+  },
+  "view_load_view_6": {
+   "description": "",
+   "label": "Load View 6"
+  },
+  "view_load_view_7": {
+   "description": "",
+   "label": "Load View 7"
+  },
+  "view_load_view_8": {
+   "description": "",
+   "label": "Load View 8"
+  },
+  "view_load_view_9": {
+   "description": "",
+   "label": "Load View 9"
+  },
+  "view_move_target_X_neg": {
+   "description": "",
+   "label": "X Offset Negative"
+  },
+  "view_move_target_X_pos": {
+   "description": "",
+   "label": "X Offset Positive"
+  },
+  "view_move_target_Y_neg": {
+   "description": "",
+   "label": "Y Offset Negative / Spectator Freecam Focal Point Backward"
+  },
+  "view_move_target_Y_pos": {
+   "description": "",
+   "label": "Y Offset Positive / Spectator Freecam Focal Point Forward"
+  },
+  "view_move_target_Z_neg": {
+   "description": "",
+   "label": "Z Offset Negative"
+  },
+  "view_move_target_Z_pos": {
+   "description": "",
+   "label": "Z Offset Positive"
+  },
+  "view_reset_saved": {
+   "description": "",
+   "label": "Clear Saved View"
+  },
+  "view_restore_defaults": {
+   "description": "",
+   "label": "Reset Current View"
+  },
+  "view_save_view_1": {
+   "description": "",
+   "label": "Save View 1"
+  },
+  "view_save_view_2": {
+   "description": "",
+   "label": "Save View 2"
+  },
+  "view_save_view_3": {
+   "description": "",
+   "label": "Save View 3"
+  },
+  "view_save_view_4": {
+   "description": "",
+   "label": "Save View 4"
+  },
+  "view_save_view_5": {
+   "description": "",
+   "label": "Save View 5"
+  },
+  "view_save_view_6": {
+   "description": "",
+   "label": "Save View 6"
+  },
+  "view_save_view_7": {
+   "description": "",
+   "label": "Save View 7"
+  },
+  "view_save_view_8": {
+   "description": "",
+   "label": "Save View 8"
+  },
+  "view_save_view_9": {
+   "description": "",
+   "label": "Save View 9"
+  },
+  "view_switch_to_alternative": {
+   "description": "",
+   "label": "Advanced Camera Controls Modifier (Hold)"
+  },
+  "visor_wipe": {
+   "description": "Quickly wipe your helmet visor to improve visibility",
+   "label": "Wipe Helmet Visor"
+  },
+  "walk": {
+   "description": "",
+   "label": "Walk"
+  },
+  "weapon_auxiliary_action": {
+   "description": "",
+   "label": "FPS Underbarrel Attachment Action"
+  },
+  "weapon_change_firemode": {
+   "description": "",
+   "label": "Change Fire Mode"
+  },
+  "weapon_melee": {
+   "description": "",
+   "label": "Melee - Attack (Ranged Weapon + Takedowns)"
+  },
+  "weapon_zeroing_decrease": {
+   "description": "Adjust the weapon scope to accommodate a closer target distance into sighting.",
+   "label": "Weapon Zeroing Decrease"
+  },
+  "weapon_zeroing_increase": {
+   "description": "Adjust the weapon scope to accommodate a farther target distance into sighting.",
+   "label": "Weapon Zeroing Increase / Auto"
+  },
+  "zgt_detach": {
+   "description": "",
+   "label": "Detach from Surface"
+  },
+  "zgt_launch": {
+   "description": "",
+   "label": "Launch from Surface"
+  },
+  "zgt_roll_left": {
+   "description": "",
+   "label": "Roll Left"
+  },
+  "zgt_roll_right": {
+   "description": "",
+   "label": "Roll Right"
+  },
+  "zoom": {
+   "description": "",
+   "label": "Aim Down Sight"
+  }
+ },
+ "branch": "sc-alpha-4.10.0",
+ "game": "4.10.193.11644",
+ "maps": {
+  "IFCS_controls": {
+   "category": "",
+   "label": "",
+   "mode": "Other"
+  },
+  "RemoteRigidEntityController": {
+   "category": "",
+   "label": "",
+   "mode": "Other"
+  },
+  "character_customizer": {
+   "category": "",
+   "label": "",
+   "mode": "Other"
+  },
+  "debug": {
+   "category": "",
+   "label": "",
+   "mode": "Other"
+  },
+  "default": {
+   "category": "Social - General",
+   "label": "Social - General",
+   "mode": "Other"
+  },
+  "flycam": {
+   "category": "",
+   "label": "",
+   "mode": "Other"
+  },
+  "hacking": {
+   "category": "",
+   "label": "",
+   "mode": "Other"
+  },
+  "incapacitated": {
+   "category": "ON FOOT",
+   "label": "On Foot - All",
+   "mode": "FPS"
+  },
+  "lights_controller": {
+   "category": "",
+   "label": "Lights",
+   "mode": "Other"
+  },
+  "mapui": {
+   "category": "",
+   "label": "",
+   "mode": "Other"
+  },
+  "mining": {
+   "category": "",
+   "label": "",
+   "mode": "Other"
+  },
+  "player": {
+   "category": "ON FOOT",
+   "label": "On Foot - All",
+   "mode": "FPS"
+  },
+  "player_choice": {
+   "category": "Quick Keys, Interactions, and Inner Thought",
+   "label": "Quick Keys, Interactions, and Inner Thought",
+   "mode": "Other"
+  },
+  "player_emotes": {
+   "category": "ON FOOT",
+   "label": "Social - Emotes",
+   "mode": "FPS"
+  },
+  "player_input_optical_tracking": {
+   "category": "VOIP, FOIP and Head Tracking",
+   "label": "VOIP, FOIP and Head Tracking",
+   "mode": "Other"
+  },
+  "prone": {
+   "category": "ON FOOT",
+   "label": "On Foot - All",
+   "mode": "FPS"
+  },
+  "seat_general": {
+   "category": "",
+   "label": "Vehicles - Seats and Operator Modes",
+   "mode": "Flight"
+  },
+  "server_renderer": {
+   "category": "",
+   "label": "",
+   "mode": "Other"
+  },
+  "spaceship_auto_weapons": {
+   "category": "",
+   "label": "",
+   "mode": "Other"
+  },
+  "spaceship_defensive": {
+   "category": "FLIGHT",
+   "label": "Vehicles - Shields and Countermeasures",
+   "mode": "Flight"
+  },
+  "spaceship_docking": {
+   "category": "",
+   "label": "Flight - Docking",
+   "mode": "Flight"
+  },
+  "spaceship_general": {
+   "category": "FLIGHT",
+   "label": "Vehicles - Cockpit",
+   "mode": "Flight"
+  },
+  "spaceship_hud": {
+   "category": "FLIGHT",
+   "label": "Flight - HUD",
+   "mode": "Flight"
+  },
+  "spaceship_mining": {
+   "category": "FLIGHT",
+   "label": "Vehicles - Mining",
+   "mode": "Flight"
+  },
+  "spaceship_missiles": {
+   "category": "FLIGHT",
+   "label": "Vehicles - Missiles",
+   "mode": "Flight"
+  },
+  "spaceship_movement": {
+   "category": "FLIGHT",
+   "label": "Flight - Movement",
+   "mode": "Flight"
+  },
+  "spaceship_power": {
+   "category": "FLIGHT",
+   "label": "Flight - Power",
+   "mode": "Flight"
+  },
+  "spaceship_quantum": {
+   "category": "",
+   "label": "Flight - Quantum Travel",
+   "mode": "Flight"
+  },
+  "spaceship_radar": {
+   "category": "FLIGHT",
+   "label": "Flight - Radar",
+   "mode": "Flight"
+  },
+  "spaceship_salvage": {
+   "category": "FLIGHT",
+   "label": "",
+   "mode": "Flight"
+  },
+  "spaceship_scanning": {
+   "category": "FLIGHT",
+   "label": "Vehicles - Scanning",
+   "mode": "Flight"
+  },
+  "spaceship_target_hailing": {
+   "category": "FLIGHT",
+   "label": "Flight - Target Hailing",
+   "mode": "Flight"
+  },
+  "spaceship_targeting": {
+   "category": "FLIGHT",
+   "label": "Vehicles - Targeting",
+   "mode": "Flight"
+  },
+  "spaceship_targeting_advanced": {
+   "category": "FLIGHT",
+   "label": "Vehicles - Target Cycling",
+   "mode": "Flight"
+  },
+  "spaceship_view": {
+   "category": "FLIGHT",
+   "label": "Vehicles - View",
+   "mode": "Flight"
+  },
+  "spaceship_weapons": {
+   "category": "FLIGHT",
+   "label": "Vehicles - Weapons",
+   "mode": "Flight"
+  },
+  "spectator": {
+   "category": "Electronic Access - Spectator",
+   "label": "Electronic Access - Spectator",
+   "mode": "Other"
+  },
+  "stopwatch": {
+   "category": "",
+   "label": "Stop Watch",
+   "mode": "Other"
+  },
+  "tractor_beam": {
+   "category": "ON FOOT",
+   "label": "On Foot - All",
+   "mode": "FPS"
+  },
+  "turret_advanced": {
+   "category": "",
+   "label": "Turret Advanced",
+   "mode": "Flight"
+  },
+  "turret_movement": {
+   "category": "",
+   "label": "Turret Movement",
+   "mode": "Flight"
+  },
+  "ui_notification": {
+   "category": "Social - General",
+   "label": "Social - Invites",
+   "mode": "Other"
+  },
+  "ui_textfield": {
+   "category": "",
+   "label": "",
+   "mode": "Other"
+  },
+  "vehicle_driver": {
+   "category": "Vehicle",
+   "label": "Ground Vehicle - Movement",
+   "mode": "Flight"
+  },
+  "vehicle_general": {
+   "category": "Vehicle",
+   "label": "Ground Vehicle - General",
+   "mode": "Flight"
+  },
+  "vehicle_mfd": {
+   "category": "",
+   "label": "Vehicles - Multi Function Displays (MFDs)",
+   "mode": "Other"
+  },
+  "vehicle_mobiglas": {
+   "category": "FLIGHT",
+   "label": "Vehicle - Mobiglas",
+   "mode": "Flight"
+  },
+  "view_director_mode": {
+   "category": "CAMERA",
+   "label": "Camera - Advanced Camera Controls",
+   "mode": "Other"
+  },
+  "zero_gravity_eva": {
+   "category": "E.V.A.",
+   "label": "E.V.A - All",
+   "mode": "FPS"
+  },
+  "zero_gravity_traversal": {
+   "category": "",
+   "label": "E.V.A. - Zero-G Traversal",
+   "mode": "FPS"
+  }
+ }
+}

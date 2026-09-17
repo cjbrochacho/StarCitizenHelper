@@ -179,7 +179,9 @@ print("3. every module is in the project layout")
 
 def _modules_on_disk():
     found = {path.name for path in ROOT.glob("*.py")}
-    return found | {path.name for path in (ROOT / "helper").glob("*.py")}
+    found |= {path.name for path in (ROOT / "helper").glob("*.py")}
+    # The maintainer's tools beside the data they make.
+    return found | {path.name for path in (ROOT / "data" / "keybinds").glob("*.py")}
 
 
 def _no_unlisted_modules():
@@ -277,7 +279,17 @@ def _pdf_shipped():
 
 check("both sheets exist and are real PNGs, with their credits", _sheets_present)
 check("and the layout says so", _sheets_in_layout)
+def _defaults_listed():
+    readme = io.open(ROOT / "README.md", encoding="utf-8").read()
+    match = re.search(r"## Project layout.*?```(.*?)```", readme, re.S)
+    tree = match.group(1) if match else ""
+    for name in ("defaults.xml", "labels.json", "extract_defaults.py", "build_defaults.py"):
+        assert name in tree, "the layout does not list data/keybinds/%s" % name
+        assert (ROOT / "data" / "keybinds" / name).is_file(), "data/keybinds/%s is missing" % name
+
+
 check("the PDF ships, marked binary, with a script that renders one page", _pdf_shipped)
+check("the defaults and their two tools ship and are listed", _defaults_listed)
 
 
 print("\n%s  (%d passed, %d failed)"

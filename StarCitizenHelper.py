@@ -23,10 +23,10 @@ from helper.brand import BrandMark, WordMark
 from helper.fps import FpsMonitor, presentmon_executable
 from helper.hud import HudGraph
 from helper.idle import IdleWatcher, note_injection, tick
-from helper.keybinds import (EXPORT_COMMAND, Binding, conflicts, describe_action,
-                             describe_export_status, describe_input, describe_status,
-                             find_actionmaps, load_full_export, mappings_dir, merge,
-                             mode_of, read_actionmaps)
+from helper.keybinds import (Binding, conflicts, describe_action, describe_export_status,
+                             describe_input, describe_shipped_status, describe_status,
+                             find_actionmaps, installed_game_version, load_full_export,
+                             load_shipped_defaults, merge, mode_of, read_actionmaps)
 from helper.sheet import SheetRenderer
 from helper.hardware import HardwareMonitor, machine_id, machine_profile
 from helper.history import collect as collect_history
@@ -63,6 +63,7 @@ SHEET_SCRIPT = os.path.join(KEYBINDS_DIR, 'render_sheet.ps1')
 #: Renders of the PDF at zoom levels the user has asked for. Under assets/,
 #: which the updater never touches and git never sees.
 SHEET_CACHE = os.path.join(_DIR, 'assets', 'keybinds')
+SHIPPED_DEFAULTS_PATH = os.path.join(KEYBINDS_DIR, 'defaults.xml')
 #: 250% of a 2000px page is a 77 MB photo; 300% would be 111 MB.
 ZOOM_MIN, ZOOM_MAX = 25, 250
 #: A slider drag fires many changes a second; the render waits for it to stop.
@@ -1014,9 +1015,9 @@ class App(tk.Tk):
 
         tk.Label(frame, text='Key Bindings', bg='#101722', fg='#eef6ff',
                  font=('Segoe UI Semibold', 13)).pack(anchor='w', padx=18, pady=(16, 2))
-        tk.Label(frame, text='Default bindings per mode, from a community 4.6.0 sheet; your own '
-                             'bindings in the table below. Scroll and Shift+scroll to pan, '
-                             'Ctrl+scroll or the slider to zoom, drag to move.',
+        tk.Label(frame, text='A community 4.6.0 sheet of the default bindings per mode; below it, '
+                             'every binding the installed game has, with yours marked. Scroll and '
+                             'Shift+scroll to pan, Ctrl+scroll or the slider to zoom, drag to move.',
                  bg='#101722', fg='#91a7bd', wraplength=900, justify='left'
                  ).pack(anchor='w', padx=18, pady=(0, 8))
 
@@ -1123,18 +1124,6 @@ class App(tk.Tk):
         self.bindings_view.pack(side='left', fill='both', expand=True)
         bar.pack(side='left', fill='y')
         # Not packed yet: _toggle_bindings does that, in front of the status line.
-
-        # What to do when there is no export yet: shown only then.
-        self._export_help = tk.Frame(panel, bg='#101722')
-        tk.Button(self._export_help, text='Copy command', command=self._copy_export_command,
-                  bg='#253448', fg='#eef6ff', activebackground='#2a4661',
-                  relief='flat', padx=10, pady=2).pack(side='left', padx=(0, 6))
-        tk.Button(self._export_help, text='Open folder', command=self._open_mappings_folder,
-                  bg='#253448', fg='#eef6ff', activebackground='#2a4661',
-                  relief='flat', padx=10, pady=2).pack(side='left')
-        self._export_help_note = tk.Label(self._export_help, text='', bg='#101722', fg='#6f8398',
-                                          font=('Consolas', 9), anchor='w')
-        self._export_help_note.pack(side='left', padx=(10, 0))
 
         self.bindings_status = tk.Label(panel, text='', bg='#101722', fg='#6f8398',
                                         font=('Consolas', 9), anchor='w', justify='left')
@@ -1406,20 +1395,24 @@ class App(tk.Tk):
             '▾' if self._bindings_open else '▸', count))
 
     def _reload_bindings(self):
-        """Read the files again; everything else is filtering what was read."""
+        """Read the files again; everything else is filtering what was read.
+
+        The full list is the game's own defaults as shipped with the app,
+        unless the game has written a complete export of its own - which 4.x
+        does not, but is checked for all the same.
+        """
         log = find_game_log()
         live = log.parent if log else None
         rebinds_path = find_actionmaps(live) if live else None
         rebinds = read_actionmaps(rebinds_path) if rebinds_path else []
-        export_path, exported = load_full_export(live) if live else (None, [])
-        self._bindings = merge(exported, rebinds)
+        base_path, base = load_full_export(live) if live else (None, [])
+        shipped_game = ''
+        if base_path is None:
+            base_path, base, shipped_game = load_shipped_defaults()
+        self._bindings = merge(base, rebinds)
         self._binding_conflicts = conflicts(self._bindings)
-        self._bindings_source = (rebinds_path, export_path, len(rebinds))
-        if export_path is None:
-            self._export_help.pack(fill='x', pady=(6, 0), before=self.bindings_status)
-            self._export_help_note.config(text='in the game press ` and run:  ' + EXPORT_COMMAND)
-        else:
-            self._export_help.pack_forget()
+        self._bindings_source = (rebinds_path, base_path, len(rebinds), shipped_game,
+                                 installed_game_version(live))
         self._refresh_bindings()
 
     def _refresh_bindings(self):
@@ -1455,38 +1448,25 @@ class App(tk.Tk):
             view.insert('', 'end', values=(mode, label, bound, b.actionmap,
                                           'yours' if b.source == 'rebind' else ''),
                         tags=(tag,) if tag else ())
-        rebinds_path, export_path, yours = getattr(self, '_bindings_source', (None, None, 0))
-        if rebinds_path is None:
-            status = describe_status(None, [])
-        elif export_path is None:
-            status = 'No full export yet - showing your %d rebind%s from %s.' % (
-                yours, '' if yours == 1 else 's', rebinds_path.name)
+        rebinds_path, base_path, yours, shipped_game, installed = getattr(
+            self, '_bindings_source', (None, None, 0, '', ''))
+        actions = len({(b.actionmap, b.action) for b in self._bindings})
+        if base_path is None:
+            status = 'No list of the game\'s defaults is installed - showing your %d rebind%s.' % (
+                yours, '' if yours == 1 else 's')
+        elif shipped_game or str(base_path) == SHIPPED_DEFAULTS_PATH:
+            status = describe_shipped_status(shipped_game, installed, actions, yours)
+            if rebinds_path is None:
+                status += ' - Star Citizen not found, so none of them are yours yet'
         else:
-            actions = len({(b.actionmap, b.action) for b in self._bindings})
             try:
-                stale = rebinds_path.stat().st_mtime > export_path.stat().st_mtime + 1
+                stale = rebinds_path is not None and \
+                    rebinds_path.stat().st_mtime > base_path.stat().st_mtime + 1
             except OSError:
                 stale = False
-            status = describe_export_status(export_path, actions, yours, stale)
+            status = describe_export_status(base_path, actions, yours, stale)
         self.bindings_status.config(text=status)
         self._paint_bindings_toggle()
-
-    def _copy_export_command(self):
-        self.clipboard_clear()
-        self.clipboard_append(EXPORT_COMMAND)
-        self._export_help_note.config(text='Copied. In the game press ` then paste and Enter; '
-                                           'then Reload here.')
-
-    def _open_mappings_folder(self):
-        log = find_game_log()
-        folder = mappings_dir(log.parent) if log else None
-        if folder is None:
-            return
-        target = folder if folder.is_dir() else folder.parent.parent
-        try:
-            os.startfile(str(target))
-        except OSError:
-            pass
 
     def _build_perf_tab(self, notebook):
         """Frame rate and network detail, alongside the header graph."""

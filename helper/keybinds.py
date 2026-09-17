@@ -13,23 +13,27 @@ at all, so this module can say "these are your rebinds" and cannot, on its
 own, say "these are all your bindings". The Key Bindings tab pairs it with a
 rendered reference sheet of the defaults for that reason.
 
-There is a way to the full list without opening the archive. The game can
-export its own bindings - in the console, `pp_rebindkeys export all <name>`,
-or Options > Keybindings > Advanced > Export - to
+The full list comes from the game's own defaultProfile.xml after all - not
+read at runtime, but pulled out of Data.p4k once per patch by the maintainer
+(data/keybinds/extract_defaults.py: the file is plain zstd inside a ZIP64,
+readable with the standard library from Python 3.14) and shipped as
+data/keybinds/defaults.xml in the actionmaps format, with the game's own
+English names beside it in labels.json. `merge` lays the player's rebinds
+over that, and the result is what the game is using - for the build the
+defaults were taken from, which the status line says.
 
-    LIVE\\USER\\client\\<n>\\Controls\\Mappings\\layout_<name>_exported.xml
+The game's own export (console: `pp_rebindkeys export all <name>`, into
+USER\\client\\<n>\\Controls\\Mappings\\) writes only the rebinds in 4.x,
+not the whole list; `load_full_export` still looks for one that is complete,
+in case a later build does better, and the shipped defaults are the fallback.
 
-in the very same format, with every action listed and the unbound ones as
-"kb1_ ". `load_full_export` finds such a file, `merge` lays the player's
-rebinds over it, and the result is what the game is actually using - as of
-the export, which is the one caveat the status line has to keep saying.
-
-`describe_action` is the one place display names come from; the game's own
-localised strings could slot in there and nowhere else.
+`describe_action` and `mode_of` read labels.json first and guess only where
+it has nothing to say.
 """
 
 from __future__ import annotations
 
+import json
 import re
 import time
 import xml.etree.ElementTree as ET
@@ -37,6 +41,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from helper.gamecfg import profile_dir
+
+#: What the maintainer's build_defaults.py writes, and this reads.
+DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "keybinds"
+SHIPPED_DEFAULTS = DATA_DIR / "defaults.xml"
+SHIPPED_LABELS = DATA_DIR / "labels.json"
 
 
 @dataclass(frozen=True)
@@ -170,6 +179,48 @@ def load_full_export(live_dir: Path | None) -> tuple[Path | None, list[Rebind]]:
     return None, []
 
 
+def load_shipped_defaults(path: Path = SHIPPED_DEFAULTS) -> tuple[Path | None, list[Rebind], str]:
+    """The defaults that ship with the app, and the game build they came from."""
+    rows = read_actionmaps(path)
+    if not is_full_export(rows):
+        return None, [], ""
+    game = ""
+    try:
+        for _event, element in ET.iterparse(path, events=("start",)):
+            game = element.get("game", "")
+            break
+    except (OSError, ET.ParseError):
+        pass
+    return path, rows, game
+
+
+def installed_game_version(live_dir: Path | None) -> str:
+    """The build the game folder says it is, from build_manifest.id; '' if unknown."""
+    if live_dir is None:
+        return ""
+    try:
+        with open(Path(live_dir) / "build_manifest.id", encoding="utf-8") as handle:
+            return str(json.load(handle).get("Data", {}).get("Version", ""))
+    except (OSError, ValueError, AttributeError):
+        return ""
+
+
+_labels_cache: dict | None = None
+
+
+def labels(path: Path = SHIPPED_LABELS) -> dict:
+    """labels.json, read once. {} when it is missing or unreadable."""
+    global _labels_cache
+    if _labels_cache is None:
+        try:
+            with open(path, encoding="utf-8") as handle:
+                data = json.load(handle)
+            _labels_cache = data if isinstance(data, dict) else {}
+        except (OSError, ValueError):
+            _labels_cache = {}
+    return _labels_cache
+
+
 def merge(base: list[Rebind], rebinds: list[Rebind]) -> list[Binding]:
     """The export with the player's changes laid over it.
 
@@ -254,7 +305,7 @@ _MOUSE = {
 
 _RE_NP_DIGIT = re.compile(r"^np_(\d)$")
 _RE_FKEY = re.compile(r"^f(\d{1,2})$")
-_RE_MOUSE_BUTTON = re.compile(r"^(?:mouse|button)(\d+)$")
+_RE_MOUSE_BUTTON = re.compile(r"^(?:mouse|button)(\d+)(?:_(\d+))?$")   # mouse1_2: double click
 _RE_JS_BUTTON = re.compile(r"^button(\d+)$")
 _RE_JS_AXIS = re.compile(r"^(x|y|z|rotx|roty|rotz|slider\d)$")
 _RE_JS_HAT = re.compile(r"^hat(\d)_(up|down|left|right)$")
@@ -300,7 +351,7 @@ def _mouse_part(token: str) -> str:
         return _MOUSE[token]
     match = _RE_MOUSE_BUTTON.match(token)
     if match:
-        return "Mouse " + match.group(1)
+        return "Mouse " + match.group(1) + (" x" + match.group(2) if match.group(2) else "")
     return _plain(token)
 
 
@@ -377,7 +428,10 @@ _KEEP_UPPER = {"hud", "mfd", "qt", "vtol", "esp", "ifcs", "eva", "atc", "ui"}
 
 
 def describe_action(name: str) -> str:
-    """A readable label for an action id, until the game's own strings arrive."""
+    """A readable label for an action id: the game's own, else a guess."""
+    entry = labels().get("actions", {}).get(name)
+    if entry and entry.get("label"):
+        return entry["label"]
     if name in _OVERRIDES:
         return _OVERRIDES[name]
     stripped = name
@@ -409,7 +463,15 @@ _FPS = ("player", "prone", "zero_gravity", "mobiglas", "mapui", "incapacitated",
 
 
 def mode_of(actionmap: str) -> str:
-    """'Flight', 'FPS' or 'Other' - the page of the reference sheet it is on."""
+    """'Flight', 'FPS' or 'Other' - the page of the reference sheet it is on.
+
+    The game's own category for the map decides where it has one; the
+    prefix table stands in where it does not (mining, salvage, a few more
+    carry no category in the profile).
+    """
+    entry = labels().get("maps", {}).get(actionmap or "")
+    if entry and entry.get("mode") in ("Flight", "FPS"):
+        return entry["mode"]
     name = (actionmap or "").lower()
     if name.startswith(_FLIGHT):
         return "Flight"
@@ -419,7 +481,7 @@ def mode_of(actionmap: str) -> str:
 
 
 def describe_export_status(path: Path, actions: int, yours: int, stale: bool) -> str:
-    """The one line under the full table."""
+    """The one line under the full table, when the list came from a game export."""
     try:
         when = time.strftime("%Y-%m-%d %H:%M", time.localtime(path.stat().st_mtime))
     except OSError:
@@ -428,6 +490,15 @@ def describe_export_status(path: Path, actions: int, yours: int, stale: bool) ->
         path.name, format(actions, ","), yours, when)
     if stale:
         line += " - actionmaps.xml changed since; re-export for an exact list"
+    return line
+
+
+def describe_shipped_status(game: str, installed: str, actions: int, yours: int) -> str:
+    """The one line under the full table, when the list is the shipped defaults."""
+    line = "Game defaults for %s - %s actions, %d yours" % (
+        game or "an unknown build", format(actions, ","), yours)
+    if game and installed and not installed.startswith(game.rsplit(".", 1)[0]):
+        line += " - the installed game is %s; some defaults may have moved" % installed
     return line
 
 

@@ -1,0 +1,3426 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ActionMaps version="1" optionsVersion="2" rebindVersion="2" profileName="default" game="4.10.193.11644" branch="sc-alpha-4.10.0" built="2026-09-17">
+ <actionmap name="seat_general">
+  <action name="v_emergency_exit" activationMode="tap">
+   <rebind input="kb1_lshift+u" />
+  </action>
+  <action name="v_eject" activationMode="press">
+   <rebind input="kb1_ralt+y" />
+  </action>
+  <action name="v_view_look_behind" activationMode="delayed_hold_no_retrigger">
+   <rebind input="kb1_comma" />
+  </action>
+  <action name="v_toggle_mining_mode" activationMode="press">
+   <rebind input="kb1_m" />
+  </action>
+  <action name="v_toggle_salvage_mode" activationMode="press">
+   <rebind input="kb1_m" />
+  </action>
+  <action name="v_toggle_refuel_mode" activationMode="press">
+   <rebind input="kb1_m" />
+  </action>
+  <action name="v_toggle_scan_mode" activationMode="press">
+   <rebind input="kb1_v" />
+  </action>
+  <action name="v_toggle_quantum_mode" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_toggle_missile_mode" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_toggle_guns_mode" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_toggle_flight_mode" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_set_mining_mode" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_set_salvage_mode" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_set_refuel_mode" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_set_scan_mode" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_set_quantum_mode" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_set_missile_mode" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_set_guns_mode" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_set_flight_mode" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_enter_remote_turret_1" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_enter_remote_turret_2" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_enter_remote_turret_3" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_operator_mode_cycle_forward" activationMode="tap">
+   <rebind input="mo1_mouse3" />
+  </action>
+  <action name="v_operator_mode_cycle_back" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_light_amplification_toggle" activationMode="tap">
+   <rebind input="kb1_ralt+l" />
+  </action>
+  <action name="v_light_amplification_on" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_light_amplification_off" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_general">
+  <action name="v_self_destruct" activationMode="delayed_press_medium">
+   <rebind input="kb1_backspace" />
+  </action>
+  <action name="v_cooler_throttle_up">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_cooler_throttle_down">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="spectate_enterpuremode" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_flightready" activationMode="press">
+   <rebind input="kb1_ralt+r" />
+  </action>
+  <action name="v_toggle_all_doors" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_open_all_doors" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_close_all_doors" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_toggle_all_doorlocks" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_lock_all_doors" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_unlock_all_doors" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_toggle_all_portlocks" activationMode="press">
+   <rebind input="kb1_ralt+k" />
+  </action>
+  <action name="v_lock_all_ports" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_unlock_all_ports" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="pc_conversation_option1" activationMode="all">
+   <rebind input="kb1_1" />
+  </action>
+  <action name="pc_conversation_option2" activationMode="all">
+   <rebind input="kb1_2" />
+  </action>
+  <action name="pc_conversation_option3" activationMode="all">
+   <rebind input="kb1_3" />
+  </action>
+  <action name="pc_conversation_option4" activationMode="all">
+   <rebind input="kb1_4" />
+  </action>
+  <action name="pc_conversation_option5" activationMode="all">
+   <rebind input="kb1_5" />
+  </action>
+ </actionmap>
+ <actionmap name="vehicle_mfd">
+  <action name="v_mfd_interact_cycle_forwards_short" activationMode="tap">
+   <rebind input="kb1_lalt+e" />
+  </action>
+  <action name="v_mfd_interact_cycle_forwards_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_interact_cycle_backwards_short" activationMode="tap">
+   <rebind input="kb1_lalt+q" />
+  </action>
+  <action name="v_mfd_interact_cycle_backwards_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_movement_up_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_movement_up_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_movement_down_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_movement_down_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_movement_left_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_movement_left_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_movement_right_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_movement_right_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_primary_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_primary_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_cast_left_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_cast_left_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_cast_right_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_cast_right_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_1_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_1_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_2_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_2_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_3_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_3_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_4_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_4_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_5_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_5_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_6_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_6_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_7_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_7_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_8_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_8_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_9_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_9_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_10_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_soft_select_mfd_10_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_quick_action_repair_all" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_select_view_self_status_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_select_view_self_status_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_select_view_target_status_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_select_view_target_status_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_select_view_scanning_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_select_view_scanning_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_select_view_configuration_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_select_view_configuration_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_select_view_comms_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_select_view_comms_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_select_view_ifcs_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_select_view_ifcs_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_select_view_diagnostics_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_select_view_diagnostics_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_select_view_resource_network_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_mfd_select_view_resource_network_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_view">
+  <action name="v_view_yaw_left">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_view_yaw_right">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_view_yaw" />
+  <action name="v_view_yaw_mouse">
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="v_view_yaw_absolute">
+   <rebind input="kb1_hmd_yaw" />
+  </action>
+  <action name="v_view_pitch_up">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_view_pitch_down">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_view_pitch" />
+  <action name="v_view_pitch_mouse">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="v_view_pitch_absolute">
+   <rebind input="kb1_hmd_pitch" />
+  </action>
+  <action name="v_view_roll_absolute">
+   <rebind input="kb1_hmd_roll" />
+  </action>
+  <action name="v_view_cycle_fwd" activationMode="tap">
+   <rebind input="kb1_f4" />
+  </action>
+  <action name="v_view_cycle_internal_fwd">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_view_option">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_view_mode">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_view_zoom_in">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="v_view_zoom_out">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="v_view_interact">
+   <rebind input="kb1_f" />
+  </action>
+  <action name="v_view_freelook_mode" activationMode="hold">
+   <rebind input="kb1_z" />
+  </action>
+  <action name="v_view_dynamic_zoom_rel">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_view_dynamic_zoom_rel_in" activationMode="all">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_view_dynamic_zoom_rel_out" activationMode="all">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_view_dynamic_zoom_abs" />
+  <action name="v_view_dynamic_zoom_abs_toggle" activationMode="smart_toggle">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ads_hold" activationMode="hold">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ads_toggle" activationMode="tap">
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="v_ads_stable_max_zoom_hold" activationMode="delayed_hold">
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="v_ads_cycle_tracking" activationMode="tap">
+   <rebind input="mo1_ralt+mouse2" />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_movement">
+  <action name="v_pitch_up">
+   <rebind input="kb1_down" />
+  </action>
+  <action name="v_pitch_down">
+   <rebind input="kb1_up" />
+  </action>
+  <action name="v_pitch" />
+  <action name="v_pitch_mouse">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="v_yaw_left">
+   <rebind input="kb1_left" />
+  </action>
+  <action name="v_yaw_right">
+   <rebind input="kb1_right" />
+  </action>
+  <action name="v_yaw" />
+  <action name="v_yaw_mouse">
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="v_roll_left">
+   <rebind input="kb1_q" />
+  </action>
+  <action name="v_roll_right">
+   <rebind input="kb1_e" />
+  </action>
+  <action name="v_roll" />
+  <action name="v_roll_mouse">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_toggle_relative_mouse_mode" activationMode="smart_toggle">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_toggle_yaw_roll_swap" activationMode="smart_toggle">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_strafe_up">
+   <rebind input="kb1_space" />
+  </action>
+  <action name="v_strafe_down">
+   <rebind input="kb1_lctrl" />
+  </action>
+  <action name="v_strafe_vertical">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_strafe_left">
+   <rebind input="kb1_a" />
+  </action>
+  <action name="v_strafe_right">
+   <rebind input="kb1_d" />
+  </action>
+  <action name="v_strafe_lateral" />
+  <action name="v_strafe_forward">
+   <rebind input="kb1_w" />
+  </action>
+  <action name="v_strafe_back">
+   <rebind input="kb1_s" />
+  </action>
+  <action name="v_strafe_longitudinal" />
+  <action name="v_strafe_longitudinal_invert">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_throttle_swap_mode">
+   <rebind input="kb1_lalt+c" />
+  </action>
+  <action name="v_ifcs_throttle_set_sticky">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_throttle_set_normal">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_strafe_trim_set_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_strafe_trim_set_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_strafe_trim_set_100_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_strafe_trim_set_100_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_strafe_trim_set_50_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_strafe_trim_set_50_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_strafe_trim_reset_long" activationMode="delayed_press">
+   <rebind input="kb1_x" />
+  </action>
+  <action name="v_strafe_trim_reset_short" activationMode="tap">
+   <rebind input="kb1_x" />
+  </action>
+  <action name="v_ifcs_vector_decoupling_toggle" activationMode="tap">
+   <rebind input="kb1_c" />
+  </action>
+  <action name="v_ifcs_vector_decoupling_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_vector_decoupling_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_afterburner" activationMode="all">
+   <rebind input="kb1_lshift" />
+  </action>
+  <action name="v_ifcs_speed_limiter_up">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_speed_limiter_down">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_speed_limiter_increment" activationMode="press">
+   <rebind input="mo1_lalt+mwheel_up" />
+  </action>
+  <action name="v_ifcs_speed_limiter_decrement" activationMode="press">
+   <rebind input="mo1_lalt+mwheel_down" />
+  </action>
+  <action name="v_ifcs_speed_limiter_rel" />
+  <action name="v_ifcs_speed_limiter_abs" />
+  <action name="v_ifcs_speed_limiter_toggle" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_speed_limiter_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_speed_limiter_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_accel_range_up">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_accel_range_down">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_accel_range_increment" activationMode="press">
+   <rebind input="mo1_ralt+mwheel_up" />
+  </action>
+  <action name="v_accel_range_decrement" activationMode="press">
+   <rebind input="mo1_ralt+mwheel_down" />
+  </action>
+  <action name="v_accel_range_rel" />
+  <action name="v_accel_range_abs" />
+  <action name="v_space_brake">
+   <rebind input="kb1_x" />
+  </action>
+  <action name="v_lock_rotation" activationMode="smart_toggle">
+   <rebind input="kb1_rshift" />
+  </action>
+  <action name="v_ifcs_gsafe_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_gsafe_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_toggle_gforce_safety" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_toggle_esp" activationMode="smart_toggle">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_esp_hold" activationMode="hold">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_toggle_landing_system" activationMode="tap">
+   <rebind input="kb1_n" />
+  </action>
+  <action name="v_deploy_landing_system" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_retract_landing_system" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_vtol_toggle" activationMode="tap">
+   <rebind input="kb1_k" />
+  </action>
+  <action name="v_vtol_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_vtol_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_transform_deploy" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_transform_retract" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_transform_cycle" activationMode="tap">
+   <rebind input="kb1_lalt+k" />
+  </action>
+  <action name="v_autoland" activationMode="delayed_press">
+   <rebind input="kb1_n" />
+  </action>
+  <action name="v_atc_request" activationMode="tap">
+   <rebind input="kb1_lalt+n" />
+  </action>
+  <action name="v_atc_loading_area_request" activationMode="tap">
+   <rebind input="kb1_ralt+n" />
+  </action>
+  <action name="v_master_mode_cycle" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_master_mode_cycle_long" activationMode="delayed_press">
+   <rebind input="kb1_b" />
+  </action>
+  <action name="v_master_mode_set_nav" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_master_mode_set_scm" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_toggle_jump_request" activationMode="tap">
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="v_ifcs_gravity_compensation_toggle" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_gravity_compensation_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_gravity_compensation_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_wind_compensation_toggle" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_wind_compensation_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_wind_compensation_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_auto_precision_mode_toggle" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_auto_precision_mode_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_auto_precision_mode_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_proximity_assist_toggle" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_proximity_assist_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_proximity_assist_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_stability_toggle" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_stability_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_stability_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_command_toggle" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_command_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_command_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_core_toggle" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_core_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_core_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_ifcs_reset_gmeter_max" activationMode="tap">
+   <rebind input="kb1_ralt+c" />
+  </action>
+  <action name="v_flight_advanced_hud_toggle" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_flight_advanced_hud_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_flight_advanced_hud_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_quantum">
+  <action name="v_toggle_qdrive_engagement" activationMode="delayed_press">
+   <rebind input="mo1_mouse1" />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_docking">
+  <action name="v_toggle_docking_request" activationMode="tap">
+   <rebind input="kb1_ralt+n" />
+  </action>
+  <action name="v_dock_toggle_view" activationMode="delayed_press">
+   <rebind input="kb1_0" />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_targeting">
+  <action name="v_auto_targeting_toggle_long" activationMode="delayed_press">
+   <rebind input="kb1_t" />
+  </action>
+  <action name="v_auto_targeting_toggle_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_auto_targeting_enable_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_auto_targeting_enable_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_auto_targeting_disable_short" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_auto_targeting_disable_long" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_toggle_lock_index_1" activationMode="tap">
+   <rebind input="kb1_1" />
+  </action>
+  <action name="v_target_toggle_lock_index_2" activationMode="tap">
+   <rebind input="kb1_2" />
+  </action>
+  <action name="v_target_toggle_lock_index_3" activationMode="tap">
+   <rebind input="kb1_3" />
+  </action>
+  <action name="v_target_toggle_pin_index_1" activationMode="tap">
+   <rebind input="kb1_lalt+1" />
+  </action>
+  <action name="v_target_toggle_pin_index_2" activationMode="tap">
+   <rebind input="kb1_lalt+2" />
+  </action>
+  <action name="v_target_toggle_pin_index_3" activationMode="tap">
+   <rebind input="kb1_lalt+3" />
+  </action>
+  <action name="v_target_toggle_pin_index_1_hold" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_toggle_pin_index_2_hold" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_toggle_pin_index_3_hold" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_pin_selected" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_unpin_selected" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_pin_selected_hold" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_unpin_selected_hold" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_remove_all_pins" activationMode="tap">
+   <rebind input="kb1_0" />
+  </action>
+  <action name="v_target_lock_selected" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_unlock" activationMode="tap">
+   <rebind input="kb1_lalt+t" />
+  </action>
+  <action name="v_look_ahead_enable" activationMode="smart_toggle">
+   <rebind input="kb1_lalt+l" />
+  </action>
+  <action name="v_look_ahead_start_target_tracking" activationMode="smart_toggle">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_tracking_auto_zoom" activationMode="smart_toggle">
+   <rebind input="kb1_ " />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_targeting_advanced">
+  <action name="v_target_under_reticle" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_cycle_in_view_back" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_cycle_in_view_fwd" activationMode="tap">
+   <rebind input="kb1_t" />
+  </action>
+  <action name="v_target_cycle_in_view_reset" activationMode="tap">
+   <rebind input="kb1_t" />
+  </action>
+  <action name="v_target_cycle_pinned_back" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_cycle_pinned_fwd" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_cycle_pinned_reset" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_cycle_attacker_back" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_cycle_attacker_fwd" activationMode="tap">
+   <rebind input="kb1_4" />
+  </action>
+  <action name="v_target_cycle_attacker_reset" activationMode="tap">
+   <rebind input="kb1_4" />
+  </action>
+  <action name="v_target_cycle_hostile_back" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_cycle_hostile_fwd" activationMode="tap">
+   <rebind input="kb1_5" />
+  </action>
+  <action name="v_target_cycle_hostile_reset" activationMode="tap">
+   <rebind input="kb1_5" />
+  </action>
+  <action name="v_target_cycle_friendly_back" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_cycle_friendly_fwd" activationMode="tap">
+   <rebind input="kb1_6" />
+  </action>
+  <action name="v_target_cycle_friendly_reset" activationMode="tap">
+   <rebind input="kb1_6" />
+  </action>
+  <action name="v_target_cycle_all_back" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_cycle_all_fwd" activationMode="tap">
+   <rebind input="kb1_7" />
+  </action>
+  <action name="v_target_cycle_all_reset" activationMode="tap">
+   <rebind input="kb1_7" />
+  </action>
+  <action name="v_target_cycle_subitem_back" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_target_cycle_subitem_fwd" activationMode="tap">
+   <rebind input="kb1_r" />
+  </action>
+  <action name="v_target_cycle_subitem_reset" activationMode="tap">
+   <rebind input="kb1_lalt+r" />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_target_hailing">
+  <action name="v_target_hail" activationMode="tap">
+   <rebind input="kb1_9" />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_radar">
+  <action name="v_invoke_ping" activationMode="hold">
+   <rebind input="kb1_tab" />
+   <rebind input="mo1_ " />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_scanning">
+  <action name="v_scanning_trigger_scan" activationMode="hold">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="v_inc_scan_focus_level" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="v_dec_scan_focus_level" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="v_ui_prev_scan_tab" activationMode="tap">
+   <rebind input="kb1_left" />
+  </action>
+  <action name="v_ui_next_scan_tab" activationMode="tap">
+   <rebind input="kb1_right" />
+  </action>
+  <action name="v_ui_prev_scan_page" activationMode="tap">
+   <rebind input="kb1_up" />
+  </action>
+  <action name="v_ui_next_scan_page" activationMode="tap">
+   <rebind input="kb1_down" />
+  </action>
+  <action name="v_ui_prev_contact_page" activationMode="tap">
+   <rebind input="kb1_rctrl+left" />
+  </action>
+  <action name="v_ui_next_contact_page" activationMode="tap">
+   <rebind input="kb1_rctrl+right" />
+  </action>
+  <action name="v_ui_prev_contact" activationMode="tap">
+   <rebind input="kb1_rctrl+up" />
+  </action>
+  <action name="v_ui_next_contact" activationMode="tap">
+   <rebind input="kb1_rctrl+down" />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_mining">
+  <action name="v_toggle_mining_laser_fire" activationMode="smart_toggle">
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="v_toggle_mining_laser_type" activationMode="press">
+   <rebind input="mo1_lalt+mouse1" />
+  </action>
+  <action name="v_increase_mining_throttle" activationMode="press">
+   <rebind input="mo1_maxis_z" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_decrease_mining_throttle" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_mining_throttle">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_mining_use_consumable1" activationMode="press">
+   <rebind input="kb1_lalt+1" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_mining_use_consumable2" activationMode="press">
+   <rebind input="kb1_lalt+2" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_mining_use_consumable3" activationMode="press">
+   <rebind input="kb1_lalt+3" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_mining_use_permanent_modifier" activationMode="press">
+   <rebind input="kb1_lalt+4" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_jettison_volatile_cargo" activationMode="press">
+   <rebind input="kb1_lalt+j" />
+   <rebind input="mo1_ " />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_salvage">
+  <action name="tractor_beam_vehicle_increase_distance" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="tractor_beam_vehicle_decrease_distance" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="v_salvage_toggle_fire_focused" activationMode="smart_toggle">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="v_salvage_toggle_fire_left" activationMode="smart_toggle">
+   <rebind input="kb1_ralt+a" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_toggle_fire_right" activationMode="smart_toggle">
+   <rebind input="kb1_ralt+d" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_toggle_fire_fracture" activationMode="smart_toggle">
+   <rebind input="kb1_ralt+w" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_toggle_fire_disintegrate" activationMode="smart_toggle">
+   <rebind input="kb1_ralt+s" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_toggle_gimbal_mode" activationMode="press">
+   <rebind input="kb1_g" />
+  </action>
+  <action name="v_salvage_reset_gimbal" activationMode="press">
+   <rebind input="kb1_lalt+g" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_increase_beam_spacing" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_salvage_decrease_beam_spacing" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_salvage_beam_spacing_rel">
+   <rebind input="mo1_maxis_z" />
+  </action>
+  <action name="v_salvage_beam_spacing_abs">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_salvage_toggle_beam_spacing_axis" activationMode="press">
+   <rebind input="mo1_lalt+mouse2" />
+  </action>
+  <action name="v_salvage_cycle_modifiers_focused" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="v_salvage_cycle_modifiers_left" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_cycle_modifiers_right" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_cycle_modifiers_structural" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_focus_all_heads" activationMode="press">
+   <rebind input="kb1_lalt+s" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_focus_left" activationMode="press">
+   <rebind input="kb1_lalt+a" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_focus_right" activationMode="press">
+   <rebind input="kb1_lalt+d" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_focus_fracture" activationMode="press">
+   <rebind input="kb1_lalt+w" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_focus_disintegrate" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_nudge_up__left" activationMode="all">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_nudge_down__left" activationMode="all">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_nudge_left__left" activationMode="all">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_nudge_right__left" activationMode="all">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_nudge_up__right" activationMode="all">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_nudge_down__right" activationMode="all">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_nudge_left__right" activationMode="all">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_salvage_nudge_right__right" activationMode="all">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_ " />
+  </action>
+ </actionmap>
+ <actionmap name="turret_movement">
+  <action name="turret_pitch_up">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="turret_pitch_down">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="turret_pitch" />
+  <action name="turret_pitch_mouse">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="turret_yaw_left">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="turret_yaw_right">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="turret_yaw" />
+  <action name="turret_yaw_mouse">
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="turret_toggle_mouse_mode" activationMode="smart_toggle">
+   <rebind input="kb1_q" />
+  </action>
+  <action name="turret_mouse_mode_cycle" activationMode="press">
+   <rebind input="kb1_q" />
+  </action>
+  <action name="turret_mouse_mode_set_vjoy" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="turret_mouse_mode_set_1to1" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="turret_mouse_mode_set_pointer" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="turret_remote_exit">
+   <rebind input="kb1_y" />
+  </action>
+  <action name="turret_gyromode" activationMode="press">
+   <rebind input="kb1_e" />
+  </action>
+  <action name="turret_remote_cycle_next" activationMode="press">
+   <rebind input="kb1_d" />
+  </action>
+  <action name="turret_remote_cycle_prev" activationMode="press">
+   <rebind input="kb1_a" />
+  </action>
+ </actionmap>
+ <actionmap name="turret_advanced">
+  <action name="turret_esp_toggle" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="turret_esp_hold" activationMode="hold">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="turret_recenter" activationMode="hold_no_retrigger">
+   <rebind input="kb1_c" />
+  </action>
+  <action name="turret_limiter_toggle" activationMode="smart_toggle">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="turret_limiter_rel">
+   <rebind input="mo1_lalt+maxis_z" />
+  </action>
+  <action name="turret_limiter_rel_increase" activationMode="all">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="turret_limiter_rel_decrease" activationMode="all">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="turret_limiter_abs" />
+  <action name="turret_change_position" activationMode="press">
+   <rebind input="kb1_s" />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_weapons">
+  <action name="v_weapon_gimbals_state_toggle" activationMode="tap">
+   <rebind input="kb1_g" />
+  </action>
+  <action name="v_weapon_gimbals_state_set_locked" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_gimbals_state_set_unlocked" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_gimbals_unlocked_cycle_source" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_aim_type_cycle" activationMode="tap">
+   <rebind input="kb1_ralt+g" />
+  </action>
+  <action name="v_weapon_aim_type_set_pip_aiming" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_aim_type_set_painting" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_aim_type_set_auto" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_staggered_fire_toggle" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_staggered_fire_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_staggered_fire_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_suppress_aim_assists_hold" activationMode="hold">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_pip_toggle_lead_lag" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_pip_set_lag" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_pip_set_lead" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_pip_combination_type_toggle" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_pip_combination_type_set_single" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_pip_combination_type_set_combined_weapon_group" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_pip_prec_line_toggle" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_pip_prec_line_on" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_pip_prec_line_off" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_pip_fade_toggle" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_pip_fade_on" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_pip_fade_off" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_ui_scale_toggle" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_ui_scale_on" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_ui_scale_off" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_convergence_distance_rel">
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_weapon_convergence_distance_rel_increase" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_convergence_distance_rel_decrease" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_convergence_distance_abs" />
+  <action name="v_weapon_convergence_distance_set_default" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_preset_attack" activationMode="all">
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="v_weapon_preset_fire_guns0" activationMode="all">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_preset_fire_guns1" activationMode="all">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_preset_fire_guns2" activationMode="all">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_preset_fire_guns3" activationMode="all">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_preset_next" activationMode="press">
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="v_weapon_preset_prev" activationMode="press">
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="v_weapon_preset_next_overflow" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_preset_prev_overflow" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_preset_guns0" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_preset_guns1" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_preset_guns2" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_preset_guns3" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_preset_emp" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_preset_qid_jammer" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_preset_qid_pulse" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_preset_qid" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_missiles">
+  <action name="v_weapon_toggle_launch_missile" activationMode="press">
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="v_weapon_launch_missile" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_cycle_missile_fwd" activationMode="press">
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="v_weapon_cycle_missile_back" activationMode="press">
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="v_weapon_increase_max_missiles" activationMode="tap">
+   <rebind input="kb1_g" />
+  </action>
+  <action name="v_weapon_decrease_max_missiles" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_reset_max_missiles" activationMode="tap">
+   <rebind input="kb1_lalt+g" />
+  </action>
+  <action name="v_weapon_bombing_toggle_desired_impact_point" activationMode="tap">
+   <rebind input="kb1_lalt+b" />
+  </action>
+  <action name="v_weapon_bombing_toggle_desired_impact_point_hold" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_bombing_hud_range_increase" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_bombing_hud_range_decrease" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_bombing_hud_range_reset" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_launch_missile_cinematic" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_launch_missile_cinematic_hold">
+   <rebind input="kb1_ " />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_defensive">
+  <action name="v_weapon_countermeasure_decoy_launch">
+   <rebind input="kb1_h" />
+  </action>
+  <action name="v_weapon_countermeasure_decoy_burst_increase" activationMode="press">
+   <rebind input="kb1_ralt+h" />
+  </action>
+  <action name="v_weapon_countermeasure_decoy_burst_decrease" activationMode="press">
+   <rebind input="kb1_lalt+h" />
+  </action>
+  <action name="v_weapon_countermeasure_decoy_launch_panic" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_weapon_countermeasure_noise_launch" activationMode="press">
+   <rebind input="kb1_j" />
+  </action>
+  <action name="v_shield_raise_level_forward" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_shield_raise_level_back" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_shield_raise_level_left" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_shield_raise_level_right" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_shield_raise_level_up" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_shield_raise_level_down" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_shield_reset_level" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_auto_weapons">
+  <action name="v_weapon_toggle_ai">
+   <rebind input="kb1_slash" />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_power">
+  <action name="v_power_toggle" activationMode="press">
+   <rebind input="kb1_u" />
+  </action>
+  <action name="v_power_set_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_power_set_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_power_toggle_thrusters" activationMode="press">
+   <rebind input="kb1_i" />
+  </action>
+  <action name="v_power_set_thrusters_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_power_set_thrusters_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_power_toggle_shields" activationMode="press">
+   <rebind input="kb1_o" />
+  </action>
+  <action name="v_power_set_shields_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_power_set_shields_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_power_toggle_weapons" activationMode="press">
+   <rebind input="kb1_p" />
+  </action>
+  <action name="v_power_set_weapons_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_power_set_weapons_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_power_throttle_down">
+   <rebind input="kb1_f9" />
+  </action>
+  <action name="v_power_throttle_min" activationMode="double_tap">
+   <rebind input="kb1_f9" />
+  </action>
+  <action name="v_power_throttle_up">
+   <rebind input="kb1_f10" />
+  </action>
+  <action name="v_power_throttle_max" activationMode="double_tap">
+   <rebind input="kb1_f10" />
+  </action>
+  <action name="v_engineering_assignment_engine_increase" activationMode="tap">
+   <rebind input="kb1_f6" />
+  </action>
+  <action name="v_engineering_assignment_engine_decrease" activationMode="tap">
+   <rebind input="kb1_lalt+f6" />
+  </action>
+  <action name="v_engineering_assignment_engine_max">
+   <rebind input="kb1_f6" />
+  </action>
+  <action name="v_engineering_assignment_engine_min">
+   <rebind input="kb1_lalt+f6" />
+  </action>
+  <action name="v_engineering_assignment_shields_increase" activationMode="tap">
+   <rebind input="kb1_f7" />
+  </action>
+  <action name="v_engineering_assignment_shields_decrease" activationMode="tap">
+   <rebind input="kb1_lalt+f7" />
+  </action>
+  <action name="v_engineering_assignment_shields_max">
+   <rebind input="kb1_f7" />
+  </action>
+  <action name="v_engineering_assignment_shields_min">
+   <rebind input="kb1_lalt+f7" />
+  </action>
+  <action name="v_engineering_assignment_weapons_increase" activationMode="tap">
+   <rebind input="kb1_f5" />
+  </action>
+  <action name="v_engineering_assignment_weapons_decrease" activationMode="tap">
+   <rebind input="kb1_lalt+f5" />
+  </action>
+  <action name="v_engineering_assignment_weapons_max">
+   <rebind input="kb1_f5" />
+  </action>
+  <action name="v_engineering_assignment_weapons_min">
+   <rebind input="kb1_lalt+f5" />
+  </action>
+  <action name="v_engineering_assignment_reset" activationMode="press">
+   <rebind input="kb1_f8" />
+  </action>
+ </actionmap>
+ <actionmap name="spaceship_hud">
+  <action name="v_cycle_pitch_ladder_mode" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="mobiglas" activationMode="press">
+   <rebind input="kb1_f1" />
+  </action>
+  <action name="toggle_ar_mode" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_hud_open_scoreboard" activationMode="all">
+   <rebind input="kb1_f1" />
+  </action>
+  <action name="v_hud_interact_toggle" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_hud_cycle_mode_fwd">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_hud_cycle_mode_back">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_hud_focused_cycle_mode_fwd">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_hud_focused_cycle_mode_back">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_hud_left_panel_up">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_hud_left_panel_down">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_hud_left_panel_left">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_hud_left_panel_right">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_hud_confirm">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_hud_cancel">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_hud_stick_x" />
+  <action name="v_hud_stick_y" />
+  <action name="v_comm_open_chat">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_comm_show_chat">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_comm_open_precanned">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_comm_select_precanned_1">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_comm_select_precanned_2">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_comm_select_precanned_3">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_comm_select_precanned_4">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_comm_select_precanned_5">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_starmap" activationMode="press">
+   <rebind input="kb1_f2" />
+  </action>
+  <action name="visor_wipe" activationMode="press">
+   <rebind input="kb1_lalt+x" />
+  </action>
+ </actionmap>
+ <actionmap name="lights_controller">
+  <action name="v_lights" activationMode="press">
+   <rebind input="kb1_l" />
+  </action>
+  <action name="v_lights_on" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_lights_off" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_toggle_running_lights" activationMode="smart_toggle">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_toggle_cabin_lights" activationMode="smart_toggle">
+   <rebind input="kb1_ " />
+  </action>
+ </actionmap>
+ <actionmap name="vehicle_mobiglas">
+  <action name="ui_3d_display_select" activationMode="tap">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="ui_3d_display_reorient" activationMode="tap">
+   <rebind input="kb1_r" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="ui_3d_display_center" activationMode="double_tap_nonblocking">
+   <rebind input="kb1_e" />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="ui_3d_display_decenter" activationMode="double_tap_nonblocking">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="ui_3d_display_zoom_out_button">
+   <rebind input="kb1_np_subtract" />
+  </action>
+  <action name="ui_3d_display_zoom_in_button">
+   <rebind input="kb1_np_add" />
+  </action>
+  <action name="ui_3d_display_zoom_in_analog" />
+  <action name="ui_3d_display_zoom_out_analog" />
+  <action name="ui_3d_display_zoom_out_wheel" activationMode="press">
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="ui_3d_display_zoom_in_wheel" activationMode="press">
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="ui_3d_display_pan_toggle">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="ui_3d_display_rotate_toggle">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="ui_3d_display_zoom_toggle">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse3" />
+  </action>
+  <action name="ui_3d_display_toggledPanX">
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="ui_3d_display_toggledPanY">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="ui_3d_display_toggledYaw">
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="ui_3d_display_toggledPitch">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="ui_3d_display_toggledZoom">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="ui_3d_display_nonToggledPanUp">
+   <rebind input="kb1_w" />
+  </action>
+  <action name="ui_3d_display_nonToggledPanDown">
+   <rebind input="kb1_s" />
+  </action>
+  <action name="ui_3d_display_nonToggledPanLeft">
+   <rebind input="kb1_a" />
+  </action>
+  <action name="ui_3d_display_nonToggledPanRight">
+   <rebind input="kb1_d" />
+  </action>
+  <action name="ui_3d_display_nonToggledYawUp">
+   <rebind input="kb1_up" />
+  </action>
+  <action name="ui_3d_display_nonToggledYawDown">
+   <rebind input="kb1_down" />
+  </action>
+  <action name="ui_3d_display_nonToggledPitchLeft">
+   <rebind input="kb1_left" />
+  </action>
+  <action name="ui_3d_display_nonToggledPitchRight">
+   <rebind input="kb1_right" />
+  </action>
+  <action name="ui_3d_display_pinMode" activationMode="hold">
+   <rebind input="kb1_lctrl" />
+  </action>
+  <action name="ui_3d_display_pinSelect" activationMode="tap">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+ </actionmap>
+ <actionmap name="stopwatch">
+  <action name="stopwatch_reset" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="stopwatch_trigger" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+ </actionmap>
+ <actionmap name="player">
+  <action name="moveleft" activationMode="hold">
+   <rebind input="kb1_a" />
+  </action>
+  <action name="moveright" activationMode="hold">
+   <rebind input="kb1_d" />
+  </action>
+  <action name="moveforward" activationMode="hold">
+   <rebind input="kb1_w" />
+  </action>
+  <action name="moveback" activationMode="hold">
+   <rebind input="kb1_s" />
+  </action>
+  <action name="rotateyaw">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="rotatepitch">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="gp_movex" />
+  <action name="gp_movey" />
+  <action name="gp_rotateyaw" />
+  <action name="gp_rotatepitch" />
+  <action name="jump" activationMode="press">
+   <rebind input="kb1_space" />
+  </action>
+  <action name="jump_hold">
+   <rebind input="kb1_space" />
+  </action>
+  <action name="jump_release">
+   <rebind input="kb1_space" />
+  </action>
+  <action name="crouch" activationMode="hold_toggle">
+   <rebind input="kb1_c" />
+  </action>
+  <action name="gp_jump" activationMode="press" />
+  <action name="gp_crouch" activationMode="press" />
+  <action name="prone" activationMode="press">
+   <rebind input="kb1_lctrl" />
+  </action>
+  <action name="sprint" activationMode="hold_toggle">
+   <rebind input="kb1_lshift" />
+  </action>
+  <action name="walk" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="leanleft" activationMode="hold">
+   <rebind input="kb1_q" />
+  </action>
+  <action name="leanright" activationMode="hold">
+   <rebind input="kb1_e" />
+  </action>
+  <action name="ledgegrab" activationMode="hold">
+   <rebind input="kb1_space" />
+  </action>
+  <action name="attack1" activationMode="all">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="attackSecondary" activationMode="all">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="melee_AttackLightLeft" activationMode="tap">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="melee_AttackLightRight" activationMode="tap">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="melee_AttackHeavyLeft" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="melee_AttackHeavyRight" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="melee_block" activationMode="hold">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1_2" />
+  </action>
+  <action name="melee_AttackSyringeStab" activationMode="tap">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="melee_dodgeLeft" activationMode="double_tap_nonblocking">
+   <rebind input="kb1_a" />
+  </action>
+  <action name="melee_dodgeRight" activationMode="double_tap_nonblocking">
+   <rebind input="kb1_d" />
+  </action>
+  <action name="melee_dodgeBack" activationMode="double_tap_nonblocking">
+   <rebind input="kb1_s" />
+  </action>
+  <action name="restrain" activationMode="tap">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="weapon_melee" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse3" />
+  </action>
+  <action name="takedown_nonLethal" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse3" />
+  </action>
+  <action name="takedown_lethal" activationMode="tap">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse3" />
+  </action>
+  <action name="throw_overhand" activationMode="hold">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="throw_underhand" activationMode="hold">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="zoom" activationMode="all">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="interact_with_scope" activationMode="tap">
+   <rebind input="kb1_lshift" />
+  </action>
+  <action name="toggle_lowered" activationMode="tap">
+   <rebind input="kb1_lalt+r" />
+  </action>
+  <action name="select_primary_pit" activationMode="tap">
+   <rebind input="kb1_1" />
+  </action>
+  <action name="select_secondary_pit" activationMode="tap">
+   <rebind input="kb1_2" />
+  </action>
+  <action name="select_sidearm_pit" activationMode="tap">
+   <rebind input="kb1_3" />
+  </action>
+  <action name="select_meleeweapon_pit" activationMode="tap">
+   <rebind input="kb1_v" />
+  </action>
+  <action name="select_gadget_pit" activationMode="tap">
+   <rebind input="kb1_5" />
+  </action>
+  <action name="selectUnarmedCombat" activationMode="tap">
+   <rebind input="kb1_6" />
+  </action>
+  <action name="nextitem" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="prevItem" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="nextweapon" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="prevweapon" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="reload" activationMode="tap">
+   <rebind input="kb1_r" />
+  </action>
+  <action name="reloadSecondary" activationMode="tap">
+   <rebind input="kb1_lalt+b" />
+  </action>
+  <action name="ammoRepool" activationMode="press">
+   <rebind input="kb1_lalt+1" />
+  </action>
+  <action name="holster" activationMode="delayed_press_medium">
+   <rebind input="kb1_r" />
+  </action>
+  <action name="drop">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="inspect" activationMode="tap">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="customize" activationMode="tap">
+   <rebind input="kb1_j" />
+  </action>
+  <action name="stabilize" activationMode="hold">
+   <rebind input="kb1_lshift" />
+  </action>
+  <action name="weapon_auxiliary_action" activationMode="press">
+   <rebind input="kb1_u" />
+  </action>
+  <action name="weapon_change_firemode" activationMode="press">
+   <rebind input="kb1_b" />
+  </action>
+  <action name="weapon_zeroing_decrease" activationMode="press">
+   <rebind input="kb1_pgdn" />
+  </action>
+  <action name="weapon_zeroing_increase" activationMode="press">
+   <rebind input="kb1_pgup" />
+  </action>
+  <action name="fixed_speed_increment" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="fixed_speed_decrement" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="use">
+   <rebind input="kb1_e" />
+  </action>
+  <action name="useAttachmentBottom" activationMode="all">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="useAttachmentTop" activationMode="all">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="downedRevivalRequest" activationMode="delayed_hold_long">
+   <rebind input="kb1_m" />
+  </action>
+  <action name="toggle_flashlight" activationMode="press">
+   <rebind input="kb1_t" />
+  </action>
+  <action name="combathealtarget" activationMode="delayed_hold">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="toggleEquipHelmet" activationMode="tap">
+   <rebind input="kb1_ralt+h" />
+  </action>
+  <action name="toggleAttachHelmet" activationMode="tap">
+   <rebind input="kb1_lalt+h" />
+  </action>
+  <action name="toggleHelmetState" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="visor_next_mode">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="visor_prev_mode">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="visor_wipe" activationMode="press">
+   <rebind input="kb1_lalt+x" />
+  </action>
+  <action name="selectitem" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="cancelselect" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="thirdperson" activationMode="tap">
+   <rebind input="kb1_f4" />
+  </action>
+  <action name="toggle_cursor_input" activationMode="press">
+   <rebind input="kb1_f11" />
+  </action>
+  <action name="free_thirdperson_camera" activationMode="hold">
+   <rebind input="kb1_z" />
+  </action>
+  <action name="pan_thirdperson_up" activationMode="press">
+   <rebind input="kb1_up" />
+  </action>
+  <action name="pan_thirdperson_down" activationMode="press">
+   <rebind input="kb1_down" />
+  </action>
+  <action name="zoom_out" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="zoom_in" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="break_conversation_effects">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="hmd_rotateyaw">
+   <rebind input="kb1_hmd_yaw" />
+  </action>
+  <action name="hmd_rotatepitch">
+   <rebind input="kb1_hmd_pitch" />
+  </action>
+  <action name="hmd_rotateroll">
+   <rebind input="kb1_hmd_roll" />
+  </action>
+  <action name="mobiglas" activationMode="press">
+   <rebind input="kb1_f1" />
+  </action>
+  <action name="ship_recall" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="pl_hud_open_scoreboard">
+   <rebind input="kb1_f1" />
+  </action>
+  <action name="pl_hud_confirm" activationMode="press">
+   <rebind input="kb1_enter" />
+  </action>
+  <action name="toggle_ar_mode" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="ar_mode_scroll_action_up" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="ar_mode_scroll_action_down" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="shop_camera_zoom_in">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="shop_camera_zoom_out">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="shop_camera_mouseyaw">
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="shop_camera_mousepitch">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="spectate_enterpuremode" activationMode="delayed_press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="dismiss_corpse_marker" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="consume" activationMode="hold">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="ui_3d_display_select" activationMode="tap">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="ui_3d_display_reorient" activationMode="tap">
+   <rebind input="kb1_r" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="ui_3d_display_center" activationMode="double_tap_nonblocking">
+   <rebind input="kb1_e" />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="ui_3d_display_decenter" activationMode="double_tap_nonblocking">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="ui_3d_display_zoom_out_button">
+   <rebind input="kb1_np_subtract" />
+  </action>
+  <action name="ui_3d_display_zoom_in_button">
+   <rebind input="kb1_np_add" />
+  </action>
+  <action name="ui_3d_display_zoom_in_analog" />
+  <action name="ui_3d_display_zoom_out_analog" />
+  <action name="ui_3d_display_zoom_out_wheel" activationMode="press">
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="ui_3d_display_zoom_in_wheel" activationMode="press">
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="ui_3d_display_pan_toggle">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="ui_3d_display_rotate_toggle">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="ui_3d_display_zoom_toggle">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse3" />
+  </action>
+  <action name="ui_3d_display_toggledPanX">
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="ui_3d_display_toggledPanY">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="ui_3d_display_toggledYaw">
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="ui_3d_display_toggledPitch">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="ui_3d_display_toggledZoom">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="ui_3d_display_nonToggledPanUp">
+   <rebind input="kb1_w" />
+  </action>
+  <action name="ui_3d_display_nonToggledPanDown">
+   <rebind input="kb1_s" />
+  </action>
+  <action name="ui_3d_display_nonToggledPanLeft">
+   <rebind input="kb1_a" />
+  </action>
+  <action name="ui_3d_display_nonToggledPanRight">
+   <rebind input="kb1_d" />
+  </action>
+  <action name="ui_3d_display_nonToggledYawUp">
+   <rebind input="kb1_up" />
+  </action>
+  <action name="ui_3d_display_nonToggledYawDown">
+   <rebind input="kb1_down" />
+  </action>
+  <action name="ui_3d_display_nonToggledPitchLeft">
+   <rebind input="kb1_left" />
+  </action>
+  <action name="ui_3d_display_nonToggledPitchRight">
+   <rebind input="kb1_right" />
+  </action>
+  <action name="ui_3d_display_pinMode" activationMode="hold">
+   <rebind input="kb1_lctrl" />
+  </action>
+  <action name="ui_3d_display_pinSelect" activationMode="tap">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="port_modification_select" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="v_starmap" activationMode="press">
+   <rebind input="kb1_f2" />
+  </action>
+  <action name="force_respawn" activationMode="delayed_press_medium">
+   <rebind input="kb1_backspace" />
+  </action>
+  <action name="pc_conversation_option1" activationMode="all">
+   <rebind input="kb1_1" />
+  </action>
+  <action name="pc_conversation_option2" activationMode="all">
+   <rebind input="kb1_2" />
+  </action>
+  <action name="pc_conversation_option3" activationMode="all">
+   <rebind input="kb1_3" />
+  </action>
+  <action name="pc_conversation_option4" activationMode="all">
+   <rebind input="kb1_4" />
+  </action>
+  <action name="pc_conversation_option5" activationMode="all">
+   <rebind input="kb1_5" />
+  </action>
+  <action name="pc_conversation_option_up" activationMode="all">
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="pc_conversation_option_down" activationMode="all">
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="pc_conversation_option_select" activationMode="all">
+   <rebind input="mo1_mouse1" />
+  </action>
+ </actionmap>
+ <actionmap name="prone">
+  <action name="prone_rollleft">
+   <rebind input="kb1_q" />
+  </action>
+  <action name="prone_rollright">
+   <rebind input="kb1_e" />
+  </action>
+ </actionmap>
+ <actionmap name="mapui">
+  <action name="mapui_pan_left" activationMode="hold">
+   <rebind input="kb1_a" />
+  </action>
+  <action name="mapui_pan_right" activationMode="hold">
+   <rebind input="kb1_d" />
+  </action>
+  <action name="mapui_pan_forward" activationMode="hold">
+   <rebind input="kb1_w" />
+  </action>
+  <action name="mapui_pan_back" activationMode="hold">
+   <rebind input="kb1_s" />
+  </action>
+  <action name="mapui_pan_up">
+   <rebind input="kb1_space" />
+  </action>
+  <action name="mapui_pan_down">
+   <rebind input="kb1_lctrl" />
+  </action>
+  <action name="mapui_cycle_section_forward">
+   <rebind input="kb1_e" />
+  </action>
+  <action name="mapui_cycle_section_backward">
+   <rebind input="kb1_q" />
+  </action>
+  <action name="mapui_cycle_zone_forward">
+   <rebind input="kb1_lshift+e" />
+  </action>
+  <action name="mapui_cycle_zone_backward">
+   <rebind input="kb1_lshift+q" />
+  </action>
+  <action name="mapui_action_planroute">
+   <rebind input="kb1_r" />
+  </action>
+  <action name="mapui_action_clearroute">
+   <rebind input="kb1_c" />
+  </action>
+  <action name="mapui_action_togglepin">
+   <rebind input="kb1_t" />
+  </action>
+  <action name="mapui_action_mylocation">
+   <rebind input="kb1_2" />
+  </action>
+  <action name="mapui_action_toggle_view_entire_zone">
+   <rebind input="kb1_z" />
+  </action>
+  <action name="mapui_action_toggleQTActions" activationMode="hold">
+   <rebind input="kb1_lshift" />
+  </action>
+  <action name="mapui_action_goto_selection">
+   <rebind input="kb1_3" />
+  </action>
+  <action name="mapui_action_step_back">
+   <rebind input="kb1_4" />
+  </action>
+  <action name="mapui_action_goto_localmap">
+   <rebind input="kb1_1" />
+  </action>
+ </actionmap>
+ <actionmap name="hacking">
+  <action name="hacking_minigame_debug_toggle_command_input" activationMode="double_tap">
+   <rebind input="kb1_rshift" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="hacking_minigame_debug_mouse_x">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="hacking_minigame_debug_mouse_y">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="hacking_minigame_mouse_lmb" activationMode="hold">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="hacking_minigame_mouse_rmb" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="hacking_minigame_abort" activationMode="press">
+   <rebind input="kb1_y" />
+  </action>
+  <action name="hacking_minigame_help_window_toggle" activationMode="press">
+   <rebind input="kb1_h" />
+  </action>
+  <action name="hacking_minigame_camera_control" activationMode="hold">
+   <rebind input="mo1_mouse3" />
+  </action>
+  <action name="hacking_minigame_camera_x">
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="hacking_minigame_camera_y">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="hacking_minigame_movement_up" activationMode="hold">
+   <rebind input="kb1_w" />
+  </action>
+  <action name="hacking_minigame_movement_down" activationMode="hold">
+   <rebind input="kb1_s" />
+  </action>
+  <action name="hacking_minigame_movement_left" activationMode="hold">
+   <rebind input="kb1_a" />
+  </action>
+  <action name="hacking_minigame_movement_right" activationMode="hold">
+   <rebind input="kb1_d" />
+  </action>
+  <action name="hacking_minigame_swap_rotate_cw" activationMode="press">
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="hacking_minigame_swap_rotate_ccw" activationMode="press">
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="hacking_minigame_ability_inject" activationMode="press">
+   <rebind input="kb1_f" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="hacking_minigame_ability_ping" activationMode="delayed_press">
+   <rebind input="kb1_tab" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="hacking_minigame_ability_slowdown" activationMode="press">
+   <rebind input="kb1_q" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="hacking_minigame_ability_swap" activationMode="press">
+   <rebind input="kb1_r" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="hacking_minigame_ability_wraparound" activationMode="press">
+   <rebind input="kb1_e" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="hacking_minigame_cycle_input_mode" activationMode="press">
+   <rebind input="kb1_i" />
+   <rebind input="mo1_ " />
+  </action>
+ </actionmap>
+ <actionmap name="tractor_beam">
+  <action name="tractor_beam_increase_distance" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="tractor_beam_decrease_distance" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="tractor_beam_rotate" activationMode="hold">
+   <rebind input="kb1_r" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="tractor_beam_rotate_x">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="tractor_beam_rotate_y">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="tractor_beam_rotate_z_up" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="tractor_beam_rotate_z_down" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="tractor_beam_detach" activationMode="press">
+   <rebind input="kb1_b" />
+  </action>
+  <action name="tractor_beam_throw" activationMode="all">
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="tractor_beam_reset_rotation" activationMode="press">
+   <rebind input="mo1_mouse3" />
+  </action>
+ </actionmap>
+ <actionmap name="mining">
+  <action name="weapon_change_mining_throttle" activationMode="press">
+   <rebind input="mo1_lalt+maxis_z" />
+   <rebind input="mo1_ " />
+  </action>
+ </actionmap>
+ <actionmap name="incapacitated">
+  <action name="incapacitatedRespawn" activationMode="delayed_hold_long">
+   <rebind input="kb1_backspace" />
+  </action>
+ </actionmap>
+ <actionmap name="zero_gravity_eva">
+  <action name="eva_view_yaw_left" activationMode="hold">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="eva_view_yaw_right" activationMode="hold">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="eva_view_yaw" />
+  <action name="eva_view_yaw_mouse">
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="eva_view_pitch_up" activationMode="hold">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="eva_view_pitch_down" activationMode="hold">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="eva_view_pitch" />
+  <action name="eva_view_pitch_mouse">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="eva_roll_left" activationMode="hold">
+   <rebind input="kb1_q" />
+  </action>
+  <action name="eva_roll_right" activationMode="hold">
+   <rebind input="kb1_e" />
+  </action>
+  <action name="eva_roll" />
+  <action name="eva_strafe_up" activationMode="hold">
+   <rebind input="kb1_space" />
+  </action>
+  <action name="eva_strafe_down" activationMode="hold">
+   <rebind input="kb1_lctrl" />
+  </action>
+  <action name="eva_strafe_vertical">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="eva_strafe_left" activationMode="hold">
+   <rebind input="kb1_a" />
+  </action>
+  <action name="eva_strafe_right" activationMode="hold">
+   <rebind input="kb1_d" />
+  </action>
+  <action name="eva_strafe_lateral">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="eva_strafe_forward" activationMode="hold">
+   <rebind input="kb1_w" />
+  </action>
+  <action name="eva_strafe_back" activationMode="hold">
+   <rebind input="kb1_s" />
+  </action>
+  <action name="eva_strafe_longitudinal">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="eva_brake" activationMode="hold">
+   <rebind input="kb1_x" />
+  </action>
+  <action name="eva_boost" activationMode="hold">
+   <rebind input="kb1_lshift" />
+  </action>
+  <action name="eva_toggle_headlook_mode" activationMode="hold">
+   <rebind input="kb1_z" />
+  </action>
+ </actionmap>
+ <actionmap name="zero_gravity_traversal">
+  <action name="zgt_launch" activationMode="hold">
+   <rebind input="kb1_space" />
+  </action>
+  <action name="zgt_detach" activationMode="press">
+   <rebind input="kb1_y" />
+  </action>
+  <action name="zgt_roll_left" activationMode="press">
+   <rebind input="kb1_q" />
+  </action>
+  <action name="zgt_roll_right" activationMode="press">
+   <rebind input="kb1_e" />
+  </action>
+ </actionmap>
+ <actionmap name="vehicle_general">
+  <action name="v_horn">
+   <rebind input="kb1_space" />
+  </action>
+  <action name="v_view_cycle_fwd" activationMode="tap">
+   <rebind input="kb1_f4" />
+  </action>
+  <action name="v_view_option">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_view_zoom_in">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="v_view_zoom_out">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="v_view_yaw_mouse">
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="v_view_pitch_mouse">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="v_view_yaw" />
+  <action name="v_view_pitch" />
+  <action name="v_view_freelook_mode" activationMode="hold">
+   <rebind input="kb1_z" />
+  </action>
+  <action name="v_toggle_cursor_input" activationMode="tap">
+   <rebind input="kb1_f11" />
+  </action>
+  <action name="v_view_yaw_absolute">
+   <rebind input="kb1_hmd_yaw" />
+  </action>
+  <action name="v_view_pitch_absolute">
+   <rebind input="kb1_hmd_pitch" />
+  </action>
+  <action name="v_view_roll_absolute">
+   <rebind input="kb1_hmd_roll" />
+  </action>
+  <action name="mobiglas" activationMode="press">
+   <rebind input="kb1_f1" />
+  </action>
+  <action name="v_flightready" activationMode="press">
+   <rebind input="kb1_ralt+r" />
+  </action>
+  <action name="v_toggle_all_doors" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_open_all_doors" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_close_all_doors" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_toggle_all_doorlocks" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_lock_all_doors" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_unlock_all_doors" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_toggle_all_portlocks" activationMode="press">
+   <rebind input="kb1_ralt+k" />
+  </action>
+  <action name="v_lock_all_ports" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_unlock_all_ports" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_starmap" activationMode="press">
+   <rebind input="kb1_f2" />
+  </action>
+  <action name="visor_wipe" activationMode="press">
+   <rebind input="kb1_lalt+x" />
+  </action>
+ </actionmap>
+ <actionmap name="vehicle_driver">
+  <action name="v_move_forward">
+   <rebind input="kb1_w" />
+  </action>
+  <action name="v_move_back">
+   <rebind input="kb1_s" />
+  </action>
+  <action name="v_move" />
+  <action name="v_yaw_left">
+   <rebind input="kb1_a" />
+  </action>
+  <action name="v_yaw_right">
+   <rebind input="kb1_d" />
+  </action>
+  <action name="v_yaw" />
+  <action name="v_yaw_mouse">
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_pitch_up">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_pitch_down">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_pitch" />
+  <action name="v_pitch_mouse">
+   <rebind input="mo1_ " />
+  </action>
+  <action name="v_brake" activationMode="hold">
+   <rebind input="kb1_x" />
+  </action>
+  <action name="v_view_dynamic_zoom_rel">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_view_dynamic_zoom_rel_in" activationMode="all">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_view_dynamic_zoom_rel_out" activationMode="all">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_view_dynamic_zoom_abs">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_view_dynamic_zoom_abs_toggle" activationMode="hold">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="v_boost" activationMode="all">
+   <rebind input="kb1_lshift" />
+  </action>
+  <action name="v_lock_rotation" activationMode="smart_toggle">
+   <rebind input="kb1_rshift" />
+  </action>
+  <action name="v_mgv_switch_brake_on_idle" activationMode="press">
+   <rebind input="kb1_c" />
+  </action>
+ </actionmap>
+ <actionmap name="debug">
+  <action name="godmode">
+   <rebind input="kb1_f9" />
+  </action>
+  <action name="debug_pause">
+   <rebind input="kb1_pause" />
+  </action>
+  <action name="pause_and_fly">
+   <rebind input="kb1_rctrl+p" />
+  </action>
+  <action name="debug_pause_alt">
+   <rebind input="kb1_rctrl+o" />
+  </action>
+  <action name="debug_time_slower">
+   <rebind input="kb1_rctrl+minus" />
+  </action>
+  <action name="debug_time_faster">
+   <rebind input="kb1_rctrl+equals" />
+  </action>
+  <action name="teleport_to_camera">
+   <rebind input="kb1_rctrl+t" />
+  </action>
+  <action name="toggleaidebugdraw">
+   <rebind input="kb1_f11" />
+  </action>
+  <action name="ai_DebugCenterViewAgent">
+   <rebind input="kb1_np_divide" />
+  </action>
+  <action name="togglepdrawhelpers">
+   <rebind input="kb1_f10" />
+  </action>
+  <action name="mannequin_debugai">
+   <rebind input="kb1_np_multiply" />
+  </action>
+  <action name="pl_result_state_debug_target" activationMode="press">
+   <rebind input="kb1_np_period" />
+  </action>
+  <action name="mov_advance_all_sequences" activationMode="press">
+   <rebind input="kb1_end" />
+  </action>
+  <action name="mov_pause_resume_all_sequences" activationMode="press">
+   <rebind input="kb1_home" />
+  </action>
+ </actionmap>
+ <actionmap name="IFCS_controls">
+  <action name="v_IFCS_A">
+   <rebind input="kb1_rctrl+a" />
+  </action>
+  <action name="v_IFCS_B">
+   <rebind input="kb1_rctrl+b" />
+  </action>
+  <action name="v_IFCS_X">
+   <rebind input="kb1_rctrl+x" />
+  </action>
+  <action name="v_IFCS_Y">
+   <rebind input="kb1_rctrl+y" />
+  </action>
+ </actionmap>
+ <actionmap name="spectator">
+  <action name="spectate_next_target" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="spectate_prev_target" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="spectate_toggle_lock_target" activationMode="press">
+   <rebind input="kb1_1" />
+  </action>
+  <action name="spectate_zoom">
+   <rebind input="mo1_maxis_z" />
+  </action>
+  <action name="spectate_zoom_in">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="spectate_zoom_out">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="spectate_rotateyaw_mouse">
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="spectate_rotatepitch_mouse">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="spectate_rotateyaw">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="spectate_rotatepitch">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="spectate_toggle_hud" activationMode="press">
+   <rebind input="kb1_b" />
+  </action>
+  <action name="spectate_gen_nextcamera" activationMode="press">
+   <rebind input="kb1_n" />
+  </action>
+  <action name="spectate_gen_nextmode" activationMode="press">
+   <rebind input="kb1_f4" />
+  </action>
+  <action name="spectate_gen_prevmode" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="spectate_moveleft" activationMode="hold">
+   <rebind input="kb1_a" />
+  </action>
+  <action name="spectate_moveright" activationMode="hold">
+   <rebind input="kb1_d" />
+  </action>
+  <action name="spectate_moveforward" activationMode="hold">
+   <rebind input="kb1_w" />
+  </action>
+  <action name="spectate_moveback" activationMode="hold">
+   <rebind input="kb1_s" />
+  </action>
+  <action name="spectate_moveup" activationMode="hold">
+   <rebind input="kb1_space" />
+  </action>
+  <action name="spectate_movedown" activationMode="hold">
+   <rebind input="kb1_lctrl" />
+  </action>
+  <action name="spectate_freecam_sprint" activationMode="hold">
+   <rebind input="kb1_lshift" />
+  </action>
+  <action name="spectate_toggle_freecam" activationMode="press">
+   <rebind input="kb1_z" />
+  </action>
+  <action name="spectate_toggle_thirdperson" activationMode="press">
+   <rebind input="kb1_f4" />
+  </action>
+  <action name="spectate_roll_left" activationMode="hold">
+   <rebind input="kb1_q" />
+  </action>
+  <action name="spectate_roll_right" activationMode="hold">
+   <rebind input="kb1_e" />
+  </action>
+  <action name="spectate_speed_increment" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="spectate_speed_decrement" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="spectate_free_look" activationMode="hold">
+   <rebind input="kb1_z" />
+  </action>
+ </actionmap>
+ <actionmap name="default">
+  <action name="skip_cutscene" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="cam_toggle_cinematic" activationMode="tap">
+   <rebind input="kb1_backspace" />
+  </action>
+  <action name="objectives">
+   <rebind input="kb1_o" />
+  </action>
+  <action name="toggle_trackview" activationMode="press">
+   <rebind input="kb1_]" />
+  </action>
+  <action name="toggle_action_profile" activationMode="press" />
+  <action name="respawn" activationMode="all">
+   <rebind input="kb1_f" />
+  </action>
+  <action name="retry" activationMode="press">
+   <rebind input="kb1_x" />
+  </action>
+  <action name="ready" activationMode="press">
+   <rebind input="kb1_x" />
+  </action>
+  <action name="pl_exit">
+   <rebind input="kb1_y" />
+  </action>
+  <action name="flymode">
+   <rebind input="kb1_f3" />
+  </action>
+  <action name="flymode_strafe_up">
+   <rebind input="kb1_space" />
+  </action>
+  <action name="flymode_strafe_down">
+   <rebind input="kb1_lctrl" />
+  </action>
+  <action name="flymode_roll_left">
+   <rebind input="kb1_q" />
+  </action>
+  <action name="flymode_roll_right">
+   <rebind input="kb1_e" />
+  </action>
+  <action name="ui_toggle_pause">
+   <rebind input="kb1_escape" />
+  </action>
+  <action name="ui_click">
+   <rebind input="kb1_enter" />
+  </action>
+  <action name="ui_back">
+   <rebind input="kb1_escape" />
+  </action>
+  <action name="ui_up">
+   <rebind input="kb1_up" />
+  </action>
+  <action name="ui_down">
+   <rebind input="kb1_down" />
+  </action>
+  <action name="ui_left">
+   <rebind input="kb1_left" />
+  </action>
+  <action name="ui_right">
+   <rebind input="kb1_right" />
+  </action>
+  <action name="ui_select">
+   <rebind input="kb1_enter" />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="ui_secondary_select">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_ " />
+  </action>
+  <action name="ui_radialmenu_pageleft">
+   <rebind input="kb1_left" />
+  </action>
+  <action name="ui_radialmenu_pageright">
+   <rebind input="kb1_right" />
+  </action>
+  <action name="ui_confirm" />
+  <action name="ui_reset" />
+  <action name="ui_skip_video">
+   <rebind input="kb1_space" />
+  </action>
+  <action name="ui_hide_hint" activationMode="press">
+   <rebind input="kb1_f" />
+  </action>
+  <action name="ui_primaryTab_increment">
+   <rebind input="kb1_e" />
+  </action>
+  <action name="ui_primaryTab_decrement">
+   <rebind input="kb1_q" />
+  </action>
+  <action name="ui_secondaryTab_increment">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="ui_secondaryTab_decrement">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="ui_focus_increment">
+   <rebind input="kb1_tab" />
+  </action>
+  <action name="ui_focus_decrement">
+   <rebind input="kb1_lshift+tab" />
+  </action>
+  <action name="flashui_mouse" />
+  <action name="flashui_return" />
+  <action name="flashui_backspace">
+   <rebind input="kb1_backspace" />
+  </action>
+  <action name="flashui_spacebar">
+   <rebind input="kb1_space" />
+  </action>
+  <action name="flashui_tab">
+   <rebind input="kb1_tab" />
+  </action>
+  <action name="flashui_kp_2" />
+  <action name="flashui_kp_3" />
+  <action name="flashui_kp_4" />
+  <action name="flashui_kp_7" />
+  <action name="flashui_up">
+   <rebind input="kb1_up" />
+  </action>
+  <action name="flashui_down">
+   <rebind input="kb1_down" />
+  </action>
+  <action name="flashui_left">
+   <rebind input="kb1_left" />
+  </action>
+  <action name="flashui_right">
+   <rebind input="kb1_right" />
+  </action>
+  <action name="notification_accept" activationMode="press">
+   <rebind input="kb1_lbracket" />
+  </action>
+  <action name="notification_decline" activationMode="press">
+   <rebind input="kb1_rbracket" />
+  </action>
+  <action name="toggle_contact" activationMode="press">
+   <rebind input="kb1_f11" />
+  </action>
+  <action name="toggle_chat" activationMode="press">
+   <rebind input="kb1_f12" />
+  </action>
+  <action name="cycle_chat_lobby" activationMode="press">
+   <rebind input="kb1_tab" />
+  </action>
+  <action name="focus_on_chat_textinput" activationMode="press" />
+  <action name="ui_copy" activationMode="press">
+   <rebind input="kb1_lctrl+c" />
+  </action>
+  <action name="ui_cut" activationMode="press">
+   <rebind input="kb1_lctrl+x" />
+  </action>
+  <action name="ui_paste" activationMode="press">
+   <rebind input="kb1_lctrl+v" />
+  </action>
+ </actionmap>
+ <actionmap name="ui_textfield">
+  <action name="ui_textfield_enter" />
+  <action name="ui_textfield_backspace">
+   <rebind input="kb1_backspace" />
+  </action>
+  <action name="ui_textfield_arrow_up">
+   <rebind input="kb1_up" />
+  </action>
+  <action name="ui_textfield_arrow_down">
+   <rebind input="kb1_down" />
+  </action>
+  <action name="ui_textfield_arrow_left">
+   <rebind input="kb1_left" />
+  </action>
+  <action name="ui_textfield_arrow_right">
+   <rebind input="kb1_right" />
+  </action>
+ </actionmap>
+ <actionmap name="ui_notification">
+  <action name="ui_notification_accept">
+   <rebind input="kb1_lbracket" />
+  </action>
+  <action name="ui_notification_decline" activationMode="tap">
+   <rebind input="kb1_rbracket" />
+  </action>
+  <action name="ui_notification_ignore" activationMode="delayed_hold">
+   <rebind input="kb1_rbracket" />
+  </action>
+ </actionmap>
+ <actionmap name="player_emotes">
+  <action name="emote_cs_forward" activationMode="press">
+   <rebind input="kb1_np_5" />
+  </action>
+  <action name="emote_cs_left" activationMode="press">
+   <rebind input="kb1_np_1" />
+  </action>
+  <action name="emote_cs_right" activationMode="press">
+   <rebind input="kb1_np_3" />
+  </action>
+  <action name="emote_cs_stop" activationMode="press">
+   <rebind input="kb1_np_2" />
+  </action>
+  <action name="emote_cs_yes" activationMode="press">
+   <rebind input="kb1_np_4" />
+  </action>
+  <action name="emote_cs_no" activationMode="press">
+   <rebind input="kb1_np_6" />
+  </action>
+  <action name="emote_agree" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_angry" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_atease" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_attention" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_blah" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_bored" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_bow" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_burp" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_cheer" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_chicken" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_clap" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_come" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_cry" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_dance" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_disagree" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_failure" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_flex" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_flirt" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_gasp" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_gloat" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_greet" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_laugh" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_launch" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_point" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_rude" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_salute" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_sit" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_sleep" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_smell" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_taunt" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_threaten" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_wait" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_wave" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="emote_whistle" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+ </actionmap>
+ <actionmap name="player_input_optical_tracking">
+  <action name="hmd_toggle" activationMode="press">
+   <rebind input="kb1_np_divide" />
+  </action>
+  <action name="hmd_recenter" activationMode="press">
+   <rebind input="kb1_np_5" />
+  </action>
+  <action name="hmd_theater_mode_toggle" activationMode="press">
+   <rebind input="kb1_lalt+np_5" />
+  </action>
+  <action name="hmd_lens_display_toggle" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="headtrack_enabled" activationMode="press">
+   <rebind input="kb1_np_divide" />
+  </action>
+  <action name="headtrack_hold" activationMode="hold">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="headtrack_recenter_device" activationMode="press">
+   <rebind input="kb1_np_5" />
+  </action>
+  <action name="headtrack_camera_enabled" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="foip_pushtotalk" activationMode="hold">
+   <rebind input="kb1_np_add" />
+  </action>
+  <action name="foip_pushtotalk_proximity" activationMode="hold">
+   <rebind input="kb1_lalt+np_add" />
+  </action>
+  <action name="foip_viewownplayer" activationMode="delayed_hold">
+   <rebind input="kb1_np_subtract" />
+  </action>
+  <action name="foip_recalibrate" activationMode="press">
+   <rebind input="kb1_np_multiply" />
+  </action>
+  <action name="foip_cyclechannel" activationMode="press">
+   <rebind input="kb1_np_period" />
+  </action>
+ </actionmap>
+ <actionmap name="player_choice">
+  <action name="pc_item_primary">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="pc_item_secondary">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="pc_interaction_mode">
+   <rebind input="kb1_f" />
+  </action>
+  <action name="pc_interaction_select">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="pc_select">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="pc_focus" activationMode="tap">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse3" />
+  </action>
+  <action name="pc_zoom_in" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="pc_zoom_out" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="pc_screen_focus_left" activationMode="press">
+   <rebind input="kb1_a" />
+  </action>
+  <action name="pc_screen_focus_right" activationMode="press">
+   <rebind input="kb1_d" />
+  </action>
+  <action name="pc_screen_focus_up" activationMode="press">
+   <rebind input="kb1_w" />
+  </action>
+  <action name="pc_screen_focus_down" activationMode="press">
+   <rebind input="kb1_s" />
+  </action>
+  <action name="pc_personal_thought" activationMode="press">
+   <rebind input="kb1_lalt+f" />
+  </action>
+  <action name="pc_camera_orbit" activationMode="hold">
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="pc_personal_back" activationMode="press">
+   <rebind input="kb1_np_0" />
+  </action>
+  <action name="pc_ui_back" activationMode="press">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="pc_pit_inventory" activationMode="tap">
+   <rebind input="kb1_i" />
+  </action>
+  <action name="pc_pit_looting" activationMode="delayed_press">
+   <rebind input="kb1_i" />
+  </action>
+  <action name="pc_pit_looting_toggle_view" activationMode="press">
+   <rebind input="kb1_tab" />
+  </action>
+  <action name="pc_pit_looting_toggle_weapon_attachments" activationMode="press">
+   <rebind input="kb1_q" />
+  </action>
+  <action name="pc_pit_item_unstown" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="pc_pit_item_drop" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="pc_pit_empty_backpack" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="pc_pit_player_actions" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="pc_pit_emotes" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="pc_pit_ship_systems" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="pc_pit_flight_systems" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="pc_pit_vehicle_actions" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="pc_pit_weapons_systems" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="pc_pit_remote_turrets" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="pc_pit_item_actions" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="pc_pit_weapon_selection" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="pc_pit_mobiglas_actions" activationMode="press">
+   <rebind input="kb1_ " />
+  </action>
+  <action name="pc_pit_miningmode_actions" activationMode="press">
+   <rebind input="kb1_lalt+m" />
+  </action>
+  <action name="pc_qs_weapons_pit_primary" activationMode="all">
+   <rebind input="kb1_1" />
+  </action>
+  <action name="pc_qs_weapons_pit_secondary" activationMode="all">
+   <rebind input="kb1_2" />
+  </action>
+  <action name="pc_qs_weapons_pit_sidearm" activationMode="all">
+   <rebind input="kb1_3" />
+  </action>
+  <action name="pc_qs_grenades" activationMode="all">
+   <rebind input="kb1_g" />
+  </action>
+  <action name="pc_qs_consumables" activationMode="all">
+   <rebind input="kb1_4" />
+  </action>
+ </actionmap>
+ <actionmap name="flycam">
+  <action name="flycam_rotateyaw" />
+  <action name="flycam_rotatepitch" />
+  <action name="flycam_rotateyaw_mouse">
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="flycam_rotatepitch_mouse">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="flycam_movey" />
+  <action name="flycam_movefwd">
+   <rebind input="kb1_w" />
+  </action>
+  <action name="flycam_moveback">
+   <rebind input="kb1_s" />
+  </action>
+  <action name="flycam_movex" />
+  <action name="flycam_moveright">
+   <rebind input="kb1_d" />
+  </action>
+  <action name="flycam_moveleft">
+   <rebind input="kb1_a" />
+  </action>
+  <action name="flycam_movez" />
+  <action name="flycam_moveup">
+   <rebind input="kb1_q" />
+  </action>
+  <action name="flycam_movedown">
+   <rebind input="kb1_e" />
+  </action>
+  <action name="flycam_speedup">
+   <rebind input="kb1_up" />
+  </action>
+  <action name="flycam_speeddown">
+   <rebind input="kb1_down" />
+  </action>
+  <action name="flycam_turbo">
+   <rebind input="kb1_space" />
+  </action>
+  <action name="flycam_setpoint">
+   <rebind input="kb1_z" />
+  </action>
+  <action name="flycam_play">
+   <rebind input="kb1_x" />
+  </action>
+  <action name="flycam_clear">
+   <rebind input="kb1_c" />
+  </action>
+ </actionmap>
+ <actionmap name="view_director_mode">
+  <action name="view_enable_camview_mode">
+   <rebind input="kb1_f4" />
+  </action>
+  <action name="view_switch_to_alternative">
+   <rebind input="kb1_z" />
+  </action>
+  <action name="view_save_view_1" activationMode="delayed_press">
+   <rebind input="kb1_np_1" />
+  </action>
+  <action name="view_save_view_2" activationMode="delayed_press">
+   <rebind input="kb1_np_2" />
+  </action>
+  <action name="view_save_view_3" activationMode="delayed_press">
+   <rebind input="kb1_np_3" />
+  </action>
+  <action name="view_save_view_4" activationMode="delayed_press">
+   <rebind input="kb1_np_4" />
+  </action>
+  <action name="view_save_view_5" activationMode="delayed_press">
+   <rebind input="kb1_np_5" />
+  </action>
+  <action name="view_save_view_6" activationMode="delayed_press">
+   <rebind input="kb1_np_6" />
+  </action>
+  <action name="view_save_view_7" activationMode="delayed_press">
+   <rebind input="kb1_np_7" />
+  </action>
+  <action name="view_save_view_8" activationMode="delayed_press">
+   <rebind input="kb1_np_8" />
+  </action>
+  <action name="view_save_view_9" activationMode="delayed_press">
+   <rebind input="kb1_np_9" />
+  </action>
+  <action name="view_load_view_1" activationMode="tap">
+   <rebind input="kb1_np_1" />
+  </action>
+  <action name="view_load_view_2" activationMode="tap">
+   <rebind input="kb1_np_2" />
+  </action>
+  <action name="view_load_view_3" activationMode="tap">
+   <rebind input="kb1_np_3" />
+  </action>
+  <action name="view_load_view_4" activationMode="tap">
+   <rebind input="kb1_np_4" />
+  </action>
+  <action name="view_load_view_5" activationMode="tap">
+   <rebind input="kb1_np_5" />
+  </action>
+  <action name="view_load_view_6" activationMode="tap">
+   <rebind input="kb1_np_6" />
+  </action>
+  <action name="view_load_view_7" activationMode="tap">
+   <rebind input="kb1_np_7" />
+  </action>
+  <action name="view_load_view_8" activationMode="tap">
+   <rebind input="kb1_np_8" />
+  </action>
+  <action name="view_load_view_9" activationMode="tap">
+   <rebind input="kb1_np_9" />
+  </action>
+  <action name="view_reset_saved" activationMode="delayed_press">
+   <rebind input="kb1_np_0" />
+  </action>
+  <action name="view_move_target_X_pos">
+   <rebind input="kb1_right" />
+  </action>
+  <action name="view_move_target_X_neg">
+   <rebind input="kb1_left" />
+  </action>
+  <action name="view_move_target_Y_pos">
+   <rebind input="kb1_up" />
+  </action>
+  <action name="view_move_target_Y_neg">
+   <rebind input="kb1_down" />
+  </action>
+  <action name="view_move_target_Z_pos">
+   <rebind input="kb1_pgup" />
+  </action>
+  <action name="view_move_target_Z_neg">
+   <rebind input="kb1_pgdn" />
+  </action>
+  <action name="view_fov_in">
+   <rebind input="kb1_np_add" />
+  </action>
+  <action name="view_fov_out">
+   <rebind input="kb1_np_subtract" />
+  </action>
+  <action name="view_fstop_in">
+   <rebind input="kb1_home" />
+  </action>
+  <action name="view_fstop_out">
+   <rebind input="kb1_end" />
+  </action>
+  <action name="view_restore_defaults">
+   <rebind input="kb1_np_multiply" />
+  </action>
+ </actionmap>
+ <actionmap name="character_customizer">
+  <action name="character_customizer_yaw">
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="character_customizer_pitch">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="character_customizer_gp_yaw" />
+  <action name="character_customizer_gp_pitch" />
+  <action name="character_customizer_zoom_in">
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="character_customizer_zoom_out">
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="character_customizer_select">
+   <rebind input="kb1_f" />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="character_customizer_enable_dna_edit">
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="character_customizer_enable_rotation" activationMode="hold">
+   <rebind input="kb1_lshift" />
+  </action>
+  <action name="character_customizer_enable_mouse_rotation" activationMode="hold">
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="character_customizer_library_scroll_up">
+   <rebind input="kb1_up" />
+   <rebind input="mo1_mwheel_up" />
+  </action>
+  <action name="character_customizer_library_scroll_down">
+   <rebind input="kb1_down" />
+   <rebind input="mo1_mwheel_down" />
+  </action>
+  <action name="character_customizer_edit_dna_pos">
+   <rebind input="kb1_right" />
+  </action>
+  <action name="character_customizer_edit_dna_neg">
+   <rebind input="kb1_left" />
+  </action>
+  <action name="character_customizer_yaw_left">
+   <rebind input="kb1_left" />
+  </action>
+  <action name="character_customizer_yaw_right">
+   <rebind input="kb1_right" />
+  </action>
+  <action name="character_customizer_pitch_up">
+   <rebind input="kb1_up" />
+  </action>
+  <action name="character_customizer_pitch_down">
+   <rebind input="kb1_down" />
+  </action>
+  <action name="character_customizer_step_up">
+   <rebind input="kb1_e" />
+  </action>
+  <action name="character_customizer_step_down">
+   <rebind input="kb1_q" />
+  </action>
+  <action name="character_customizer_feature_up">
+   <rebind input="kb1_d" />
+  </action>
+  <action name="character_customizer_feature_down">
+   <rebind input="kb1_a" />
+  </action>
+  <action name="character_customizer_dnamode_up">
+   <rebind input="kb1_d" />
+  </action>
+  <action name="character_customizer_dnamode_down">
+   <rebind input="kb1_a" />
+  </action>
+  <action name="character_customizer_next_material_region">
+   <rebind input="kb1_f" />
+  </action>
+  <action name="character_customizer_toggle_face_tracking">
+   <rebind input="kb1_space" />
+  </action>
+  <action name="character_customizer_dnaHandle_select" />
+  <action name="character_customizer_dnaHandle_deselect" />
+ </actionmap>
+ <actionmap name="RemoteRigidEntityController">
+  <action name="remote_moveForward" activationMode="hold">
+   <rebind input="kb1_w" />
+  </action>
+  <action name="remote_moveBack" activationMode="hold">
+   <rebind input="kb1_s" />
+  </action>
+  <action name="remote_moveLeft" activationMode="hold">
+   <rebind input="kb1_a" />
+  </action>
+  <action name="remote_moveRight" activationMode="hold">
+   <rebind input="kb1_d" />
+  </action>
+  <action name="remote_moveUp" activationMode="hold">
+   <rebind input="kb1_space" />
+  </action>
+  <action name="remote_moveDown" activationMode="hold">
+   <rebind input="kb1_lctrl" />
+  </action>
+  <action name="remote_scaleUp" activationMode="hold">
+   <rebind input="kb1_c" />
+  </action>
+  <action name="remote_scaleDown" activationMode="hold">
+   <rebind input="kb1_z" />
+  </action>
+  <action name="remote_rollLeft" activationMode="hold">
+   <rebind input="kb1_q" />
+  </action>
+  <action name="remote_rollRight" activationMode="hold">
+   <rebind input="kb1_e" />
+  </action>
+  <action name="remote_rotatePitch">
+   <rebind input="mo1_maxis_x" />
+  </action>
+  <action name="remote_rotateYaw">
+   <rebind input="mo1_maxis_y" />
+  </action>
+  <action name="remote_switchControl" activationMode="tap">
+   <rebind input="kb1_v" />
+  </action>
+  <action name="remote_stopControl" activationMode="tap">
+   <rebind input="kb1_y" />
+  </action>
+  <action name="remote_action1" activationMode="tap">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse1" />
+  </action>
+  <action name="remote_action2" activationMode="tap">
+   <rebind input="kb1_ " />
+   <rebind input="mo1_mouse2" />
+  </action>
+  <action name="remote_switchTarget" activationMode="tap">
+   <rebind input="kb1_b" />
+  </action>
+ </actionmap>
+ <actionmap name="server_renderer">
+  <action name="v_view_cycle_fwd" activationMode="tap">
+   <rebind input="kb1_f4" />
+  </action>
+ </actionmap>
+</ActionMaps>
