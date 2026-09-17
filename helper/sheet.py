@@ -36,6 +36,11 @@ MAX_WIDTH = 5000
 TIMEOUT_S = 60
 CREATE_NO_WINDOW = 0x08000000
 
+#: Renders kept per page. Every distinct width is a file of a megabyte or
+#: two, and a slider offers two hundred of them; the newest few are the ones
+#: anybody comes back to.
+KEEP_PER_PAGE = 8
+
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 #: Named in full: a `powershell` on PATH could be a shim to PowerShell 7,
@@ -198,7 +203,19 @@ class SheetRenderer:
                 self.log("Sheet render could not be kept: %s" % exc)
                 self._discard(partial)
                 return None
+            self._prune(folder, page, keep=final)
             return final
+
+    def _prune(self, folder: Path, page: int, keep: Path) -> None:
+        """Drop this page's oldest renders beyond KEEP_PER_PAGE; never `keep`."""
+        try:
+            renders = [p for p in folder.glob("page%d-*.png" % page)
+                       if p != keep and not p.name.endswith(".part.png")]
+            renders.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        except OSError:
+            return
+        for old in renders[KEEP_PER_PAGE - 1:]:
+            self._discard(old)
 
     @staticmethod
     def _discard(path: Path) -> None:

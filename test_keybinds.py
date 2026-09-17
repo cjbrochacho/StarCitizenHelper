@@ -582,6 +582,10 @@ def _bound():
 def _mode_and_category():
     flight = visible(TABLE, {}, Filters(mode="Flight"))
     assert {b.actionmap for b in flight} == {"spaceship_general"}
+    other = visible(TABLE, {}, Filters(mode="Other"))
+    assert [b.actionmap for b in other] == ["debug"], "Other should be reachable on its own"
+    everything = visible(TABLE, {}, Filters(mode=""))
+    assert len(everything) == len(visible(TABLE, {}, Filters(show_all_modes=True)))
     cat = visible(TABLE, {}, Filters(show_all_modes=True, category="player"))
     assert {b.actionmap for b in cat} == {"player"}
     assert categories(TABLE, "FPS", False) == ["player"]

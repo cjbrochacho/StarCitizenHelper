@@ -245,7 +245,24 @@ def _stray_part():
         assert not stray.exists(), "a half-written file from last time survived"
 
 
+def _pruned():
+    from helper.sheet import KEEP_PER_PAGE
+    with Setup() as s:
+        for i in range(KEEP_PER_PAGE + 3):
+            path = s.renderer.render(1, 1000 + i * 20)
+            stamp = time.time() - (100 - i)                 # older first
+            os.utime(path, (stamp, stamp))
+        s.renderer.render(2, 1000)
+        page1 = sorted(p.name for p in s.cache.rglob("page1-*.png"))
+        assert len(page1) == KEEP_PER_PAGE, page1
+        assert "page1-1000.png" not in page1 and "page1-1020.png" not in page1, "the oldest should go"
+        newest = "page1-%d.png" % (1000 + (KEEP_PER_PAGE + 2) * 20)
+        assert newest in page1
+        assert len(list(s.cache.rglob("page2-*.png"))) == 1, "another page's renders were touched"
+
+
 check("a different PDF gets its own folder and the old one goes", _new_pdf)
+check("only the newest renders of a page are kept", _pruned)
 check("the same PDF with a new timestamp keeps its renders", _same_bytes_new_mtime)
 check("a half-written file from a previous session is cleared", _stray_part)
 

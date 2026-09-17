@@ -74,6 +74,9 @@ SORTABLE_COLUMNS = ('action', 'bound', 'map')
 BOUND_CHOICES = (('All bindings', 'all'), ('Bound only', 'bound'), ('Unbound only', 'unbound'))
 DEVICE_CHOICES = (('Any device', ''), ('Keyboard', 'keyboard'), ('Mouse', 'mouse'))
 ALL_CATEGORIES = 'All categories'
+#: The mode filter: follow the sheet's page, one named page, or everything.
+MODE_SHEET, MODE_ALL = "Sheet's page", 'All modes'
+MODE_CHOICES = (MODE_SHEET, 'Flight', 'FPS', 'Other', MODE_ALL)
 CHORD_TIMEOUT_MS = 10000
 #: 250% of a 2000px page is a 77 MB photo; 300% would be 111 MB.
 ZOOM_MIN, ZOOM_MAX = 25, 250
@@ -152,14 +155,16 @@ def current_revision():
     left out of the string entirely. Whether this is the latest is a separate
     question, answered by comparing __version__ with the copy on GitHub.
     """
-    sha, is_dev = _read_revision()
+    _sha, is_dev = _read_revision()
     if is_dev:
         tag, distance = _describe()
         if tag:
             return tag if distance == 0 else '%s+%d (dev)' % (tag, distance)
         return 'v%s (dev)' % __version__         # a clone with no tags fetched
-    if not sha:
-        return 'unreleased'
+    # A zip install is its __version__, whether or not the launcher has
+    # recorded it in assets/.version yet - that file is the updater's
+    # bookkeeping, not the answer to "what is this?". It used to say
+    # "unreleased" here, which was wrong on every install made by hand.
     return 'v%s' % __version__
 
 
@@ -426,7 +431,10 @@ class App(tk.Tk):
         self.last_keepalive_at = None
         self.next_scan = 0
         self.running_macro = ''
-        _, self._revision_is_git = _read_revision()
+        revision_sha, self._revision_is_git = _read_revision()
+        # A zip install the launcher has not stamped yet: the app still knows
+        # what it is, but the Updates tab should say the launcher does not.
+        self._revision_recorded = self._revision_is_git or revision_sha is not None
         self.revision = current_revision()
         self._online_version = None          # set by the freshness check
         self._checking_online = False
@@ -1025,7 +1033,7 @@ class App(tk.Tk):
         self._keybinds_loaded = False
         self._bindings = []                      # the merged table, filtered per refresh
         self._binding_conflicts = {}
-        self._show_all_modes = tk.BooleanVar(value=False)
+        self._bindings_mode = tk.StringVar(value=MODE_SHEET)
 
         tk.Label(frame, text='Key Bindings', bg='#101722', fg='#eef6ff',
                  font=('Segoe UI Semibold', 13)).pack(anchor='w', padx=18, pady=(16, 2))
@@ -1098,7 +1106,7 @@ class App(tk.Tk):
         canvas.bind('<ButtonPress-1>', lambda e: canvas.scan_mark(e.x, e.y))
         canvas.bind('<B1-Motion>', lambda e: canvas.scan_dragto(e.x, e.y, gain=1))
         canvas.bind('<Configure>', self._on_sheet_resize)
-        paned.add(viewer, stretch='always', minsize=160)
+        paned.add(viewer, stretch='always', minsize=60)
 
         panel = tk.Frame(paned, bg='#101722')
         head = self._bindings_head = tk.Frame(panel, bg='#101722')
@@ -1112,10 +1120,8 @@ class App(tk.Tk):
         tk.Button(head, text='Reload', command=self._reload_bindings,
                   bg='#253448', fg='#eef6ff', activebackground='#2a4661',
                   relief='flat', padx=12, pady=3).pack(side='right')
-        tk.Checkbutton(head, text='show all modes', variable=self._show_all_modes,
-                       command=self._refresh_bindings, bg='#101722', fg='#c9d7e6',
-                       selectcolor='#0f1721', activebackground='#101722',
-                       activeforeground='#eef6ff', relief='flat').pack(side='right', padx=(0, 10))
+        self._dark_option_menu(head, self._bindings_mode, list(MODE_CHOICES), 11
+                               ).pack(side='right', padx=(0, 10))
         self._bindings_search = tk.Entry(head, width=22, bg='#0f1721', fg='#eaf4ff',
                                          insertbackground='white', relief='flat',
                                          disabledbackground='#0f1721', disabledforeground='#6f8398')
@@ -1167,8 +1173,11 @@ class App(tk.Tk):
         self.bindings_view.bind('<<TreeviewSelect>>', self._on_binding_selected)
         bar = ttk.Scrollbar(table, orient='vertical', command=self.bindings_view.yview)
         self.bindings_view.configure(yscrollcommand=bar.set)
+        # The bar first: pack gives space in packing order, and a tree whose
+        # columns want more than the panel has would otherwise push the last
+        # thing packed - the bar - out of view.
+        bar.pack(side='right', fill='y')
         self.bindings_view.pack(side='left', fill='both', expand=True)
-        bar.pack(side='left', fill='y')
         self._visible = []
         self._selected_binding = None
         # Not packed yet: _toggle_bindings does that, in front of the status line.
@@ -1461,15 +1470,40 @@ class App(tk.Tk):
                                       before=self.bindings_status)
             self._bindings_detail_row.pack(side='bottom', fill='x', pady=(4, 0),
                                            before=self.bindings_status)
-            paned = self._keybinds_paned
-            if paned.winfo_height() > 1:
-                paned.sash_place(0, 0, int(paned.winfo_height() * 0.5))
+            self._place_bindings_sash()
         else:
             self._stop_chord()
             self._bindings_filters.pack_forget()
             self._bindings_table.pack_forget()
             self._bindings_detail_row.pack_forget()
+            self._place_bindings_sash()
         self._paint_bindings_toggle()
+
+    #: What the bindings panel needs to be worth looking at: the head row,
+    #: the filter row, a few table rows, the detail line and the status.
+    BINDINGS_PANEL_OPEN = 320
+    BINDINGS_PANEL_CLOSED = 64
+
+    def _place_bindings_sash(self, attempts=10):
+        """Put the sash where the table is worth looking at, or out of the way.
+
+        Open, the table comes first: the sheet keeps a strip and the rest is
+        the table, up to the point where the table has what it needs - drag
+        the sash for more sheet. Closed, only the head row and status show.
+        Asked before the tab has been laid out, the pane is 1px tall and no
+        placement makes sense; wait a tick and try again, a few times.
+        """
+        paned = self._keybinds_paned
+        height = paned.winfo_height()
+        if height <= 1:
+            if attempts > 0:
+                self.after(50, lambda: self._place_bindings_sash(attempts - 1))
+            return
+        if self._bindings_open:
+            sash = max(60, height - self.BINDINGS_PANEL_OPEN)
+        else:
+            sash = max(60, height - self.BINDINGS_PANEL_CLOSED)
+        paned.sash_place(0, 0, sash)
 
     def _paint_bindings_toggle(self):
         count = len(self.bindings_view.get_children())
@@ -1502,9 +1536,10 @@ class App(tk.Tk):
     def _current_filters(self):
         """What the widgets say, as one value the module can act on."""
         chosen = self._bindings_category.get()
+        mode = self._effective_mode()
         return Filters(
-            mode=self._sheet_mode,
-            show_all_modes=self._show_all_modes.get(),
+            mode=mode,
+            show_all_modes=not mode,
             bound=dict(BOUND_CHOICES).get(self._bindings_bound.get(), 'all'),
             category='' if chosen == ALL_CATEGORIES else chosen,
             device=dict(DEVICE_CHOICES).get(self._bindings_device.get(), ''),
@@ -1514,9 +1549,19 @@ class App(tk.Tk):
             key=self._bindings_key,
         )
 
+    def _effective_mode(self):
+        """The mode the table is filtered to; '' when it is every mode."""
+        chosen = self._bindings_mode.get()
+        if chosen == MODE_SHEET:
+            return self._sheet_mode
+        if chosen == MODE_ALL:
+            return ''
+        return chosen
+
     def _refresh_category_menu(self):
         """The category menu lists the maps of the page being looked at."""
-        names = categories(self._bindings, self._sheet_mode, self._show_all_modes.get())
+        mode = self._effective_mode()
+        names = categories(self._bindings, mode, not mode)
         if names == self._bindings_category_list:
             return
         self._bindings_category_list = names
@@ -1534,7 +1579,7 @@ class App(tk.Tk):
         view = self.bindings_view
         remembered = self._selected_binding
         view.delete(*view.get_children())
-        show_all = self._show_all_modes.get()
+        show_all = not self._effective_mode()
         view['displaycolumns'] = [c[0] for c in BINDING_COLUMNS] if show_all \
             else [c[0] for c in BINDING_COLUMNS if c[0] != 'mode']
         column, reverse = self._bindings_sort
@@ -1945,6 +1990,10 @@ class App(tk.Tk):
             lines.append('')
             lines.append('This is a git checkout - update it with git pull.')
             lines.append('Update now is disabled here so it cannot overwrite your work.')
+        elif not self._revision_recorded:
+            lines.append('')
+            lines.append('Installed by hand - the launcher has not recorded it yet. Run')
+            lines.append('StarCitizenHelper.bat once and updates will work from then on.')
         self.updates_status.config(text='\n'.join(lines))
 
     def _check_updates_now(self):

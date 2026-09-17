@@ -271,8 +271,9 @@ Narrowing it down:
 - **search** matches the action's name, its id, the key, and the action map.
 - **All bindings / Bound only / Unbound only**, **All categories** (the game's own names for its
   action maps - "Vehicles - Cockpit", "Flight - Docking", "On Foot - All" - for the mode shown),
-  **Any device / Keyboard / Mouse**, and two ticks: **yours**, **conflicts**. The table is filtered
-  to the mode shown unless you tick **show all modes**.
+  **Any device / Keyboard / Mouse**, and two ticks: **yours**, **conflicts**. The **Mode** menu in
+  the heading follows the sheet's page by default; pick Flight, FPS, Other (the maps on neither
+  page - camera, spectator, social) or all modes at once.
 - **Press a key...** listens for one chord - hold the modifiers, press the key, ten seconds, Esc to
   give up - and shows what is bound to it. Left and right modifiers are told apart, numpad keys
   from the number row, and the order you hold modifiers in does not matter. The button then

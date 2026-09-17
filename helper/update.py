@@ -94,20 +94,31 @@ def _get(url: str, timeout: int, accept: str | None = None) -> bytes | None:
         return None
 
 
+_RE_FEED_SHA = re.compile(r"Grit::Commit/([0-9a-f]{40})")
+
+
 def latest_sha(repo: str = REPO, branch: str = BRANCH) -> str | None:
     """The newest commit on the branch, as a bare SHA.
 
-    Asking for the sha media type returns forty characters rather than the
-    whole commit as JSON, which is a lot of response to parse for one field.
+    Two places to ask. The API first: asking for the sha media type returns
+    forty characters and nothing else. But the API allows an anonymous
+    address sixty requests an hour and some networks block it outright, and
+    an install that cannot learn the tip never gets recorded as installed -
+    which is how a fresh download came to call itself "unreleased". So the
+    branch's public commits feed is the second try: no limit, and the first
+    entry's id carries the same forty characters.
     """
     raw = _get(f"https://api.github.com/repos/{repo}/commits/{branch}",
                SHA_TIMEOUT, accept="application/vnd.github.sha")
-    if raw is None:
+    if raw is not None:
+        sha = raw.decode("ascii", "replace").strip()
+        if len(sha) == 40 and all(c in "0123456789abcdef" for c in sha):
+            return sha
+    feed = _get(f"https://github.com/{repo}/commits/{branch}.atom", SHA_TIMEOUT)
+    if feed is None:
         return None
-    sha = raw.decode("ascii", "replace").strip()
-    if len(sha) == 40 and all(c in "0123456789abcdef" for c in sha):
-        return sha
-    return None
+    match = _RE_FEED_SHA.search(feed.decode("utf-8", "replace"))
+    return match.group(1) if match else None
 
 
 def download(repo: str = REPO, branch: str = BRANCH) -> bytes | None:

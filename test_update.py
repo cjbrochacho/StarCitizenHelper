@@ -258,6 +258,40 @@ check("with nothing installed, that is a failure the launcher hears about", _unr
 check("with an intact install, it is just no update today", _unreachable_intact)
 
 
+# --- 3b --------------------------------------------------------------------
+
+print("\n3b. the API is not the only way to learn the tip")
+
+FEED = ('<?xml version="1.0"?><feed><entry><id>tag:github.com,2008:Grit::Commit/%s</id>'
+        '</entry><entry><id>tag:github.com,2008:Grit::Commit/%s</id></entry></feed>'
+        % (SHA, OTHER_SHA)).encode()
+
+
+def _feed_fallback():
+    with install() as root, patched(Routed(api=None, atom=FEED, codeload=make_zip(PAYLOAD))) as gh:
+        message, ok = run_update(root)
+        assert ok, message
+        assert version_of(root) == SHA, "the feed's first entry should be the tip"
+        assert gh.asked("commits/main.atom") and gh.asked("api.github.com")
+
+
+def _feed_junk():
+    with install() as root, patched(Routed(api=None, atom=b"<feed>nothing here</feed>")):
+        message, ok = run_update(root)
+        assert "GitHub" in message and version_of(root) is None
+
+
+def _api_first():
+    with install() as root, patched(github()) as gh:
+        run_update(root)
+        assert not gh.asked("atom"), "the feed was asked although the API answered"
+
+
+check("with the API down, the commits feed says which commit is newest", _feed_fallback)
+check("a feed with no commit in it is no answer", _feed_junk)
+check("and the feed is not asked when the API answered", _api_first)
+
+
 # --- 4 ---------------------------------------------------------------------
 
 print("\n4. the download itself fails")
