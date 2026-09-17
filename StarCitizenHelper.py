@@ -23,10 +23,13 @@ from helper.brand import BrandMark, WordMark
 from helper.fps import FpsMonitor, presentmon_executable
 from helper.hud import HudGraph
 from helper.idle import IdleWatcher, note_injection, tick
-from helper.keybinds import (Binding, conflicts, describe_action, describe_export_status,
-                             describe_input, describe_shipped_status, describe_status,
-                             find_actionmaps, installed_game_version, load_full_export,
-                             load_shipped_defaults, merge, mode_of, read_actionmaps)
+from helper.chord import ChordRecorder
+from helper.keybinds import (Filters, categories, conflicts, copy_text, counts, describe_action,
+                             describe_detail, describe_export_status, describe_input,
+                             describe_shipped_status, describe_status, find_actionmaps,
+                             from_keyboard_names, installed_game_version, load_full_export,
+                             load_shipped_defaults, merge, mode_of, read_actionmaps, row_tags,
+                             row_values, sort_rows, to_keyboard_syntax, visible)
 from helper.sheet import SheetRenderer
 from helper.hardware import HardwareMonitor, machine_id, machine_profile
 from helper.history import collect as collect_history
@@ -64,6 +67,14 @@ SHEET_SCRIPT = os.path.join(KEYBINDS_DIR, 'render_sheet.ps1')
 #: which the updater never touches and git never sees.
 SHEET_CACHE = os.path.join(_DIR, 'assets', 'keybinds')
 SHIPPED_DEFAULTS_PATH = os.path.join(KEYBINDS_DIR, 'defaults.xml')
+#: The bindings table's columns: id, heading, width. Three of them sort.
+BINDING_COLUMNS = (('mode', 'Mode', 60), ('action', 'Action', 260), ('bound', 'Bound to', 160),
+                   ('map', 'Action map', 200), ('source', '', 50))
+SORTABLE_COLUMNS = ('action', 'bound', 'map')
+BOUND_CHOICES = (('All bindings', 'all'), ('Bound only', 'bound'), ('Unbound only', 'unbound'))
+DEVICE_CHOICES = (('Any device', ''), ('Keyboard', 'keyboard'), ('Mouse', 'mouse'))
+ALL_CATEGORIES = 'All categories'
+CHORD_TIMEOUT_MS = 10000
 #: 250% of a 2000px page is a 77 MB photo; 300% would be 111 MB.
 ZOOM_MIN, ZOOM_MAX = 25, 250
 #: A slider drag fires many changes a second; the render waits for it to stop.
@@ -698,7 +709,7 @@ class App(tk.Tk):
                       relief='flat', padx=16, pady=8).pack(anchor='w', padx=20, pady=18)
 
     def _build_macros_tab(self, notebook):
-        frame = tk.Frame(notebook, bg='#192433')
+        frame = self._macros_tab = tk.Frame(notebook, bg='#192433')
         notebook.add(frame, text='Macros')
         tk.Label(frame, text='Tap Macros', bg='#192433', fg='#eef6ff',
                  font=('Segoe UI Semibold', 14)).pack(anchor='w', padx=20, pady=(18, 4))
@@ -725,8 +736,11 @@ class App(tk.Tk):
             row.pack(fill='x', padx=20, pady=6)
             tk.Label(row, text=label, bg='#192433', fg='#eef6ff',
                      width=28, anchor='w').pack(side='left')
-            tk.Entry(row, textvariable=var, bg='#0f1721', fg='#eaf4ff',
-                     insertbackground='white', relief='flat', width=40).pack(side='left', ipady=5)
+            entry = tk.Entry(row, textvariable=var, bg='#0f1721', fg='#eaf4ff',
+                             insertbackground='white', relief='flat', width=40)
+            entry.pack(side='left', ipady=5)
+            if var is self.macro_hotkey:
+                self._macro_hotkey_entry = entry     # "Use in macro" lands the cursor here
             tk.Label(row, text=hint, bg='#192433', fg='#8ca2b9').pack(side='left', padx=8)
 
         tk.Button(frame, text='Add macro', command=self._add_macro, bg='#2a6f9e',
@@ -1087,7 +1101,7 @@ class App(tk.Tk):
         paned.add(viewer, stretch='always', minsize=160)
 
         panel = tk.Frame(paned, bg='#101722')
-        head = tk.Frame(panel, bg='#101722')
+        head = self._bindings_head = tk.Frame(panel, bg='#101722')
         head.pack(fill='x', pady=(6, 0))
         self._bindings_open = False
         self._bindings_toggle = tk.Button(head, text='', command=self._toggle_bindings,
@@ -1103,32 +1117,80 @@ class App(tk.Tk):
                        selectcolor='#0f1721', activebackground='#101722',
                        activeforeground='#eef6ff', relief='flat').pack(side='right', padx=(0, 10))
         self._bindings_search = tk.Entry(head, width=22, bg='#0f1721', fg='#eaf4ff',
-                                         insertbackground='white', relief='flat')
+                                         insertbackground='white', relief='flat',
+                                         disabledbackground='#0f1721', disabledforeground='#6f8398')
         self._bindings_search.pack(side='right', padx=(0, 12), ipady=3)
         self._bindings_search.bind('<KeyRelease>', lambda e: self._refresh_bindings())
         tk.Label(head, text='search', bg='#101722', fg='#6f8398').pack(side='right', padx=(0, 6))
 
+        # The filter row. Menus say what they are, so no labels in front of
+        # them - the row has to fit in the 824px the narrowest window gives.
+        filters = self._bindings_filters = tk.Frame(panel, bg='#101722')
+        self._bindings_bound = tk.StringVar(value=BOUND_CHOICES[0][0])
+        self._bindings_category = tk.StringVar(value=ALL_CATEGORIES)
+        self._bindings_device = tk.StringVar(value=DEVICE_CHOICES[0][0])
+        self._bindings_yours = tk.BooleanVar(value=False)
+        self._bindings_conflicts_only = tk.BooleanVar(value=False)
+        self._dark_option_menu(filters, self._bindings_bound, [c[0] for c in BOUND_CHOICES], 12
+                               ).pack(side='left', padx=(0, 8))
+        self._bindings_category_menu = self._dark_option_menu(
+            filters, self._bindings_category, [ALL_CATEGORIES], 26)
+        self._bindings_category_menu.pack(side='left', padx=(0, 8))
+        self._bindings_category_list = None
+        self._dark_option_menu(filters, self._bindings_device, [c[0] for c in DEVICE_CHOICES], 10
+                               ).pack(side='left', padx=(0, 8))
+        for text, var in (('yours', self._bindings_yours), ('conflicts', self._bindings_conflicts_only)):
+            tk.Checkbutton(filters, text=text, variable=var, command=self._refresh_bindings,
+                           bg='#101722', fg='#c9d7e6', selectcolor='#0f1721',
+                           activebackground='#101722', activeforeground='#eef6ff',
+                           relief='flat').pack(side='left', padx=(0, 8))
+        # One button, three states: idle, listening, and showing the chord
+        # it heard - which clears it when clicked.
+        self._bindings_key = ''
+        self._chord = None
+        self._chord_after = None
+        self._chord_button = tk.Button(filters, text='Press a key...', command=self._on_chord_button,
+                                       bg='#253448', fg='#eef6ff', activebackground='#2a4661',
+                                       relief='flat', padx=10, pady=2)
+        self._chord_button.pack(side='left')
+
         table = self._bindings_table = tk.Frame(panel, bg='#101722')
-        columns = ('mode', 'action', 'bound', 'map', 'source')
-        self.bindings_view = ttk.Treeview(table, columns=columns, show='headings',
-                                          style='Dark.Treeview')
-        for name, title, width in (('mode', 'Mode', 60), ('action', 'Action', 260),
-                                   ('bound', 'Bound to', 160), ('map', 'Action map', 180),
-                                   ('source', '', 50)):
-            self.bindings_view.heading(name, text=title)
+        self._bindings_sort = (None, False)
+        self.bindings_view = ttk.Treeview(table, columns=[c[0] for c in BINDING_COLUMNS],
+                                          show='headings', style='Dark.Treeview')
+        for name, title, width in BINDING_COLUMNS:
             self.bindings_view.column(name, width=width, anchor='w', stretch=(name == 'action'))
+        self._paint_binding_headings()
         self.bindings_view.tag_configure('rebind', foreground=theme.ACCENT)
         self.bindings_view.tag_configure('conflict', foreground=theme.WARN)
+        self.bindings_view.tag_configure('unbound', foreground='#6f8398')
+        self.bindings_view.bind('<<TreeviewSelect>>', self._on_binding_selected)
         bar = ttk.Scrollbar(table, orient='vertical', command=self.bindings_view.yview)
         self.bindings_view.configure(yscrollcommand=bar.set)
         self.bindings_view.pack(side='left', fill='both', expand=True)
         bar.pack(side='left', fill='y')
+        self._visible = []
+        self._selected_binding = None
         # Not packed yet: _toggle_bindings does that, in front of the status line.
+
+        # The selected row, spelled out, with what can be done with it.
+        detail = self._bindings_detail_row = tk.Frame(panel, bg='#101722')
+        self._bindings_detail = tk.Label(detail, text='', bg='#101722', fg='#c9d7e6',
+                                         font=('Consolas', 9), anchor='w', justify='left')
+        self._bindings_detail.pack(side='left', fill='x', expand=True)
+        self._macro_button = tk.Button(detail, text='Use in macro', command=self._use_in_macro,
+                                       bg='#253448', fg='#eef6ff', activebackground='#2a4661',
+                                       relief='flat', padx=10, pady=2, state='disabled')
+        self._macro_button.pack(side='right')
+        self._copy_button = tk.Button(detail, text='Copy', command=self._copy_binding,
+                                      bg='#253448', fg='#eef6ff', activebackground='#2a4661',
+                                      relief='flat', padx=10, pady=2, state='disabled')
+        self._copy_button.pack(side='right', padx=(0, 6))
 
         self.bindings_status = tk.Label(panel, text='', bg='#101722', fg='#6f8398',
                                         font=('Consolas', 9), anchor='w', justify='left')
         self.bindings_status.pack(side='bottom', fill='x', pady=(4, 0))
-        paned.add(panel, stretch='never', minsize=64)
+        paned.add(panel, stretch='never', minsize=100)
 
         self._paint_sheet_buttons()
         self._paint_bindings_toggle()
@@ -1377,16 +1439,36 @@ class App(tk.Tk):
 
     # -- the table ------------------------------------------------------------
 
+    def _dark_option_menu(self, parent, variable, values, width):
+        """A drop-down in the app's colours. tk.OptionMenu takes no styling
+        arguments, so it is dressed after the fact - the menubutton and the
+        menu behind it both."""
+        button = tk.OptionMenu(parent, variable, *values,
+                               command=lambda _value: self._refresh_bindings())
+        button.config(bg='#253448', fg='#eef6ff', activebackground='#2a4661',
+                      activeforeground='#eef6ff', relief='flat', bd=0, highlightthickness=0,
+                      anchor='w', width=width, padx=8, pady=2, cursor='hand2')
+        button['menu'].config(bg='#0f1721', fg='#eef6ff', activebackground='#2a4661',
+                              activeforeground='#eef6ff', bd=0, relief='flat',
+                              activeborderwidth=0, tearoff=0)
+        return button
+
     def _toggle_bindings(self, open_=None):
         self._bindings_open = (not self._bindings_open) if open_ is None else open_
         if self._bindings_open:
+            self._bindings_filters.pack(fill='x', pady=(4, 0), after=self._bindings_head)
             self._bindings_table.pack(fill='both', expand=True, pady=(4, 0),
                                       before=self.bindings_status)
+            self._bindings_detail_row.pack(side='bottom', fill='x', pady=(4, 0),
+                                           before=self.bindings_status)
             paned = self._keybinds_paned
             if paned.winfo_height() > 1:
-                paned.sash_place(0, 0, int(paned.winfo_height() * 0.55))
+                paned.sash_place(0, 0, int(paned.winfo_height() * 0.5))
         else:
+            self._stop_chord()
+            self._bindings_filters.pack_forget()
             self._bindings_table.pack_forget()
+            self._bindings_detail_row.pack_forget()
         self._paint_bindings_toggle()
 
     def _paint_bindings_toggle(self):
@@ -1411,43 +1493,65 @@ class App(tk.Tk):
             base_path, base, shipped_game = load_shipped_defaults()
         self._bindings = merge(base, rebinds)
         self._binding_conflicts = conflicts(self._bindings)
+        self._bindings_total = len(visible(self._bindings, self._binding_conflicts,
+                                           Filters(show_all_modes=True)))
         self._bindings_source = (rebinds_path, base_path, len(rebinds), shipped_game,
                                  installed_game_version(live))
         self._refresh_bindings()
 
+    def _current_filters(self):
+        """What the widgets say, as one value the module can act on."""
+        chosen = self._bindings_category.get()
+        return Filters(
+            mode=self._sheet_mode,
+            show_all_modes=self._show_all_modes.get(),
+            bound=dict(BOUND_CHOICES).get(self._bindings_bound.get(), 'all'),
+            category='' if chosen == ALL_CATEGORIES else chosen,
+            device=dict(DEVICE_CHOICES).get(self._bindings_device.get(), ''),
+            yours_only=self._bindings_yours.get(),
+            conflicts_only=self._bindings_conflicts_only.get(),
+            needle='' if self._bindings_key else self._bindings_search.get().strip().lower(),
+            key=self._bindings_key,
+        )
+
+    def _refresh_category_menu(self):
+        """The category menu lists the maps of the page being looked at."""
+        names = categories(self._bindings, self._sheet_mode, self._show_all_modes.get())
+        if names == self._bindings_category_list:
+            return
+        self._bindings_category_list = names
+        menu = self._bindings_category_menu['menu']
+        menu.delete(0, 'end')
+        for name in [ALL_CATEGORIES] + names:
+            menu.add_command(label=name, command=lambda n=name: (
+                self._bindings_category.set(n), self._refresh_bindings()))
+        if self._bindings_category.get() not in names:
+            self._bindings_category.set(ALL_CATEGORIES)
+
     def _refresh_bindings(self):
-        """Fill the table from what was last read, filtered by mode and search."""
+        """Fill the table from what was last read, through the filters."""
+        self._refresh_category_menu()
         view = self.bindings_view
+        remembered = self._selected_binding
         view.delete(*view.get_children())
         show_all = self._show_all_modes.get()
-        view['displaycolumns'] = ('mode', 'action', 'bound', 'map', 'source') if show_all \
-            else ('action', 'bound', 'map', 'source')
-        needle = self._bindings_search.get().strip().lower()
-        for b in self._bindings:
-            if b.source == 'default' and not b.input:
-                continue                         # an unbound default is not a binding
-            if not b.device:
-                continue
+        view['displaycolumns'] = [c[0] for c in BINDING_COLUMNS] if show_all \
+            else [c[0] for c in BINDING_COLUMNS if c[0] != 'mode']
+        column, reverse = self._bindings_sort
+        rows = sort_rows(visible(self._bindings, self._binding_conflicts, self._current_filters()),
+                         column, reverse)
+        self._visible = rows
+        keys = self._binding_conflicts
+        for i, b in enumerate(rows):
             mode = mode_of(b.actionmap)
-            if not show_all and mode != self._sheet_mode:
-                continue
-            label = describe_action(b.action)
-            bound = describe_input(b.input) or '(unbound)'
-            if b.multitap > 1:
-                bound += '  x%d' % b.multitap
-            if b.activation:
-                bound += '  (%s)' % b.activation
-            if needle and needle not in (label + ' ' + b.action + ' ' + bound + ' ' + b.actionmap).lower():
-                continue
-            if (mode, b.input) in self._binding_conflicts:
-                tag = 'conflict'
-            elif b.source == 'rebind':
-                tag = 'rebind'
-            else:
-                tag = ''
-            view.insert('', 'end', values=(mode, label, bound, b.actionmap,
-                                          'yours' if b.source == 'rebind' else ''),
-                        tags=(tag,) if tag else ())
+            view.insert('', 'end', iid=str(i), values=row_values(b, mode),
+                        tags=row_tags(b, mode, keys))
+        if remembered in rows:
+            view.selection_set(str(rows.index(remembered)))
+        else:
+            self._selected_binding = None
+            self._paint_binding_detail()
+
         rebinds_path, base_path, yours, shipped_game, installed = getattr(
             self, '_bindings_source', (None, None, 0, '', ''))
         actions = len({(b.actionmap, b.action) for b in self._bindings})
@@ -1465,8 +1569,118 @@ class App(tk.Tk):
             except OSError:
                 stale = False
             status = describe_export_status(base_path, actions, yours, stale)
+        shown, yours_shown, clashing = counts(rows, keys)
+        status += '  ·  showing %s of %s · %d yours · %d conflicts' % (
+            format(shown, ','), format(getattr(self, '_bindings_total', 0), ','),
+            yours_shown, clashing)
         self.bindings_status.config(text=status)
         self._paint_bindings_toggle()
+
+    # -- sorting, selecting, and what to do with a row ------------------------
+
+    def _sort_bindings(self, column):
+        current, reverse = self._bindings_sort
+        if current != column:
+            self._bindings_sort = (column, False)
+        elif not reverse:
+            self._bindings_sort = (column, True)
+        else:
+            self._bindings_sort = (None, False)         # back to the game's order
+        self._paint_binding_headings()
+        self._refresh_bindings()
+
+    def _paint_binding_headings(self):
+        column, reverse = self._bindings_sort
+        for name, title, _width in BINDING_COLUMNS:
+            text = title
+            if name == column:
+                text += '  ▼' if reverse else '  ▲'
+            if name in SORTABLE_COLUMNS:
+                self.bindings_view.heading(name, text=text,
+                                           command=lambda c=name: self._sort_bindings(c))
+            else:
+                self.bindings_view.heading(name, text=text)
+
+    def _on_binding_selected(self, _event=None):
+        chosen = self.bindings_view.selection()
+        self._selected_binding = self._visible[int(chosen[0])] if chosen else None
+        self._paint_binding_detail()
+
+    def _paint_binding_detail(self):
+        b = self._selected_binding
+        self._bindings_detail.config(text=describe_detail(b) if b else '')
+        self._copy_button.config(state='normal' if b else 'disabled')
+        self._macro_button.config(
+            state='normal' if b and to_keyboard_syntax(b.input) else 'disabled')
+
+    def _copy_binding(self):
+        b = self._selected_binding
+        if b is None:
+            return
+        self.clipboard_clear()
+        self.clipboard_append(copy_text(b))
+        self._copy_button.config(text='Copied')
+        self.after(2000, lambda: self._copy_button.config(text='Copy'))
+
+    def _use_in_macro(self):
+        """Hand the binding to the Macros tab. Nothing is saved until Add macro."""
+        b = self._selected_binding
+        chord = to_keyboard_syntax(b.input) if b else None
+        if not chord:
+            return
+        self.macro_name.set(describe_action(b.action))
+        self.macro_actions.set(chord)
+        self.macro_hotkey.set('')
+        self.notebook.select(self._macros_tab)
+        self._macro_hotkey_entry.focus_set()
+
+    # -- press a key ------------------------------------------------------------
+
+    def _on_chord_button(self):
+        if self._bindings_key:                       # showing a chord: clear it
+            self._bindings_key = ''
+            self._bindings_search.config(state='normal')
+            self._chord_button.config(text='Press a key...')
+            self._refresh_bindings()
+        elif self._chord is None:
+            self._start_chord()
+
+    def _start_chord(self):
+        """Listen for one chord. The keys still go where they were going -
+        the app's own hotkeys included - which is fine for a question."""
+        self._chord_button.config(text='press a key... (Esc cancels)', fg='#91a7bd')
+        # Both callbacks arrive on the keyboard library's thread.
+        self._chord = ChordRecorder(
+            on_done=lambda mods, key, keypad: self._post(self._chord_done, mods, key, keypad),
+            on_cancel=lambda: self._post(self._chord_cancelled))
+        self._chord.start()
+        self._chord_after = self.after(CHORD_TIMEOUT_MS, self._stop_chord)
+
+    def _post(self, fn, *args):
+        try:
+            self.after(0, fn, *args)
+        except (RuntimeError, tk.TclError):
+            pass
+
+    def _stop_chord(self):
+        if self._chord_after is not None:
+            self.after_cancel(self._chord_after)
+            self._chord_after = None
+        if self._chord is not None:
+            self._chord.cancel()                     # a no-op if it already answered
+
+    def _chord_done(self, mods, key, keypad):
+        self._chord = None
+        self._stop_chord()
+        self._bindings_key = from_keyboard_names(mods, key, keypad)
+        self._bindings_search.config(state='disabled')
+        self._chord_button.config(text='%s  ×' % describe_input(self._bindings_key), fg='#eef6ff')
+        self._refresh_bindings()
+
+    def _chord_cancelled(self):
+        self._chord = None
+        self._stop_chord()
+        self._chord_button.config(text='Press a key...', fg='#eef6ff')
 
     def _build_perf_tab(self, notebook):
         """Frame rate and network detail, alongside the header graph."""
@@ -2458,6 +2672,10 @@ class App(tk.Tk):
         except Exception:
             pass
         self.stop_event.set()
+        try:
+            self._stop_chord()
+        except Exception:
+            pass
         try:
             self.fps_monitor.shutdown()
             self.net_monitor.shutdown()

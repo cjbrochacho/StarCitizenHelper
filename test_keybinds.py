@@ -22,10 +22,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from helper import keybinds
-from helper.keybinds import (Binding, Rebind, conflicts, describe_action, describe_input,
-                             describe_status, device, find_actionmaps, find_exports,
-                             is_full_export, load_full_export, load_shipped_defaults, merge, mode_of,
-                             read_actionmaps, read_rebinds)
+from helper.keybinds import (Binding, Filters, Rebind, categories, chord_key, conflicts,
+                             copy_text, counts, describe_action, describe_bound,
+                             describe_detail, describe_input, describe_status, device,
+                             find_actionmaps, find_exports, from_keyboard_names,
+                             is_full_export, load_full_export, load_shipped_defaults,
+                             map_label, merge, mode_of, read_actionmaps, read_rebinds,
+                             row_tags, row_values, sort_rows, to_keyboard_syntax, visible)
 
 PASSED = 0
 FAILED = 0
@@ -514,7 +517,234 @@ check("the real file: three turrets on one key", _real_turrets)
 
 # --- 9 ---------------------------------------------------------------------
 
-print("\n9. the status line")
+print("\n9. what the table shows")
+
+
+def B(actionmap, action, raw, source="default", **kw):
+    """A Binding with the device worked out from the input, as merge() gives."""
+    dev = kw.pop("device", None)
+    if dev is None:
+        dev = device(raw) or ("mouse" if raw.startswith("mo") else "keyboard")
+    return Binding(actionmap, action, raw, source, device=dev, **kw)
+
+
+TABLE = [
+    B("spaceship_general", "v_a", "kb1_k"), B("spaceship_general", "v_a", "", device="mouse"),
+    B("spaceship_general", "v_b", "", device="keyboard"), B("spaceship_general", "v_b", "", device="mouse"),
+    B("spaceship_general", "v_c", "mo1_mouse2", device="mouse"),
+    B("player", "pl_d", "", "rebind", device="keyboard"),            # the player cleared it
+    B("player", "pl_e", "kb1_lshift+lctrl+f", "rebind"),
+    B("player", "pl_f", "kb1_k", activation="hold"),
+    B("debug", "dbg_g", "kb1_f9"),
+    B("player", "pl_h", "kb1_x", device=""),                        # no device: never shown
+]
+
+
+def no_labels(fn):
+    def run():
+        keybinds._labels_cache = {}
+        try:
+            fn()
+        finally:
+            keybinds._labels_cache = None
+    return run
+
+
+def names(rows):
+    return [(b.action, b.device) for b in rows]
+
+
+@no_labels
+def _collapse():
+    rows = visible(TABLE, {}, Filters(show_all_modes=True))
+    assert names(rows) == [("v_a", "keyboard"), ("v_b", "keyboard"), ("v_c", "mouse"),
+                           ("pl_d", "keyboard"), ("pl_e", "keyboard"), ("pl_f", "keyboard"),
+                           ("dbg_g", "keyboard")], names(rows)
+
+
+@no_labels
+def _device():
+    rows = visible(TABLE, {}, Filters(show_all_modes=True, device="mouse"))
+    assert names(rows) == [("v_a", "mouse"), ("v_b", "mouse"), ("v_c", "mouse")], names(rows)
+    rows = visible(TABLE, {}, Filters(show_all_modes=True, device="keyboard"))
+    assert ("v_c", "mouse") not in names(rows) and ("v_a", "keyboard") in names(rows)
+
+
+@no_labels
+def _bound():
+    unbound = visible(TABLE, {}, Filters(show_all_modes=True, bound="unbound"))
+    assert names(unbound) == [("v_b", "keyboard"), ("pl_d", "keyboard")], names(unbound)
+    bound = visible(TABLE, {}, Filters(show_all_modes=True, bound="bound"))
+    assert all(b.input for b in bound) and len(bound) == 5, names(bound)
+
+
+@no_labels
+def _mode_and_category():
+    flight = visible(TABLE, {}, Filters(mode="Flight"))
+    assert {b.actionmap for b in flight} == {"spaceship_general"}
+    cat = visible(TABLE, {}, Filters(show_all_modes=True, category="player"))
+    assert {b.actionmap for b in cat} == {"player"}
+    assert categories(TABLE, "FPS", False) == ["player"]
+    assert categories(TABLE, "", True) == ["debug", "player", "spaceship_general"]
+
+
+@no_labels
+def _yours_conflicts():
+    yours = visible(TABLE, {}, Filters(show_all_modes=True, yours_only=True))
+    assert names(yours) == [("pl_d", "keyboard"), ("pl_e", "keyboard")]
+    keys = conflicts(TABLE)
+    only = visible(TABLE, keys, Filters(show_all_modes=True, conflicts_only=True))
+    assert only == [], "no rebind shares a key with anything"
+    clash = TABLE + [B("player", "pl_z", "kb1_k", "rebind")]
+    keys = conflicts(clash)
+    only = visible(clash, keys, Filters(show_all_modes=True, conflicts_only=True))
+    assert names(only) == [("pl_f", "keyboard"), ("pl_z", "keyboard")], names(only)
+
+
+@no_labels
+def _needle_and_key():
+    rows = visible(TABLE, {}, Filters(show_all_modes=True, needle="f9"))
+    assert names(rows) == [("dbg_g", "keyboard")]
+    rows = visible(TABLE, {}, Filters(show_all_modes=True, needle="spaceship_gen"))
+    assert len(rows) == 3, "the map id should still be searchable"
+    rows = visible(TABLE, {}, Filters(show_all_modes=True, key="kb1_lctrl+lshift+f"))
+    assert names(rows) == [("pl_e", "keyboard")], "modifier order should not matter"
+    rows = visible(TABLE, {}, Filters(show_all_modes=True, key="kb1_k", needle="zzz"))
+    assert len(rows) == 2, "a key filter should replace the search, not combine with it"
+    assert chord_key("kb1_lshift+lctrl+f") == chord_key("kb1_lctrl+lshift+f")
+    assert chord_key("mo1_mouse1") != chord_key("kb1_mouse1")
+
+
+def _labels_in_table():
+    keybinds._labels_cache = {"maps": {"player": {"label": "On Foot - All", "mode": "FPS"},
+                                       "prone": {"label": "On Foot - All", "mode": "FPS"}},
+                              "actions": {"pl_e": {"label": "Fire", "description": "Fires the thing"}}}
+    try:
+        assert map_label("player") == "On Foot - All" and map_label("debug") == "debug"
+        rows = [B("player", "pl_e", "kb1_f", "rebind"), B("prone", "pr_x", "kb1_g")]
+        both = visible(rows, {}, Filters(show_all_modes=True, category="On Foot - All"))
+        assert len(both) == 2, "a label shared by two maps should cover both"
+        assert categories(rows, "FPS", False) == ["On Foot - All"]
+        assert visible(rows, {}, Filters(show_all_modes=True, needle="on foot")) == rows
+        assert row_values(rows[0], "FPS") == ("FPS", "Fire", "F", "On Foot - All", "yours")
+        assert describe_detail(rows[0]) == "Fires the thing \u2014 pl_e \u00b7 player \u00b7 kb1_f"
+        assert describe_detail(rows[1]).startswith("Pr x \u2014 pr_x")
+    finally:
+        keybinds._labels_cache = None
+
+
+check("an unbound row shows once, and only when nothing else is bound", _collapse)
+check("the device filter changes what counts as bound", _device)
+check("bound / unbound", _bound)
+check("mode and category", _mode_and_category)
+check("yours, and conflicts", _yours_conflicts)
+check("search, and a chord that ignores modifier order", _needle_and_key)
+check("the game's own map labels drive category and the columns", _labels_in_table)
+
+
+# --- 10 --------------------------------------------------------------------
+
+print("\n10. order, tags, counts, text")
+
+
+@no_labels
+def _sort():
+    rows = visible(TABLE, {}, Filters(show_all_modes=True))
+    by_action = [b.action for b in sort_rows(rows, "action")]
+    assert by_action == sorted(by_action, key=lambda a: describe_action(a).lower()), by_action
+    by_bound = sort_rows(rows, "bound")
+    assert not by_bound[-1].input and by_bound[0].input, "unbound should sink to the bottom"
+    desc = sort_rows(rows, "map", reverse=True)
+    assert desc[0].actionmap == "spaceship_general"
+    assert sort_rows(rows, None) == rows and sort_rows(rows, None) is not rows
+
+
+@no_labels
+def _tags_counts():
+    keys = {("Flight", "kb1_k")}
+    assert row_tags(B("spaceship_general", "v_a", "kb1_k", "rebind"), "Flight", keys) == ("conflict",)
+    assert row_tags(B("spaceship_general", "v_a", "kb1_k", "rebind"), "FPS", keys) == ("rebind",)
+    assert row_tags(B("player", "pl_d", "", "rebind"), "FPS", keys) == ("rebind",)
+    assert row_tags(B("player", "pl_d", "", "default"), "FPS", keys) == ("unbound",)
+    assert row_tags(B("player", "pl_d", "kb1_q", "default"), "FPS", keys) == ()
+    rows = [B("spaceship_general", "v_a", "kb1_k", "rebind"), B("spaceship_general", "v_b", "kb1_k"),
+            B("player", "pl_d", "", "rebind")]
+    assert counts(rows, keys) == (3, 2, 2)
+
+
+@no_labels
+def _text():
+    b = B("spaceship_general", "v_toggle_all_doors", "kb1_lalt+k", "rebind", activation="press", multitap=2)
+    assert describe_bound(b) == "Alt+K  x2  (press)"
+    assert describe_detail(b) == "Toggle all doors \u2014 v_toggle_all_doors \u00b7 spaceship_general \u00b7 kb1_lalt+k \u00b7 press"
+    assert copy_text(b) == "Toggle all doors: Alt+K  x2  (press)  (v_toggle_all_doors in spaceship_general, kb1_lalt+k)"
+    empty = B("player", "pl_d", "", "rebind")
+    assert describe_bound(empty) == "(unbound)" and copy_text(empty).endswith("unbound)")
+
+
+check("sorting by column, stable, unbound last", _sort)
+check("one tag per row, and the counts", _tags_counts)
+check("the detail line and the copied text", _text)
+
+
+# --- 11 --------------------------------------------------------------------
+
+print("\n11. between the game's spelling and the keyboard library's")
+
+
+def _to_keyboard():
+    cases = [
+        ("kb1_lalt+k", "alt+k"), ("kb1_rctrl+np_1", "right ctrl+1"), ("kb1_slash", "/"),
+        ("kb1_pgup", "page up"), ("kb1_f12", "f12"), ("kb1_capslock", "caps lock"),
+        ("kb1_np_add", "+"), ("kb1_lshift+rshift+a", "shift+right shift+a"),
+        ("kb1_lalt+np_add", None), ("kb1_comma", None), ("kb1_hmd_pitch", None),
+        ("mo1_mouse1", None), ("", None), ("kb1_", None),
+    ]
+    for raw, expected in cases:
+        got = to_keyboard_syntax(raw)
+        assert got == expected, "%r -> %r, expected %r" % (raw, got, expected)
+
+
+def _from_keyboard():
+    cases = [
+        ((["alt"], "k", False), "kb1_lalt+k"),
+        ((["right alt"], "k", False), "kb1_ralt+k"),
+        ((["alt gr"], "k", False), "kb1_ralt+k"),
+        ((["ctrl", "shift"], "f", False), "kb1_lctrl+lshift+f"),
+        (([], "1", True), "kb1_np_1"),
+        (([], "end", True), "kb1_np_1"),
+        (([], "decimal", True), "kb1_np_period"),
+        (([], "+", True), "kb1_np_add"),
+        (([], "/", False), "kb1_slash"),
+        (([], "page up", False), "kb1_pgup"),
+        (([], "num lock", False), "kb1_numlock"),
+        ((["shift"], "!", False), "kb1_lshift+1"),
+        ((["shift"], "K", False), "kb1_lshift+k"),
+        ((["left windows"], "k", False), "kb1_k"),
+        ((["alt", "alt"], "k", False), "kb1_lalt+k"),
+        (([], "f5", False), "kb1_f5"),
+        (([], "print screen", False), "kb1_print"),
+    ]
+    for (mods, key, keypad), expected in cases:
+        got = from_keyboard_names(mods, key, keypad)
+        assert got == expected, "%r -> %r, expected %r" % ((mods, key, keypad), got, expected)
+
+
+def _round_trip():
+    for mods, key in ((["alt"], "k"), (["right ctrl"], "/"), (["shift"], "f5"), ([], "space")):
+        raw = from_keyboard_names(mods, key)
+        back = to_keyboard_syntax(raw)
+        assert back == "+".join(mods + [key]), "%r -> %r -> %r" % ((mods, key), raw, back)
+
+
+check("a binding as a macro action, or None when a macro cannot say it", _to_keyboard)
+check("what the library reports, as the game writes it", _from_keyboard)
+check("and back again", _round_trip)
+
+
+# --- 12 --------------------------------------------------------------------
+
+print("\n12. the status line")
 
 
 def _status():

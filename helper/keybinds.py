@@ -509,3 +509,262 @@ def describe_status(path: Path | None, rebinds: list[Rebind]) -> str:
     if not rebinds:
         return "%s - no custom bindings (everything is at the game default)." % path
     return "%s - %d rebind%s" % (path, len(rebinds), "" if len(rebinds) == 1 else "s")
+
+
+# --- the table: what to show, in what order --------------------------------
+
+def map_label(actionmap: str) -> str:
+    """The game's name for an action map - 'Vehicles - Cockpit' - or its id."""
+    entry = labels().get("maps", {}).get(actionmap or "")
+    return (entry or {}).get("label") or actionmap or ""
+
+
+def describe_bound(b: Binding) -> str:
+    """The 'Bound to' cell: the key, or (unbound), with taps and activation."""
+    text = describe_input(b.input) or "(unbound)"
+    if b.multitap > 1:
+        text += "  x%d" % b.multitap
+    if b.activation:
+        text += "  (%s)" % b.activation
+    return text
+
+
+def chord_key(raw: str) -> tuple:
+    """A chord as something two spellings of it compare equal on.
+
+    kb1_lctrl+lshift+f and kb1_lshift+lctrl+f are one binding; the game
+    writes modifiers in whatever order the player pressed them.
+    """
+    match = _RE_INPUT.match((raw or "").strip())
+    if not match or match.group(1) != "kb":
+        return ("", frozenset(), (raw or "").strip())
+    parts = [p for p in match.group(3).split("+") if p]
+    modifiers = frozenset(p for p in parts if p in _MODIFIERS)
+    keys = [p for p in parts if p not in _MODIFIERS]
+    return ("kb", modifiers, "+".join(keys))
+
+
+@dataclass(frozen=True)
+class Filters:
+    """Everything the table can be narrowed by. Empty means 'not applied'."""
+    mode: str = ""                  # the sheet's page: 'Flight' or 'FPS'
+    show_all_modes: bool = False
+    bound: str = "all"              # 'all', 'bound', 'unbound'
+    category: str = ""              # a map_label(); '' for all
+    device: str = ""                # '', 'keyboard', 'mouse'
+    yours_only: bool = False
+    conflicts_only: bool = False
+    needle: str = ""                # lower-cased, stripped
+    key: str = ""                   # a raw input to match by chord; '' for none
+
+
+def visible(bindings: list[Binding], conflict_keys, f: Filters) -> list[Binding]:
+    """The rows the table shows for these filters, in the game's own order.
+
+    An action with a keyboard default usually carries an unbound mouse row
+    beside it in the shipped defaults. Showing both would double the table,
+    so an unbound row appears only when nothing is bound to its action on
+    any device being looked at - and only once, however many devices are
+    unbound. The exception is a binding the player cleared: that is theirs,
+    and it always shows.
+    """
+    def device_ok(b):
+        return bool(b.device) and (not f.device or b.device == f.device)
+
+    has_bound = {(b.actionmap, b.action) for b in bindings if device_ok(b) and b.input}
+    shown_unbound: set = set()
+    wanted_chord = chord_key(f.key) if f.key else None
+    out = []
+    for b in bindings:
+        if not device_ok(b):
+            continue
+        if not b.input and b.source != "rebind":
+            if (b.actionmap, b.action) in has_bound or (b.actionmap, b.action) in shown_unbound:
+                continue
+            shown_unbound.add((b.actionmap, b.action))
+        if f.bound == "bound" and not b.input:
+            continue
+        if f.bound == "unbound" and b.input:
+            continue
+        mode = mode_of(b.actionmap)
+        if not f.show_all_modes and f.mode and mode != f.mode:
+            continue
+        if f.category and map_label(b.actionmap) != f.category:
+            continue
+        if f.yours_only and b.source != "rebind":
+            continue
+        if f.conflicts_only and (mode, b.input) not in conflict_keys:
+            continue
+        if wanted_chord is not None:
+            if not b.input or chord_key(b.input) != wanted_chord:
+                continue
+        elif f.needle:
+            haystack = " ".join((describe_action(b.action), b.action, describe_bound(b),
+                                 b.actionmap, map_label(b.actionmap))).lower()
+            if f.needle not in haystack:
+                continue
+        out.append(b)
+    return out
+
+
+def categories(bindings: list[Binding], mode: str, show_all: bool) -> list[str]:
+    """The map labels on offer for the category menu, for this page."""
+    found = {map_label(b.actionmap) for b in bindings
+             if b.device and (show_all or not mode or mode_of(b.actionmap) == mode)}
+    return sorted(found, key=str.lower)
+
+
+def sort_rows(rows: list[Binding], column: str | None, reverse: bool = False) -> list[Binding]:
+    """Rows ordered by a column; None keeps the game's grouping. Stable."""
+    if column == "action":
+        key = lambda b: describe_action(b.action).lower()
+    elif column == "bound":
+        key = lambda b: (not b.input, describe_input(b.input).lower())   # unbound sink
+    elif column == "map":
+        key = lambda b: map_label(b.actionmap).lower()
+    else:
+        return list(rows)
+    return sorted(rows, key=key, reverse=reverse)
+
+
+def row_values(b: Binding, mode: str) -> tuple:
+    return (mode, describe_action(b.action), describe_bound(b), map_label(b.actionmap),
+            "yours" if b.source == "rebind" else "")
+
+
+def row_tags(b: Binding, mode: str, conflict_keys) -> tuple:
+    if b.input and (mode, b.input) in conflict_keys:
+        return ("conflict",)
+    if b.source == "rebind":
+        return ("rebind",)
+    if not b.input:
+        return ("unbound",)
+    return ()
+
+
+def counts(rows: list[Binding], conflict_keys) -> tuple[int, int, int]:
+    """(shown, yours, conflicts) for the status line."""
+    yours = sum(1 for b in rows if b.source == "rebind")
+    clashing = sum(1 for b in rows if b.input and (mode_of(b.actionmap), b.input) in conflict_keys)
+    return len(rows), yours, clashing
+
+
+def describe_detail(b: Binding) -> str:
+    """The line under the table for the selected row: what it is, exactly."""
+    entry = labels().get("actions", {}).get(b.action) or {}
+    head = entry.get("description") or describe_action(b.action)
+    parts = [b.action, b.actionmap, b.input or "(unbound)"]
+    if b.activation:
+        parts.append(b.activation)
+    return "%s — %s" % (head, " · ".join(parts))
+
+
+def copy_text(b: Binding) -> str:
+    return "%s: %s  (%s in %s, %s)" % (describe_action(b.action), describe_bound(b),
+                                        b.action, b.actionmap, b.input or "unbound")
+
+
+# --- between the game's spelling and the keyboard library's -----------------
+
+_MOD_TO_KEYBOARD = {
+    "lalt": "alt", "ralt": "right alt",
+    "lctrl": "ctrl", "rctrl": "right ctrl",
+    "lshift": "shift", "rshift": "right shift",
+}
+_KEYBOARD_TO_MOD = {
+    "alt": "lalt", "left alt": "lalt", "right alt": "ralt", "alt gr": "ralt",
+    "ctrl": "lctrl", "left ctrl": "lctrl", "right ctrl": "rctrl",
+    "shift": "lshift", "left shift": "lshift", "right shift": "rshift",
+}
+#: The game's key names against the keyboard library's. One table, read
+#: both ways; the library's names are its canonical Windows ones.
+_KEY_TO_KEYBOARD = {
+    "slash": "/", "backslash": "\\", "comma": ",", "period": ".",
+    "semicolon": ";", "apostrophe": "'", "lbracket": "[", "rbracket": "]",
+    "minus": "-", "equals": "=", "grave": "`",
+    "space": "space", "enter": "enter", "escape": "esc", "tab": "tab",
+    "backspace": "backspace", "capslock": "caps lock", "numlock": "num lock",
+    "insert": "insert", "delete": "delete", "home": "home", "end": "end",
+    "pgup": "page up", "pgdn": "page down",
+    "up": "up", "down": "down", "left": "left", "right": "right",
+    "print": "print screen", "scrolllock": "scroll lock", "pause": "pause",
+    "np_add": "+", "np_subtract": "-", "np_multiply": "*", "np_divide": "/",
+    "np_period": ".", "np_enter": "enter",
+}
+_KEYBOARD_TO_KEY = {v: k for k, v in _KEY_TO_KEYBOARD.items()
+                    if not k.startswith("np_")}          # the plain key wins for '+', '-', ...
+#: What the library reports for a shifted key on a US layout; the game
+#: binds the key, not the character.
+_UNSHIFT = {
+    "!": "1", "@": "2", "#": "3", "$": "4", "%": "5", "^": "6", "&": "7", "*": "8",
+    "(": "9", ")": "0", "_": "minus", "+": "equals", "{": "lbracket", "}": "rbracket",
+    "|": "backslash", ":": "semicolon", '"': "apostrophe", "<": "comma", ">": "period",
+    "?": "slash", "~": "grave",
+}
+#: Numpad keys with Num Lock off report as navigation keys.
+_KEYPAD = {
+    "end": "np_1", "down": "np_2", "page down": "np_3", "left": "np_4", "clear": "np_5",
+    "right": "np_6", "home": "np_7", "up": "np_8", "page up": "np_9", "insert": "np_0",
+    "delete": "np_period", "decimal": "np_period", "enter": "np_enter",
+    "+": "np_add", "-": "np_subtract", "*": "np_multiply", "/": "np_divide",
+}
+
+
+def to_keyboard_syntax(raw: str) -> str | None:
+    """'kb1_lalt+k' -> 'alt+k', as a macro action; None if a macro cannot say it.
+
+    A macro's actions are split on commas and each on '+', so a comma key,
+    or a numpad plus under a modifier, cannot be written. Numpad digits come
+    out as plain digits: the library sends the top-row key for those.
+    """
+    match = _RE_INPUT.match((raw or "").strip())
+    if not match or match.group(1) != "kb":
+        return None
+    parts = [p for p in match.group(3).split("+") if p]
+    if not parts:
+        return None
+    modifiers = [p for p in parts if p in _MODIFIERS]
+    keys = [p for p in parts if p not in _MODIFIERS]
+    if len(keys) != 1:
+        return None
+    key = keys[0]
+    if key == "comma" or (key == "np_add" and modifiers):
+        return None
+    if key in _KEY_TO_KEYBOARD:
+        name = _KEY_TO_KEYBOARD[key]
+    elif len(key) == 1 or _RE_FKEY.match(key):
+        name = key
+    elif _RE_NP_DIGIT.match(key):
+        name = key[3:]
+    else:
+        return None
+    return "+".join([_MOD_TO_KEYBOARD[m] for m in modifiers] + [name])
+
+
+def from_keyboard_names(modifiers, key: str, is_keypad: bool = False) -> str:
+    """What the keyboard library reported, as the game would write it.
+
+    ['right alt'], 'k' -> 'kb1_ralt+k'. Windows keys are dropped - the game
+    has no such modifier. A keypad digit arrives as '1' with the keypad flag,
+    and with Num Lock off as 'end'; both are np_1 to the game.
+    """
+    mods = []
+    for name in modifiers:
+        token = _KEYBOARD_TO_MOD.get((name or "").lower())
+        if token and token not in mods:
+            mods.append(token)
+    key = (key or "").strip()
+    lower = key.lower()
+    if is_keypad and (lower in _KEYPAD or (len(key) == 1 and key.isdigit())):
+        token = _KEYPAD.get(lower) or "np_" + key
+    elif key in _UNSHIFT:
+        token = _UNSHIFT[key]
+    elif lower in _KEYBOARD_TO_KEY:
+        token = _KEYBOARD_TO_KEY[lower]
+    elif len(key) == 1:
+        token = lower
+    elif _RE_FKEY.match(lower):
+        token = lower
+    else:
+        token = lower.replace(" ", "_")
+    return "kb1_" + "+".join(mods + [token])

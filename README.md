@@ -260,8 +260,35 @@ Under the sheet, **Bindings** is the game's actual bindings: every action, what 
 which action map it belongs to, and `yours` against the ones you changed - with the names the
 game itself uses ("Open/Close Doors (Toggle)", not `v_toggle_all_doors`). Drag the sash between
 sheet and table to give either more room; the heading folds the table away and shows the count.
-The table is filtered to the mode shown unless you tick **show all modes**; type in **search** to
-narrow it by action, key or map.
+
+Actions with nothing bound are there too, in grey as `(unbound)` - about four hundred of them,
+which is the list of what you *could* bind. Most actions carry a keyboard default and an empty
+mouse slot beside it, so an action shows as unbound only when nothing is bound to it on any
+device you are looking at. A binding you cleared yourself always shows, marked `yours`.
+
+Narrowing it down:
+
+- **search** matches the action's name, its id, the key, and the action map.
+- **All bindings / Bound only / Unbound only**, **All categories** (the game's own names for its
+  action maps - "Vehicles - Cockpit", "Flight - Docking", "On Foot - All" - for the mode shown),
+  **Any device / Keyboard / Mouse**, and two ticks: **yours**, **conflicts**. The table is filtered
+  to the mode shown unless you tick **show all modes**.
+- **Press a key...** listens for one chord - hold the modifiers, press the key, ten seconds, Esc to
+  give up - and shows what is bound to it. Left and right modifiers are told apart, numpad keys
+  from the number row, and the order you hold modifiers in does not matter. The button then
+  shows the chord; click it to clear. (The keys still go where they were going, so a chord that
+  is one of this app's own hotkeys will fire it.)
+- Click **Action**, **Bound to** or **Action map** to sort; again to reverse; a third time for
+  the game's own order.
+
+Click a row and the line under the table spells it out - the game's description of the action,
+the raw ids, the key as the game writes it, the activation mode - with **Copy** for the
+clipboard and **Use in macro**, which opens the Macros tab with the name and the key filled in
+as a macro action. Nothing is saved until you click **Add macro** there; numpad keys are entered
+as their number-row digit, and a key a macro cannot express (comma, or numpad + under a
+modifier) leaves the button greyed.
+
+The status line ends with the count: `showing 555 of 1,052 · 5 yours · 6 conflicts`.
 
 Where the list comes from: the game keeps only your *changes* in a readable file
 (`actionmaps.xml`, the one its options screen writes). The defaults - every action and its
@@ -658,6 +685,7 @@ test_keybinds.py         what the key bindings reader must not get wrong
 test_window.py           what the window-position helpers must not get wrong
 test_sheet.py            what the sheet renderer must not get wrong
 test_defaults.py         what the defaults pipeline must not get wrong
+test_chord.py            what the chord recorder must not get wrong
 
 helper/
   __init__.py            marks the package
@@ -673,8 +701,9 @@ helper/
   hud.py                 the header graph and its readout
   overlay.py             the same readout, floating over the game
   idle.py                desktop-wide idle detection
-  keybinds.py            bindings: the shipped defaults, the player's rebinds, merged
+  keybinds.py            bindings: the shipped defaults, the player's rebinds, merged, filtered
   cryxml.py              CryEngine's binary XML, read back into ElementTree
+  chord.py               one key chord, as the user presses it
   sheet.py               the sheet at any zoom, rendered from its PDF on demand
   scroll.py              a tab that scrolls, and one wheel handler for the window
   window.py              finds the game window; snap focus; taskbar icon; remembers where this one was
