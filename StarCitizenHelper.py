@@ -52,7 +52,7 @@ from helper.window import (apply_window_icon, force_foreground, foreground_hwnd,
 #: second one. A version that says when it was made answers the question that
 #: is actually asked of it. helper.update reads this line from the copy on
 #: GitHub to say whether an install is current, so it stays on one line.
-__version__ = '2026.09.17.1'
+__version__ = '2026.09.17.2'
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
