@@ -232,6 +232,38 @@ check("BOOLEAN_KEYS names only real booleans", _boolean_keys_are_real)
 check("and every boolean setting is in it", _every_boolean_is_listed)
 
 
+print("")
+print("5. what the Key Bindings tab shows is actually shipped")
+
+
+PNG_SIGNATURE = bytes([0x89]) + b"PNG" + bytes([0x0D, 0x0A, 0x1A, 0x0A])
+
+
+def _sheets_present():
+    """A sheet named in the tab that is not in the repo is a blank tab for
+    everyone who installs. And a PNG that went through a CRLF rewrite is
+    not a PNG any more - which is what the .gitattributes rule prevents,
+    and what this catches if that rule is ever lost."""
+    folder = ROOT / "data" / "keybinds"
+    for name in ("flight.png", "fps.png"):
+        path = folder / name
+        assert path.is_file(), "data/keybinds/%s is missing" % name
+        head = path.read_bytes()[:8]
+        assert head == PNG_SIGNATURE, (
+            "data/keybinds/%s does not start like a PNG (%r) - CRLF-mangled?" % (name, head))
+    assert (folder / "SOURCE.md").is_file(), "data/keybinds/SOURCE.md is missing - credit the sheet"
+
+
+def _sheets_in_layout():
+    readme = io.open(ROOT / "README.md", encoding="utf-8").read()
+    match = re.search(r"## Project layout.*?```(.*?)```", readme, re.S)
+    assert match and "data/keybinds/" in match.group(1), "the layout does not list data/keybinds/"
+
+
+check("both sheets exist and are real PNGs, with their credits", _sheets_present)
+check("and the layout says so", _sheets_in_layout)
+
+
 print("\n%s  (%d passed, %d failed)"
       % ("FAILED" if FAILED else "DOCS VERIFIED", PASSED, FAILED))
 sys.exit(1 if FAILED else 0)

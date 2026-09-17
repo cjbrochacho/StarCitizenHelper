@@ -22,15 +22,19 @@ from helper.brand import BrandMark, WordMark
 from helper.fps import FpsMonitor, presentmon_executable
 from helper.hud import HudGraph
 from helper.idle import IdleWatcher, note_injection, tick
+from helper.keybinds import (describe_action, describe_input, describe_status,
+                             find_actionmaps, mode_of, read_rebinds)
 from helper.hardware import HardwareMonitor, machine_id, machine_profile
 from helper.history import collect as collect_history
 from helper.net import NetMonitor, find_game_log, process_pid
 from helper.overlay import OverlayWindow
+from helper.scroll import ScrollFrame, install_wheel_routing, style_scrollbars
 from helper.telemetry import (CONTEXT_FIELDS, PROFILE_FIELDS, ROW_FIELDS,
                               SUMMARY_FIELDS, Spool, TelemetryCollector)
 from helper.upload import Uploader
 from helper.window import (apply_window_icon, force_foreground, foreground_hwnd,
-                           set_app_id, set_dpi_aware, window_for_pid, window_rect)
+                           parse_geometry, rect_is_visible, set_app_id, set_dpi_aware,
+                           window_for_pid, window_rect)
 
 #: The release this source belongs to. Tags are the real source of truth and a
 #: checkout reads them directly, but a zip install has neither git nor tags, so
@@ -45,6 +49,15 @@ __version__ = '2026.09.16'
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _SETTINGS_FILE = os.path.join(_DIR, 'settings.json')
+
+#: The key binding reference sheets, one PNG per page, in the order the tab
+#: offers them. See data/keybinds/SOURCE.md for where they come from.
+KEYBINDS_DIR = os.path.join(_DIR, 'data', 'keybinds')
+SHEETS = (('Flight', 'flight.png'), ('FPS', 'fps.png'))
+#: Zoom steps as (numerator, denominator). Tk scales a photo by an integer
+#: zoom and an integer subsample, both in one copy, so these are the sizes
+#: that cost nothing more than the result.
+ZOOM_LADDER = ((1, 3), (1, 2), (2, 3), (1, 1), (3, 2), (2, 1))
 
 
 def _read_revision():
@@ -156,6 +169,7 @@ DEFAULTS = {
     'overlay_x':          None,
     'overlay_y':          None,
     'overlay_toggle_lock': 'ctrl+alt+l',
+    'window_geometry':    None,          # written by the app on close
     'auto_update':        True,
     'telemetry_enabled':  True,
     'telemetry_notice_seen': False,
@@ -326,13 +340,7 @@ class App(tk.Tk):
         # correctly sized text bursting out of a half-sized frame. Scaling the
         # geometry by the same factor the fonts got restores what these
         # numbers were always describing.
-        scale = self.winfo_fpixels('1i') / 96.0
-        self.geometry('%dx%d' % (980 * scale, 760 * scale))
-        self.minsize(int(860 * scale), int(630 * scale))
-        self.configure(bg='#101722')
-        self.protocol('WM_DELETE_WINDOW', self.close)
-
-        # Load configuration
+        # Load configuration - before the geometry, which reads it
         self.cfg = DEFAULTS.copy()
         try:
             with open(_SETTINGS_FILE, encoding='utf-8') as f:
@@ -343,6 +351,22 @@ class App(tk.Tk):
             self.cfg['macros'] = []
         for k in BOOLEAN_KEYS:
             self.cfg[k] = str(self.cfg.get(k, DEFAULTS[k])).strip().lower() not in ('false', '0', '')
+
+        scale = self.winfo_fpixels('1i') / 96.0
+        min_w, min_h = int(860 * scale), int(630 * scale)
+        # Where it was last time, if that is still somewhere on a monitor.
+        # Checked against the title bar strip rather than the whole window,
+        # so "a sliver is on screen" does not count but "you can grab it"
+        # does. Clamped to the minimum rather than thrown away.
+        saved = parse_geometry(self.cfg.get('window_geometry') or '')
+        if saved and rect_is_visible(saved[2], saved[3], saved[2] + saved[0], saved[3] + 40):
+            width, height, x, y = saved
+            self.geometry('%dx%d%+d%+d' % (max(width, min_w), max(height, min_h), x, y))
+        else:
+            self.geometry('%dx%d' % (980 * scale, 760 * scale))
+        self.minsize(min_w, min_h)
+        self.configure(bg='#101722')
+        self.protocol('WM_DELETE_WINDOW', self.close)
 
         # Automation state
         self.log_queue = queue.Queue()
@@ -472,6 +496,15 @@ class App(tk.Tk):
         style.configure('TNotebook', background='#101722')
         style.configure('TNotebook.Tab', background='#1c2938', foreground='#c9d7e6', padding=(16, 9))
         style.map('TNotebook.Tab', background=[('selected', '#2a4661')])
+        style_scrollbars(style)
+        # One dark table style, shared by every tab that has a table.
+        style.configure('Dark.Treeview', background='#0f1721', foreground='#eaf4ff',
+                        fieldbackground='#0f1721', borderwidth=0, rowheight=26)
+        style.configure('Dark.Treeview.Heading', background='#1c2938',
+                        foreground='#9eb2c6', borderwidth=0,
+                        font=('Segoe UI Semibold', 9))
+        style.map('Dark.Treeview', background=[('selected', '#2a4661')],
+                  foreground=[('selected', '#ffffff')])
 
         # Header
         header = tk.Frame(self, bg='#101722')
@@ -572,7 +605,7 @@ class App(tk.Tk):
             k: tk.StringVar(value=str(self.cfg[k]))
             for k in EDITABLE_FIELD_KEYS
         }
-        notebook = ttk.Notebook(self)
+        notebook = self.notebook = ttk.Notebook(self)
         notebook.pack(fill='both', expand=True, padx=22, pady=(0, 10))
 
         self._add_settings_tab(notebook, 'Keepalive', 'Inactivity keepalive',
@@ -597,11 +630,13 @@ class App(tk.Tk):
              ('Keys to hold',  'hold_keys',  'shift+w')])
 
         self._build_macros_tab(notebook)
+        self._build_keybinds_tab(notebook)
         self._build_perf_tab(notebook)
         self._build_telemetry_tab(notebook)
         self._build_history_tab(notebook)
         self._build_log_tab(notebook)
         self._build_updates_tab(notebook)
+        install_wheel_routing(self)
 
     def _add_checkbox(self, parent, label, key, note='', on_toggle=None):
         """A boolean setting that persists itself immediately on click.
@@ -631,8 +666,9 @@ class App(tk.Tk):
         return var
 
     def _add_settings_tab(self, notebook, tab_name, title, desc, fields, extra_button=None):
-        frame = tk.Frame(notebook, bg='#192433')
-        notebook.add(frame, text=tab_name)
+        scroller = ScrollFrame(notebook, '#192433')
+        notebook.add(scroller, text=tab_name)
+        frame = scroller.inner
         tk.Label(frame, text=title, bg='#192433', fg='#eef6ff',
                  font=('Segoe UI Semibold', 14)).pack(anchor='w', padx=20, pady=(18, 4))
         tk.Label(frame, text=desc, bg='#192433', fg='#9eb2c6',
@@ -662,7 +698,7 @@ class App(tk.Tk):
                       'Each is pressed and released, except two special forms: '
                       'wait:1.5 pauses for 1.5s, and hold:shift+w:2.0 holds shift+w '
                       'down for 2.0s before releasing.',
-                 bg='#192433', fg='#9eb2c6', wraplength=820, justify='left').pack(
+                 bg='#192433', fg='#9eb2c6', wraplength=760, justify='left').pack(
                      anchor='w', padx=20, pady=(0, 12))
 
         self.macro_name = tk.StringVar()
@@ -685,11 +721,13 @@ class App(tk.Tk):
 
         tk.Button(frame, text='Add macro', command=self._add_macro, bg='#2a6f9e',
                   fg='white', relief='flat', padx=16, pady=8).pack(anchor='w', padx=20, pady=(10, 8))
+        # The button row is packed first, at the bottom, so the list takes
+        # what is left rather than the buttons being what gets cut off.
+        macro_btn_row = tk.Frame(frame, bg='#192433')
+        macro_btn_row.pack(side='bottom', fill='x', padx=20, pady=(6, 14))
         self.macro_listbox = tk.Listbox(frame, bg='#0f1721', fg='#d9eafa',
                                         selectbackground='#2a6f9e', relief='flat', height=7)
         self.macro_listbox.pack(fill='both', expand=True, padx=20, pady=4)
-        macro_btn_row = tk.Frame(frame, bg='#192433')
-        macro_btn_row.pack(anchor='w', padx=20, pady=(6, 14))
         tk.Button(macro_btn_row, text='Remove selected macro', command=self._remove_macro,
                   bg='#a65a46', fg='white', relief='flat', padx=14, pady=7).pack(
                       side='left', padx=(0, 8))
@@ -811,8 +849,9 @@ class App(tk.Tk):
         self._refresh_telemetry_tab()
 
     def _build_telemetry_tab(self, notebook):
-        frame = tk.Frame(notebook, bg='#101722')
-        notebook.add(frame, text='Telemetry')
+        scroller = ScrollFrame(notebook, '#101722')
+        notebook.add(scroller, text='Telemetry')
+        frame = scroller.inner
 
         tk.Label(frame, text='Performance data', bg='#101722', fg='#eef6ff',
                  font=('Segoe UI Semibold', 13)).pack(anchor='w', padx=18, pady=(16, 2))
@@ -931,10 +970,262 @@ class App(tk.Tk):
 
     # ── Performance HUD ───────────────────────────────────────────────────────
 
+    # -- Key Bindings ---------------------------------------------------------
+
+    def _build_keybinds_tab(self, notebook):
+        """The reference sheet for the game's bindings, and the player's own.
+
+        Two things, kept apart because they come from different places. The
+        sheet is a rendered PNG of a community reference for the *default*
+        bindings, one page per mode. The table underneath is what the player
+        has changed, read from actionmaps.xml - which is all that file holds;
+        the defaults themselves live inside Data.p4k, which nothing here can
+        open. Nothing is loaded until the tab is first shown: the images are
+        a few megabytes each once decoded, and most launches never look.
+        """
+        frame = self._keybinds_tab = tk.Frame(notebook, bg='#101722')
+        notebook.add(frame, text='Key Bindings')
+        self._sheet_mode = SHEETS[0][0]
+        self._sheet_zoom = 'fit'                 # or an index into ZOOM_LADDER
+        self._sheet_base = {}                    # mode -> PhotoImage as loaded
+        self._sheet_scaled = {}                  # mode -> ((num, den), PhotoImage)
+        self._keybinds_loaded = False
+        self._show_all_modes = tk.BooleanVar(value=False)
+
+        # Bottom first, so the table is never what gets cut off - see Macros.
+        panel = tk.Frame(frame, bg='#101722')
+        panel.pack(side='bottom', fill='x', padx=18, pady=(8, 12))
+        head = tk.Frame(panel, bg='#101722')
+        head.pack(fill='x')
+        # The table folds away so the sheet can have the whole tab, and starts
+        # folded: room is tight - at a 1000px window the notebook gets about
+        # 540px - and the sheet is what the tab is for. The count stays in view.
+        self._rebinds_open = False
+        self._rebinds_toggle = tk.Button(head, text='', command=self._toggle_rebinds,
+                                         bg='#101722', fg='#91a7bd', activebackground='#101722',
+                                         activeforeground='#eef6ff', relief='flat', bd=0,
+                                         font=('Segoe UI Semibold', 10), cursor='hand2')
+        self._rebinds_toggle.pack(side='left')
+        tk.Button(head, text='Reload', command=self._refresh_rebinds,
+                  bg='#253448', fg='#eef6ff', activebackground='#2a4661',
+                  relief='flat', padx=12, pady=3).pack(side='right')
+        tk.Checkbutton(head, text='show all modes', variable=self._show_all_modes,
+                       command=self._refresh_rebinds, bg='#101722', fg='#c9d7e6',
+                       selectcolor='#0f1721', activebackground='#101722',
+                       activeforeground='#eef6ff', relief='flat').pack(side='right', padx=(0, 10))
+        table = self._rebinds_table = tk.Frame(panel, bg='#101722')
+        # Not packed yet: _toggle_rebinds does that, in front of the status line.
+        columns = ('mode', 'action', 'bound', 'map')
+        self.rebinds_view = ttk.Treeview(table, columns=columns, show='headings',
+                                         style='Dark.Treeview', height=3)
+        for name, title, width in (('mode', 'Mode', 70), ('action', 'Action', 260),
+                                   ('bound', 'Bound to', 160), ('map', 'Action map', 180)):
+            self.rebinds_view.heading(name, text=title)
+            self.rebinds_view.column(name, width=width, anchor='w')
+        bar = ttk.Scrollbar(table, orient='vertical', command=self.rebinds_view.yview)
+        self.rebinds_view.configure(yscrollcommand=bar.set)
+        self.rebinds_view.pack(side='left', fill='x', expand=True)
+        bar.pack(side='left', fill='y')
+        self.rebinds_status = tk.Label(panel, text='', bg='#101722', fg='#6f8398',
+                                       font=('Consolas', 9), anchor='w', justify='left')
+        self.rebinds_status.pack(fill='x', pady=(4, 0))
+        self._paint_rebinds_toggle()
+
+        # Top: heading, then the two rows of controls.
+        tk.Label(frame, text='Key Bindings', bg='#101722', fg='#eef6ff',
+                 font=('Segoe UI Semibold', 13)).pack(anchor='w', padx=18, pady=(16, 2))
+        tk.Label(frame, text='Default bindings per mode, from a community 4.6.0 sheet; your own '
+                             'changes below. Scroll and Shift+scroll to pan, Ctrl+scroll to zoom, '
+                             'drag to move.',
+                 bg='#101722', fg='#91a7bd', wraplength=900, justify='left'
+                 ).pack(anchor='w', padx=18, pady=(0, 8))
+        controls = tk.Frame(frame, bg='#101722')
+        controls.pack(fill='x', padx=18, pady=(0, 6))
+        self._sheet_mode_buttons = {}
+        for mode, _file in SHEETS:
+            button = tk.Button(controls, text=mode, command=lambda m=mode: self._select_sheet(m),
+                               bg='#253448', fg='#eef6ff', activebackground='#2a4661',
+                               relief='flat', padx=14, pady=5, width=8)
+            button.pack(side='left', padx=(0, 6))
+            self._sheet_mode_buttons[mode] = button
+        tk.Frame(controls, bg='#2e435a', width=1, height=26).pack(side='left', padx=10)
+        self._sheet_zoom_buttons = {}
+        for label, step in (('Fit', 'fit'), ('100%', 3), ('150%', 4), ('200%', 5)):
+            button = tk.Button(controls, text=label, command=lambda z=step: self._set_zoom(z),
+                               bg='#253448', fg='#eef6ff', activebackground='#2a4661',
+                               relief='flat', padx=10, pady=5, width=5)
+            button.pack(side='left', padx=(0, 4))
+            self._sheet_zoom_buttons[step] = button
+        self._sheet_zoom_label = tk.Label(controls, text='', bg='#101722', fg='#6f8398',
+                                          font=('Consolas', 9))
+        self._sheet_zoom_label.pack(side='left', padx=(10, 0))
+
+        # The image, with its own scrolling in both directions.
+        viewer = tk.Frame(frame, bg='#101722')
+        viewer.pack(fill='both', expand=True, padx=18)
+        viewer.columnconfigure(0, weight=1)
+        viewer.rowconfigure(0, weight=1)
+        self.sheet_canvas = tk.Canvas(viewer, bg='#0f1721', highlightthickness=0,
+                                      xscrollincrement=1, yscrollincrement=1)
+        ybar = ttk.Scrollbar(viewer, orient='vertical', command=self.sheet_canvas.yview)
+        xbar = ttk.Scrollbar(viewer, orient='horizontal', command=self.sheet_canvas.xview)
+        self.sheet_canvas.configure(yscrollcommand=ybar.set, xscrollcommand=xbar.set)
+        self.sheet_canvas.grid(row=0, column=0, sticky='nsew')
+        ybar.grid(row=0, column=1, sticky='ns')
+        xbar.grid(row=1, column=0, sticky='ew')
+        canvas = self.sheet_canvas
+        # Each returns 'break' so the window-wide wheel router never sees
+        # these - the canvas owns its wheel entirely.
+        canvas.bind('<MouseWheel>', lambda e: (canvas.yview_scroll(-int(e.delta / 120) * 40, 'units'), 'break')[1])
+        canvas.bind('<Shift-MouseWheel>', lambda e: (canvas.xview_scroll(-int(e.delta / 120) * 40, 'units'), 'break')[1])
+        canvas.bind('<Control-MouseWheel>', lambda e: (self._zoom_step(1 if e.delta > 0 else -1), 'break')[1])
+        canvas.bind('<ButtonPress-1>', lambda e: canvas.scan_mark(e.x, e.y))
+        canvas.bind('<B1-Motion>', lambda e: canvas.scan_dragto(e.x, e.y, gain=1))
+        canvas.bind('<Configure>', self._on_sheet_resize)
+
+        self._paint_sheet_buttons()
+        notebook.bind('<<NotebookTabChanged>>', self._on_tab_changed, add='+')
+
+    def _toggle_rebinds(self, open_=None):
+        self._rebinds_open = (not self._rebinds_open) if open_ is None else open_
+        if self._rebinds_open:
+            self._rebinds_table.pack(fill='x', pady=(4, 0), before=self.rebinds_status)
+        else:
+            self._rebinds_table.pack_forget()
+        self._paint_rebinds_toggle()
+
+    def _paint_rebinds_toggle(self):
+        count = len(self.rebinds_view.get_children())
+        self._rebinds_toggle.config(text='%s Your rebinds (%d)' % (
+            '▾' if self._rebinds_open else '▸', count))
+
+    def _on_tab_changed(self, _event=None):
+        if self._keybinds_loaded:
+            return
+        if self.notebook.select() != str(self._keybinds_tab):
+            return
+        self._keybinds_loaded = True
+        self._refresh_rebinds()
+        self._show_sheet()
+
+    def _on_sheet_resize(self, _event=None):
+        if self._keybinds_loaded and self._sheet_zoom == 'fit':
+            self._show_sheet()
+
+    def _select_sheet(self, mode):
+        self._sheet_mode = mode
+        self._paint_sheet_buttons()
+        if self._keybinds_loaded:
+            self._show_sheet()
+            self._refresh_rebinds()
+
+    def _set_zoom(self, step):
+        self._sheet_zoom = step
+        self._paint_sheet_buttons()
+        if self._keybinds_loaded:
+            self._show_sheet()
+
+    def _zoom_step(self, direction):
+        current = self._fit_index() if self._sheet_zoom == 'fit' else self._sheet_zoom
+        self._set_zoom(max(0, min(len(ZOOM_LADDER) - 1, current + direction)))
+
+    def _paint_sheet_buttons(self):
+        for mode, button in self._sheet_mode_buttons.items():
+            button.config(bg='#2a4661' if mode == self._sheet_mode else '#253448')
+        for step, button in self._sheet_zoom_buttons.items():
+            button.config(bg='#2a4661' if step == self._sheet_zoom else '#253448')
+
+    def _sheet_image(self, mode):
+        """The page as loaded, or None if the file is not there."""
+        if mode not in self._sheet_base:
+            path = os.path.join(KEYBINDS_DIR, dict(SHEETS)[mode])
+            try:
+                self._sheet_base[mode] = tk.PhotoImage(master=self, file=path)
+            except tk.TclError:
+                self._sheet_base[mode] = None
+        return self._sheet_base[mode]
+
+    def _fit_index(self):
+        """The largest step, at most 100%, that fits the canvas width."""
+        base = self._sheet_image(self._sheet_mode)
+        width = self.sheet_canvas.winfo_width()
+        if base is None or width <= 1:
+            return 3
+        best = 0
+        for i, (num, den) in enumerate(ZOOM_LADDER[:4]):
+            if base.width() * num / den <= width:
+                best = i
+        return best
+
+    def _scaled(self, mode, num, den):
+        """The page at num/den, made in one Tk copy and kept until the zoom changes."""
+        base = self._sheet_image(mode)
+        if base is None:
+            return None
+        if (num, den) == (1, 1):
+            return base
+        cached = self._sheet_scaled.get(mode)
+        if cached and cached[0] == (num, den):
+            return cached[1]
+        scaled = tk.PhotoImage(master=self)
+        # -zoom and -subsample together: the destination is written directly
+        # at the final size, with no intermediate at zoom alone.
+        scaled.tk.call(scaled, 'copy', base, '-zoom', num, num, '-subsample', den, den)
+        self._sheet_scaled[mode] = ((num, den), scaled)
+        return scaled
+
+    def _show_sheet(self):
+        canvas = self.sheet_canvas
+        canvas.delete('all')
+        index = self._fit_index() if self._sheet_zoom == 'fit' else self._sheet_zoom
+        num, den = ZOOM_LADDER[index]
+        image = self._scaled(self._sheet_mode, num, den)
+        if image is None:
+            canvas.configure(scrollregion=(0, 0, 0, 0))
+            canvas.create_text(20, 20, anchor='nw', fill='#91a7bd', font=('Segoe UI', 10),
+                               text='Sheet not installed: data\\keybinds\\%s - run the updater.'
+                                    % dict(SHEETS)[self._sheet_mode])
+            self._sheet_zoom_label.config(text='')
+            return
+        canvas.create_image(0, 0, anchor='nw', image=image)
+        canvas.configure(scrollregion=(0, 0, image.width(), image.height()))
+        canvas.xview_moveto(0)
+        canvas.yview_moveto(0)
+        self._sheet_zoom_label.config(text='%d%%%s' % (
+            round(100 * num / den), '  (fit)' if self._sheet_zoom == 'fit' else ''))
+
+    def _refresh_rebinds(self):
+        """What the player changed, from the profile the game last wrote to."""
+        log = find_game_log()
+        live = log.parent if log else None
+        path = find_actionmaps(live) if live else None
+        rows = read_rebinds(path) if path else []
+        view = self.rebinds_view
+        view.delete(*view.get_children())
+        shown = 0
+        for rebind in rows:
+            mode = mode_of(rebind.actionmap)
+            if not self._show_all_modes.get() and mode != self._sheet_mode:
+                continue
+            bound = describe_input(rebind.input) or '(unbound)'
+            if rebind.multitap > 1:
+                bound += '  x%d' % rebind.multitap
+            if rebind.activation:
+                bound += '  (%s)' % rebind.activation
+            view.insert('', 'end', values=(mode, describe_action(rebind.action),
+                                          bound, rebind.actionmap))
+            shown += 1
+        status = describe_status(path, rows)
+        if rows and shown != len(rows):
+            status += '  -  %d shown for %s' % (shown, self._sheet_mode)
+        self.rebinds_status.config(text=status)
+        self._paint_rebinds_toggle()
+
     def _build_perf_tab(self, notebook):
         """Frame rate and network detail, alongside the header graph."""
-        frame = tk.Frame(notebook, bg='#101722')
-        notebook.add(frame, text='Performance')
+        scroller = ScrollFrame(notebook, '#101722')
+        notebook.add(scroller, text='Performance')
+        frame = scroller.inner
 
         tk.Label(frame, text='Performance & Server', bg='#101722', fg='#eef6ff',
                  font=('Segoe UI Semibold', 13)).pack(anchor='w', padx=18, pady=(16, 2))
@@ -1138,8 +1429,9 @@ class App(tk.Tk):
         latest, then?" - and for the one action: updating now, on purpose,
         even with auto_update switched off.
         """
-        frame = tk.Frame(notebook, bg='#101722')
-        notebook.add(frame, text='Updates')
+        scroller = ScrollFrame(notebook, '#101722')
+        notebook.add(scroller, text='Updates')
+        frame = scroller.inner
 
         tk.Label(frame, text='Updates', bg='#101722', fg='#eef6ff',
                  font=('Segoe UI Semibold', 13)).pack(anchor='w', padx=18, pady=(16, 2))
@@ -1250,28 +1542,20 @@ class App(tk.Tk):
                  bg='#192433', fg='#9eb2c6', wraplength=780,
                  justify='left').pack(anchor='w', padx=20, pady=(0, 12))
 
-        style = ttk.Style(self)
-        style.configure('History.Treeview', background='#0f1721', foreground='#eaf4ff',
-                        fieldbackground='#0f1721', borderwidth=0, rowheight=26)
-        style.configure('History.Treeview.Heading', background='#1c2938',
-                        foreground='#9eb2c6', borderwidth=0,
-                        font=('Segoe UI Semibold', 9))
-        style.map('History.Treeview', background=[('selected', '#2a4661')],
-                  foreground=[('selected', '#ffffff')])
-
         columns = ('joined', 'duration', 'server', 'address')
         widths = (170, 90, 240, 200)
         self.history_view = ttk.Treeview(frame, columns=columns, show='headings',
-                                         style='History.Treeview', height=10)
+                                         style='Dark.Treeview', height=10)
         for name, width in zip(columns, widths):
             self.history_view.heading(name, text=name.title())
             self.history_view.column(name, width=width,
                                      anchor='w' if name != 'duration' else 'e')
         self.history_view.tag_configure('current', foreground='#41b8f5')
-        self.history_view.pack(fill='both', expand=True, padx=20)
 
+        # Packed first and at the bottom - see the Macros tab for why.
         row = tk.Frame(frame, bg='#192433')
-        row.pack(fill='x', padx=20, pady=12)
+        row.pack(side='bottom', fill='x', padx=20, pady=12)
+        self.history_view.pack(fill='both', expand=True, padx=20)
         tk.Button(row, text='Refresh', command=self._refresh_history, bg='#2a6f9e',
                   fg='white', relief='flat', padx=16, pady=6).pack(side='left')
         tk.Button(row, text='Copy selected', command=self._copy_history_row, bg='#253448',
@@ -1915,6 +2199,17 @@ class App(tk.Tk):
     # ── Shutdown ──────────────────────────────────────────────────────────────
 
     def close(self):
+        # Remembered only from a normal window: a maximised or minimised one
+        # would save a size that means nothing once it is neither. geometry()
+        # rather than winfo_geometry(): on Windows the latter is the client
+        # area, and round-tripping it walks the window down a title bar's
+        # height every launch.
+        try:
+            if self.state() == 'normal' and self.winfo_viewable():
+                self.cfg['window_geometry'] = self.geometry()
+                self._persist()
+        except Exception:
+            pass
         self.stop_event.set()
         try:
             self.fps_monitor.shutdown()

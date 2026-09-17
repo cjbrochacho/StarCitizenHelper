@@ -96,8 +96,13 @@ These buttons are always visible, whichever tab is open:
 | **Stop & Release** | Releases any keys KeepRunning is holding |
 | **EMERGENCY DISABLE ALL** | Instantly releases Shift, Ctrl, Alt, Win, W, A, S, D and Tab |
 
-Nine tabs: **Keepalive**, **Scan Ships**, **KeepRunning**, **Macros**, **Performance**,
-**Telemetry**, **Server History**, **Activity Log**, **Updates**.
+Ten tabs: **Keepalive**, **Scan Ships**, **KeepRunning**, **Macros**, **Key Bindings**,
+**Performance**, **Telemetry**, **Server History**, **Activity Log**, **Updates**.
+
+A tab taller than the window scrolls - a scrollbar appears on its right when it needs to and
+goes away when it does not, and the mouse wheel scrolls the tab unless it is over something
+that scrolls itself. The window remembers its size and position between launches, and forgets
+them again if that spot is no longer on any monitor.
 
 ---
 
@@ -224,6 +229,31 @@ touching the keyboard, and `hold:shift+w:2.0` presses `shift+w` down, keeps it d
 seconds, then releases it — for a macro step that needs to be held rather than tapped. Only one
 macro runs at a time; triggering a second while one is going logs a warning and does nothing.
 Pick combos the game does not use — `ctrl+alt+1` through `ctrl+alt+9` are safe.
+
+---
+
+## Key Bindings
+
+The game's default bindings, by mode, and what you have changed.
+
+The top of the tab is a reference sheet: **Flight** and **FPS**, one page each, rendered from a
+community-made keyboard-and-mouse chart for 4.6.0 by *Those Guys With Ships* and *Texas Space
+Navy* (credited in `data/keybinds/SOURCE.md`, which also says how to re-render it for a new
+patch). Mining, salvage, scanning and the rest are modifier sub-modes of Flight, shown on that
+page with a colour key. Scroll to move around it, Shift+scroll to move sideways, Ctrl+scroll or
+the **Fit / 100% / 150% / 200%** buttons to zoom, and drag with the mouse to pan. The pages are
+not decoded until you first open the tab, so a launch that never looks at them costs nothing.
+
+Under the sheet, **Your rebinds** lists what you have changed from those defaults - the action,
+what it is bound to now, and which action map it belongs to - filtered to the mode shown, or
+all of them. It is read live from the game's own profile, the same `actionmaps.xml` the in-game
+options screen writes, so **Reload** after changing a binding in the game shows it here. The
+panel folds away to give the sheet the whole tab; the count stays in the heading.
+
+What it cannot show is a full list of every current binding. The game keeps only your *changes*
+in a readable file; the defaults themselves are inside `Data.p4k`, an archive nothing outside
+the game can open. A later version will ship a snapshot of those defaults so the table can be
+complete. Until then the sheet is the defaults and the table is the diff.
 
 ---
 
@@ -559,6 +589,7 @@ feeding it keeps running.
   "overlay_x":            null,
   "overlay_y":            null,
   "overlay_toggle_lock":  "ctrl+alt+l",
+  "window_geometry":      null,
   "auto_update":          true,
   "telemetry_enabled":    true,
   "telemetry_notice_seen": false,
@@ -584,6 +615,8 @@ test_telemetry.py        what the collector must not get wrong
 test_docs.py             what this file must not get wrong
 test_update.py           what the updater must not get wrong
 test_launcher.py         a lone launcher installs the app - needs the network
+test_keybinds.py         what the key bindings reader must not get wrong
+test_window.py           what the window-position helpers must not get wrong
 
 helper/
   __init__.py            marks the package
@@ -599,7 +632,9 @@ helper/
   hud.py                 the header graph and its readout
   overlay.py             the same readout, floating over the game
   idle.py                desktop-wide idle detection
-  window.py              finds the game window; snap focus; taskbar icon
+  keybinds.py            the player's rebinds, read from actionmaps.xml
+  scroll.py              a tab that scrolls, and one wheel handler for the window
+  window.py              finds the game window; snap focus; taskbar icon; remembers where this one was
   brand.py               the radar mark and the header wordmark
   theme.py               colour palette
   shortcut.py            draws the icon and writes the .lnk
@@ -607,6 +642,12 @@ helper/
 vendor/
   PresentMon.exe         Intel PresentMon, MIT - where the frame data comes from
   LICENSE-PresentMon.txt its licence, kept with it
+
+data/keybinds/
+  flight.png             the reference sheet, Flight page - credits in SOURCE.md
+  fps.png                the reference sheet, FPS page
+  SOURCE.md              where the sheet came from, and how to refresh it
+  render_sheet.ps1       renders a PDF to these PNGs with nothing but Windows
 
 assets/                  generated icon and shortcut marker (git-ignored)
 settings.json            written on first save (git-ignored)
@@ -626,6 +667,11 @@ the app has something this file does not mention.
 ---
 
 ## Troubleshooting
+
+**Key Bindings says "Star Citizen not found".**
+It finds the game the same way Server History does: from the RSI launcher's own log, which
+records where the game library is. Run the launcher once and start the game once, and the
+profile folder it reads from will exist.
 
 **Nothing happens when I double-click the launcher.**
 If it was opened from inside the zip, the window says so and stops: extract it, or save the

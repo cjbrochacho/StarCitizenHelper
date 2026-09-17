@@ -283,3 +283,41 @@ def set_overlay_styles(hwnd, click_through, colorkey_rgb, alpha):
     r, g, b = colorkey_rgb
     colorref = r | (g << 8) | (b << 16)
     user32.SetLayeredWindowAttributes(hwnd, colorref, alpha, LWA_COLORKEY | LWA_ALPHA)
+
+
+# --- remembering where the window was ---------------------------------------
+
+import re as _re
+
+#: Only the "+X+Y" form. Tk can also write "-X" for "from the right edge",
+#: but never does for a window it is reporting on; a negative coordinate
+#: on a left-hand monitor comes out as "+-1200".
+_RE_GEOMETRY = _re.compile(r"^(\d+)x(\d+)\+(-?\d+)\+(-?\d+)$")
+
+user32.MonitorFromRect.argtypes = (ctypes.POINTER(wintypes.RECT), wintypes.DWORD)
+user32.MonitorFromRect.restype = wintypes.HMONITOR
+MONITOR_DEFAULTTONULL = 0
+
+
+def parse_geometry(text):
+    """'1225x950+100+50' -> (1225, 950, 100, 50); anything else -> None.
+
+    The sign handling is deliberate: a monitor to the left of the primary
+    one has negative coordinates, and Tk writes those as '+-1200+80'.
+    """
+    match = _RE_GEOMETRY.match((text or "").strip())
+    if not match:
+        return None
+    width, height, x, y = match.groups()
+    return int(width), int(height), int(x), int(y)
+
+
+def rect_is_visible(left, top, right, bottom):
+    """Whether any monitor shows any part of this rectangle.
+
+    Asked of the whole desktop, not the primary screen: winfo_screenwidth
+    is the primary monitor only, and a window parked on a second one would
+    fail that test at every launch and keep snapping back.
+    """
+    rect = wintypes.RECT(int(left), int(top), int(right), int(bottom))
+    return bool(user32.MonitorFromRect(ctypes.byref(rect), MONITOR_DEFAULTTONULL))

@@ -5,3 +5,4 @@
 # not something to leave to a heuristic - a stray CRLF rewrite corrupts it.
 *.exe binary
 *.ico binary
+*.png binary
