@@ -319,8 +319,42 @@ decodes CryEngine's binary XML and writes the two shipped files. Nothing in the 
 touched. (The game's own console export, `pp_rebindkeys export all <name>`, writes only your
 rebinds in 4.x; the app still checks for a complete one in case that changes.)
 
-Setting a binding from here is planned: capture the keys, write a one-action mapping file, and
-have the game load it with `pp_rebindkeys`. Not in this version.
+### Changing a binding
+
+Select a row and use **Set...**, **Reset** or **Unbind** under the table. Set listens for the
+new chord the way *Press a key* does (Esc gives up, Backspace means "nothing"); if the key is
+already bound to something in the same mode you are told what, and asked. Reset puts the
+shipped default back; Unbind clears the key.
+
+What happens then, in order: your `actionmaps.xml` is copied to `assets\keybinds\backups\`
+(the newest ten are kept); a one-action mapping file, `layout_sch_helper_exported.xml`, is
+written into the game's own `USER\client\<n>\Controls\Mappings\` folder in exactly the shape
+the game's exports have; and - if the game is running - the app brings it forward, opens the
+console, types `pp_rebindkeys layout_sch_helper_exported.xml`, presses Enter, closes the console
+and gives you your window back. That is the game's own way of loading a mapping file, the one
+SCJMapper and Joystick Gremlin use; the game merges it and saves it itself. A moment later the
+app re-reads `actionmaps.xml` and the status line says **confirmed** - or, if the game has not
+picked it up within a few seconds, that the command is on the clipboard for you to paste. With
+the game closed the file is written and the command copied for later; nothing is typed.
+
+While the console is being typed into, Ship Scan and Keepalive stand aside (a Tab would
+autocomplete in the console) and KeepRunning is released (typing would drop its held keys
+anyway). The console is opened with the **console key** shown under the filters - `` ` `` unless
+you have moved it; the app never types blind, and refuses if that key is not one it knows.
+
+**Back up** copies your `actionmaps.xml` wherever you like. **Restore** offers the newest
+automatic backup, loaded through the game the same way. **Import...** takes any Star Citizen
+bindings file - a backup, one of the game's own exports, a mapping someone shared - shows what it
+holds (how many actions, any the shipped defaults do not know, any keys it would share) and
+loads it the same way. **Export CSV** writes every binding, with the game's names, for a
+spreadsheet.
+
+Limits in this version: keyboard chords only (the game's own screen for mouse and joystick);
+Backspace itself cannot be bound, since it means "clear"; a restored or imported file is
+re-written in the one shape the game is known to load, which carries bindings but not the
+`<options>` device rows (joystick curves and deadzones - set those in the game); and Reset
+applies a rebind equal to the default, which the game may keep as a rebind, so the row can still
+say `yours` afterwards.
 
 ---
 
@@ -656,6 +690,7 @@ feeding it keeps running.
   "overlay_x":            null,
   "overlay_y":            null,
   "overlay_toggle_lock":  "ctrl+alt+l",
+  "console_key":          "`",
   "window_geometry":      null,
   "auto_update":          true,
   "telemetry_enabled":    true,
@@ -687,6 +722,7 @@ test_window.py           what the window-position helpers must not get wrong
 test_sheet.py            what the sheet renderer must not get wrong
 test_defaults.py         what the defaults pipeline must not get wrong
 test_chord.py            what the chord recorder must not get wrong
+test_rebind.py           what changing a binding must not get wrong
 
 helper/
   __init__.py            marks the package
@@ -705,6 +741,7 @@ helper/
   keybinds.py            bindings: the shipped defaults, the player's rebinds, merged, filtered
   cryxml.py              CryEngine's binary XML, read back into ElementTree
   chord.py               one key chord, as the user presses it
+  rebind.py              changing a binding: the mapping file, the command, backups, import, CSV
   sheet.py               the sheet at any zoom, rendered from its PDF on demand
   scroll.py              a tab that scrolls, and one wheel handler for the window
   window.py              finds the game window; snap focus; taskbar icon; remembers where this one was
@@ -750,6 +787,13 @@ the app has something this file does not mention.
 The exact render needs the Windows PowerShell that ships with Windows (5.1, at
 `C:\Windows\System32\WindowsPowerShell\v1.0\`). The Activity Log has the line from the renderer
 saying what went wrong. Delete `assets\keybinds\` to make it try again from scratch.
+
+**Set says the game has not picked it up.**
+The file was written and the command was typed, but `actionmaps.xml` did not change within a few
+seconds. Press the console key in the game and check the last line of the console: if the command
+is there but misspelled or cut off, the game was not ready for typing - run it again by pasting
+(it is on the clipboard). If the console did not open at all, the console key is not `` ` `` on
+your setup - set it under the filters on the Key Bindings tab.
 
 **Key Bindings says "Star Citizen not found".**
 It finds the game the same way Server History does: from the RSI launcher's own log, which

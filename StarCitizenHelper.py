@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 from fractions import Fraction
+from pathlib import Path
 import sys
 import time
 import threading
@@ -24,11 +25,14 @@ from helper.fps import FpsMonitor, presentmon_executable
 from helper.hud import HudGraph
 from helper.idle import IdleWatcher, note_injection, tick
 from helper.chord import ChordRecorder
-from helper.keybinds import (Filters, categories, conflicts, copy_text, counts, describe_action,
+from helper.rebind import (HELPER_MAPPING, backup_actionmaps, backup_stamp, command_for,
+                           default_for, is_at_default, newest_backup, plan_change, to_csv,
+                           validate_import, write_mapping)
+from helper.keybinds import (Filters, categories, chord_key, conflicts, copy_text, counts, describe_action,
                              describe_detail, describe_export_status, describe_input,
                              describe_shipped_status, describe_status, find_actionmaps,
                              from_keyboard_names, installed_game_version, load_full_export,
-                             load_shipped_defaults, merge, mode_of, read_actionmaps, row_tags,
+                             load_shipped_defaults, mappings_dir, merge, mode_of, read_actionmaps, row_tags,
                              row_values, sort_rows, to_keyboard_syntax, visible)
 from helper.sheet import SheetRenderer
 from helper.hardware import HardwareMonitor, machine_id, machine_profile
@@ -78,6 +82,8 @@ ALL_CATEGORIES = 'All categories'
 MODE_SHEET, MODE_ALL = "Sheet's page", 'All modes'
 MODE_CHOICES = (MODE_SHEET, 'Flight', 'FPS', 'Other', MODE_ALL)
 CHORD_TIMEOUT_MS = 10000
+#: Where actionmaps.xml is copied before every change the app makes.
+BACKUP_DIR = os.path.join(_DIR, 'assets', 'keybinds', 'backups')
 #: 250% of a 2000px page is a 77 MB photo; 300% would be 111 MB.
 ZOOM_MIN, ZOOM_MAX = 25, 250
 #: A slider drag fires many changes a second; the render waits for it to stop.
@@ -195,6 +201,7 @@ DEFAULTS = {
     'overlay_x':          None,
     'overlay_y':          None,
     'overlay_toggle_lock': 'ctrl+alt+l',
+    'console_key':        '`',           # what opens the game's console
     'window_geometry':    None,          # written by the app on close
     'auto_update':        True,
     'telemetry_enabled':  True,
@@ -214,7 +221,7 @@ BOOLEAN_KEYS = (
 # out of field_vars or a later "Save Settings" click clobbers them.
 EDITABLE_FIELD_KEYS = (
     'keepalive_key', 'scan_toggle', 'scan_interval', 'hold_start', 'hold_keys',
-    'overlay_toggle_lock',
+    'overlay_toggle_lock', 'console_key',
 )
 
 # ── Win32 process helpers ─────────────────────────────────────────────────────
@@ -1155,10 +1162,29 @@ class App(tk.Tk):
         self._bindings_key = ''
         self._chord = None
         self._chord_after = None
+        self._chord_purpose = 'filter'          # or 'set': what a captured chord is for
+        self._applying = False                  # a change is on its way to the game
+        self._console_busy = False              # the console is open: nothing else may type
+        self._shipped_rows = []
         self._chord_button = tk.Button(filters, text='Press a key...', command=self._on_chord_button,
                                        bg='#253448', fg='#eef6ff', activebackground='#2a4661',
                                        relief='flat', padx=10, pady=2)
         self._chord_button.pack(side='left')
+
+        # The file itself: a copy out, the newest copy back, any file in, a
+        # spreadsheet out, and the key that opens the game's console.
+        files = self._bindings_file_row = tk.Frame(panel, bg='#101722')
+        for text, command in (('Back up', self._backup_bindings), ('Restore', self._restore_bindings),
+                              ('Import...', self._import_bindings), ('Export CSV', self._export_bindings_csv)):
+            tk.Button(files, text=text, command=command, bg='#253448', fg='#eef6ff',
+                      activebackground='#2a4661', relief='flat', padx=10, pady=2
+                      ).pack(side='left', padx=(0, 6))
+        tk.Label(files, text='console key', bg='#101722', fg='#6f8398').pack(side='left', padx=(10, 4))
+        console = tk.Entry(files, width=4, justify='center', textvariable=self.field_vars['console_key'],
+                           bg='#0f1721', fg='#eaf4ff', insertbackground='white', relief='flat')
+        console.pack(side='left', ipady=2)
+        console.bind('<FocusOut>', self._persist_console_key)
+        console.bind('<Return>', self._persist_console_key)
 
         table = self._bindings_table = tk.Frame(panel, bg='#101722')
         self._bindings_sort = (None, False)
@@ -1185,7 +1211,7 @@ class App(tk.Tk):
         # The selected row, spelled out, with what can be done with it.
         detail = self._bindings_detail_row = tk.Frame(panel, bg='#101722')
         self._bindings_detail = tk.Label(detail, text='', bg='#101722', fg='#c9d7e6',
-                                         font=('Consolas', 9), anchor='w', justify='left')
+                                         font=('Consolas', 9), anchor='w', justify='left', width=1)
         self._bindings_detail.pack(side='left', fill='x', expand=True)
         self._macro_button = tk.Button(detail, text='Use in macro', command=self._use_in_macro,
                                        bg='#253448', fg='#eef6ff', activebackground='#2a4661',
@@ -1195,6 +1221,14 @@ class App(tk.Tk):
                                       bg='#253448', fg='#eef6ff', activebackground='#2a4661',
                                       relief='flat', padx=10, pady=2, state='disabled')
         self._copy_button.pack(side='right', padx=(0, 6))
+        self._set_buttons = {}
+        for text, command in (('Unbind', self._unbind_binding), ('Reset', self._reset_binding),
+                              ('Set...', self._set_binding)):
+            button = tk.Button(detail, text=text, command=command, bg='#466f91', fg='white',
+                               activebackground='#2a4661', relief='flat', padx=10, pady=2,
+                               state='disabled')
+            button.pack(side='right', padx=(0, 6))
+            self._set_buttons[text] = button
 
         self.bindings_status = tk.Label(panel, text='', bg='#101722', fg='#6f8398',
                                         font=('Consolas', 9), anchor='w', justify='left')
@@ -1466,6 +1500,7 @@ class App(tk.Tk):
         self._bindings_open = (not self._bindings_open) if open_ is None else open_
         if self._bindings_open:
             self._bindings_filters.pack(fill='x', pady=(4, 0), after=self._bindings_head)
+            self._bindings_file_row.pack(fill='x', pady=(4, 0), after=self._bindings_filters)
             self._bindings_table.pack(fill='both', expand=True, pady=(4, 0),
                                       before=self.bindings_status)
             self._bindings_detail_row.pack(side='bottom', fill='x', pady=(4, 0),
@@ -1474,6 +1509,7 @@ class App(tk.Tk):
         else:
             self._stop_chord()
             self._bindings_filters.pack_forget()
+            self._bindings_file_row.pack_forget()
             self._bindings_table.pack_forget()
             self._bindings_detail_row.pack_forget()
             self._place_bindings_sash()
@@ -1481,7 +1517,7 @@ class App(tk.Tk):
 
     #: What the bindings panel needs to be worth looking at: the head row,
     #: the filter row, a few table rows, the detail line and the status.
-    BINDINGS_PANEL_OPEN = 320
+    BINDINGS_PANEL_OPEN = 352
     BINDINGS_PANEL_CLOSED = 64
 
     def _place_bindings_sash(self, attempts=10):
@@ -1527,6 +1563,7 @@ class App(tk.Tk):
             base_path, base, shipped_game = load_shipped_defaults()
         self._bindings = merge(base, rebinds)
         self._binding_conflicts = conflicts(self._bindings)
+        self._shipped_rows = load_shipped_defaults()[1]
         self._bindings_total = len(visible(self._bindings, self._binding_conflicts,
                                            Filters(show_all_modes=True)))
         self._bindings_source = (rebinds_path, base_path, len(rebinds), shipped_game,
@@ -1657,6 +1694,21 @@ class App(tk.Tk):
         self._copy_button.config(state='normal' if b else 'disabled')
         self._macro_button.config(
             state='normal' if b and to_keyboard_syntax(b.input) else 'disabled')
+        kb = self._keyboard_row(b) if b else None
+        can = b is not None and not self._applying
+        self._set_buttons['Set...'].config(state='normal' if can else 'disabled')
+        self._set_buttons['Unbind'].config(state='normal' if can and kb and kb.input else 'disabled')
+        at_default = kb is None or is_at_default(self._shipped_rows, kb)
+        self._set_buttons['Reset'].config(state='normal' if can and not at_default else 'disabled')
+
+    def _keyboard_row(self, b):
+        """The keyboard binding of the selected action - what Set changes."""
+        if b.device == 'keyboard':
+            return b
+        for row in self._bindings:
+            if (row.actionmap, row.action, row.device) == (b.actionmap, b.action, 'keyboard'):
+                return row
+        return None
 
     def _copy_binding(self):
         b = self._selected_binding
@@ -1717,6 +1769,10 @@ class App(tk.Tk):
     def _chord_done(self, mods, key, keypad):
         self._chord = None
         self._stop_chord()
+        if self._chord_purpose == 'set':
+            self._chord_purpose = 'filter'
+            self._set_chord_done(mods, key, keypad)
+            return
         self._bindings_key = from_keyboard_names(mods, key, keypad)
         self._bindings_search.config(state='disabled')
         self._chord_button.config(text='%s  ×' % describe_input(self._bindings_key), fg='#eef6ff')
@@ -1725,7 +1781,289 @@ class App(tk.Tk):
     def _chord_cancelled(self):
         self._chord = None
         self._stop_chord()
+        if self._chord_purpose == 'set':
+            self._chord_purpose = 'filter'
+            self._set_buttons['Set...'].config(text='Set...')
+            self._paint_binding_detail()
+            return
         self._chord_button.config(text='Press a key...', fg='#eef6ff')
+
+    # -- changing a binding -----------------------------------------------------
+
+    def _set_binding(self):
+        """Listen for the new chord for the selected action."""
+        if self._selected_binding is None or self._chord is not None or self._applying:
+            return
+        self._chord_purpose = 'set'
+        self._set_buttons['Set...'].config(text='press the new binding (Esc cancels, Backspace clears)')
+        for name in ('Unbind', 'Reset'):
+            self._set_buttons[name].config(state='disabled')
+        self._chord = ChordRecorder(
+            on_done=lambda mods, key, keypad: self._post(self._chord_done, mods, key, keypad),
+            on_cancel=lambda: self._post(self._chord_cancelled))
+        self._chord.start()
+        self._chord_after = self.after(CHORD_TIMEOUT_MS, self._stop_chord)
+
+    def _set_chord_done(self, mods, key, keypad):
+        self._set_buttons['Set...'].config(text='Set...')
+        b = self._selected_binding
+        if b is None:
+            self._paint_binding_detail()
+            return
+        new = '' if (key == 'backspace' and not mods) else from_keyboard_names(mods, key, keypad)
+        self._change_binding(b, new)
+
+    def _unbind_binding(self):
+        b = self._selected_binding
+        if b is not None:
+            self._change_binding(b, '')
+
+    def _reset_binding(self):
+        b = self._selected_binding
+        if b is not None:
+            self._change_binding(b, default_for(self._shipped_rows, b.actionmap, b.action),
+                                 reset=True)
+
+    def _change_binding(self, b, new_input, reset=False):
+        change = plan_change(self._bindings, b.actionmap, b.action, new_input)
+        shown = describe_input(new_input) or 'nothing'
+        if change.conflicts:
+            others = '\n'.join('  \u2022 %s  (%s)' % (describe_action(a), m) for m, a in change.conflicts)
+            if not messagebox.askyesno(
+                    'Key already bound',
+                    '%s is also bound to:\n%s\n\nBind %s to it anyway?' % (shown, others, change.label),
+                    parent=self):
+                return
+        what = ('Reset %s' % change.label) if reset else ('Set %s to %s' % (change.label, shown))
+        expect = [(b.actionmap, b.action, new_input, reset)]
+        self._apply_mapping(list(change.rows), what, expect)
+
+    def _apply_mapping(self, rows, what, expect):
+        """Back up, write the mapping file, and have the game load it.
+
+        The game loads a mapping file by name from its own Mappings folder
+        with the console command pp_rebindkeys; the command is typed for the
+        user with the game brought forward, the way keepalive already sends
+        its key. With the game closed the file is still written and the
+        command copied, to be pasted when it is running.
+        """
+        if self._applying:
+            return
+        rebinds_path, _base, _yours, _game, _installed = getattr(
+            self, '_bindings_source', (None, None, 0, '', ''))
+        log = find_game_log()
+        live = log.parent if log else None
+        folder = mappings_dir(live) if live else None
+        if folder is None:
+            messagebox.showerror('Star Citizen not found',
+                                 'The game\'s profile folder could not be found, so there is '
+                                 'nowhere to write the mapping file.', parent=self)
+            return
+        self._applying = True
+        self._paint_binding_detail()
+        try:
+            backup = backup_actionmaps(rebinds_path, BACKUP_DIR)
+            self.log_queue.put('%s: backed up actionmaps.xml to %s' % (what, backup)
+                               if backup else '%s: nothing to back up yet' % what)
+            path = write_mapping(folder / HELPER_MAPPING, rows)
+            command = command_for(HELPER_MAPPING)
+            self.log_queue.put('%s: wrote %s' % (what, path))
+        except (OSError, ValueError) as exc:
+            self._applying = False
+            self._paint_binding_detail()
+            messagebox.showerror('Could not write the mapping file', str(exc), parent=self)
+            return
+        if not self.game_running:
+            self.clipboard_clear()
+            self.clipboard_append(command)
+            self._applying = False
+            self._paint_binding_detail()
+            self.bindings_status.config(text='%s - written. Start the game, press %s and run: %s (copied)'
+                                        % (what, self.cfg.get('console_key') or '`', command))
+            messagebox.showinfo('Written, not yet loaded',
+                                'The game is not running, so the change is written but not loaded.\n\n'
+                                'When it is, press %s to open the console and paste:\n%s\n\n'
+                                '(It is on the clipboard.)' % (self.cfg.get('console_key') or '`', command),
+                                parent=self)
+            return
+        console_key = (self.cfg.get('console_key') or '').strip()
+        try:
+            if not console_key:
+                raise ValueError('empty')
+            keyboard.key_to_scan_codes(console_key)
+        except (ValueError, KeyError):
+            self._applying = False
+            self._paint_binding_detail()
+            messagebox.showerror('Console key', 'The console key setting (%r) is not a key the '
+                                 'keyboard library knows. Set it on the Key Bindings tab.' % console_key,
+                                 parent=self)
+            return
+        if self.hold_active or self.hold_pending:
+            # Typing releases every held key anyway; do it deliberately.
+            self._release()
+            self.log_queue.put('%s: KeepRunning released so the console can be typed into' % what)
+        self._console_busy = True
+        self.bindings_status.config(text='%s - typing into the game\'s console...' % what)
+        threading.Thread(target=self._type_console, args=(command, console_key, what, expect),
+                         daemon=True).start()
+
+    def _type_console(self, command, console_key, what, expect):
+        """On a worker thread: bring the game forward, type, hand focus back."""
+        typed = False
+        target = window_for_pid(process_pid('StarCitizen.exe'))
+        previous = foreground_hwnd()
+        try:
+            if not force_foreground(target):
+                self.log_queue.put('%s: could not bring Star Citizen forward' % what)
+                return
+            time.sleep(0.08)
+            started = tick()
+            self.injected_until = time.monotonic() + 3.0
+            keyboard.press_and_release(console_key)
+            time.sleep(0.25)
+            # Scan codes, not unicode events: the game does not read the latter.
+            keyboard.write(command, delay=0.02, exact=False)
+            keyboard.press_and_release('enter')
+            time.sleep(0.15)
+            keyboard.press_and_release(console_key)          # and close it again
+            self.injected_until = time.monotonic() + 0.20
+            note_injection(started, tick())
+            typed = True
+            self.log_queue.put('%s: typed "%s" into the console' % (what, command))
+        except Exception as exc:
+            self.log_queue.put('%s: typing failed - %s' % (what, exc))
+        finally:
+            if previous and previous != target:
+                force_foreground(previous)
+            self._console_busy = False
+            self._post(self._after_apply, what, command, expect, 0, typed)
+
+    def _after_apply(self, what, command, expect, attempt, typed):
+        """Look at actionmaps.xml a moment later and say whether the game took it."""
+        if not typed:
+            self._finish_apply(what, command, confirmed=False)
+            return
+        self.after(1500 if attempt == 0 else 3500, lambda: self._verify_apply(what, command, expect, attempt))
+
+    def _verify_apply(self, what, command, expect, attempt):
+        self._reload_bindings()
+        rows = {(b.actionmap, b.action, b.device): b for b in self._bindings}
+        confirmed = []
+        for actionmap, action, new_input, reset in expect:
+            row = rows.get((actionmap, action, 'keyboard'))
+            if row is None:
+                confirmed.append(not new_input)          # gone entirely counts as unbound
+                continue
+            same = chord_key(row.input) == chord_key(new_input)
+            confirmed.append(same and (row.source == 'rebind' or reset))
+        if all(confirmed) if len(expect) <= 3 else any(confirmed):
+            self._finish_apply(what, command, confirmed=True)
+        elif attempt == 0:
+            self._after_apply(what, command, expect, 1, True)
+        else:
+            self._finish_apply(what, command, confirmed=False)
+
+    def _finish_apply(self, what, command, confirmed):
+        self._applying = False
+        self._paint_binding_detail()
+        if confirmed:
+            self.bindings_status.config(text='%s - confirmed by the game.' % what)
+            self.log_queue.put('%s - confirmed' % what)
+        else:
+            self.clipboard_clear()
+            self.clipboard_append(command)
+            key = self.cfg.get('console_key') or '`'
+            self.bindings_status.config(
+                text='%s - written, but the game has not picked it up. Press %s and run: %s (copied)'
+                     % (what, key, command))
+            self.log_queue.put('%s - not confirmed; the command is on the clipboard' % what)
+
+    # -- the bindings file ------------------------------------------------------
+
+    def _persist_console_key(self, _event=None):
+        value = self.field_vars['console_key'].get().strip()
+        if value != self.cfg.get('console_key'):
+            self.cfg['console_key'] = value
+            self._persist()
+
+    def _backup_bindings(self):
+        rebinds_path = getattr(self, '_bindings_source', (None,))[0]
+        if rebinds_path is None:
+            messagebox.showinfo('Back up bindings', 'Star Citizen was not found, so there is no actionmaps.xml to copy.',
+                                parent=self)
+            return
+        path = filedialog.asksaveasfilename(
+            title='Back up bindings', initialdir=self._documents_folder(),
+            initialfile='StarCitizenHelper_bindings_%s.xml' % time.strftime('%Y-%m-%d'),
+            defaultextension='.xml', filetypes=[('XML files', '*.xml')])
+        if not path:
+            return
+        try:
+            import shutil
+            shutil.copy2(rebinds_path, path)
+        except OSError as exc:
+            messagebox.showerror('Could not back up', str(exc), parent=self)
+            return
+        self.log_queue.put('Bindings backed up to ' + path)
+        messagebox.showinfo('Backed up', 'Your bindings were copied to:\n' + path, parent=self)
+
+    def _restore_bindings(self):
+        newest = newest_backup(BACKUP_DIR)
+        if newest is None:
+            messagebox.showinfo('Restore bindings', 'No automatic backup yet - one is made before '
+                                'every change this app applies.', parent=self)
+            return
+        if not messagebox.askyesno('Restore bindings',
+                                   'Load the backup from %s into the game?\n\nThe current bindings '
+                                   'are backed up first.' % backup_stamp(newest), parent=self):
+            return
+        self._import_bindings_file(newest, 'Restore')
+
+    def _import_bindings(self):
+        path = filedialog.askopenfilename(
+            title='Import bindings', initialdir=self._documents_folder(),
+            filetypes=[('Star Citizen bindings', '*.xml'), ('All files', '*.*')])
+        if path:
+            self._import_bindings_file(Path(path), 'Import')
+
+    def _import_bindings_file(self, path, what):
+        known = {(r.actionmap, r.action) for r in self._shipped_rows}
+        summary = validate_import(path, self._bindings, known)
+        if summary.error:
+            messagebox.showerror('Cannot import', '%s: %s' % (Path(path).name, summary.error), parent=self)
+            return
+        lines = ['%d bindings across %d actions in %d action maps (%d unbound).' % (
+            len(summary.rows), summary.actions, summary.maps, summary.unbound)]
+        if summary.unknown:
+            lines.append('%d actions the shipped defaults do not know (fine if from a newer build).'
+                         % len(summary.unknown))
+        if summary.conflicts:
+            lines.append('Keys that would be shared:')
+            for (mode, raw), members in list(summary.conflicts.items())[:5]:
+                lines.append('  \u2022 %s: %s' % (describe_input(raw),
+                                                  ', '.join(describe_action(a) for _m, a in members)))
+        lines.append('')
+        lines.append('Load it into the game?')
+        if not messagebox.askyesno(what, '\n'.join(lines), parent=self):
+            return
+        expect = [(r.actionmap, r.action, r.input, False) for r in summary.rows if r.device == 'keyboard']
+        self._apply_mapping(summary.rows, '%s %s' % (what, Path(path).name), expect)
+
+    def _export_bindings_csv(self):
+        path = filedialog.asksaveasfilename(
+            title='Export bindings', initialdir=self._documents_folder(),
+            initialfile='StarCitizenHelper_bindings.csv', defaultextension='.csv',
+            filetypes=[('CSV files', '*.csv')])
+        if not path:
+            return
+        try:
+            with open(path, 'w', encoding='utf-8-sig', newline='') as handle:
+                handle.write(to_csv(self._bindings, self._binding_conflicts))
+        except OSError as exc:
+            messagebox.showerror('Could not export', str(exc), parent=self)
+            return
+        self.log_queue.put('Bindings exported to ' + path)
+        messagebox.showinfo('Exported', 'Every binding, with the game\'s names, is in:\n' + path, parent=self)
 
     def _build_perf_tab(self, notebook):
         """Frame rate and network detail, alongside the header graph."""
@@ -2605,6 +2943,9 @@ class App(tk.Tk):
     def _automation_loop(self):
         while not self.stop_event.is_set():
             now = time.monotonic()
+            if getattr(self, '_console_busy', False):
+                time.sleep(0.05)                # a Tab now would autocomplete in the console
+                continue
             if self.game_foreground:
                 if self.scan_active and now >= self.next_scan:
                     self._send_tab('Ship Scan')
