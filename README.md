@@ -1,7 +1,7 @@
 # Star Citizen Helper
 
-**Latest release: v2026.09.17.** See [all releases](https://github.com/cjbrochacho/StarCitizenHelper/tags)
-for the full history; each one is a tagged commit, so `git checkout v2026.09.17` always gets you
+**Latest release: v2026.09.17.1.** See [all releases](https://github.com/cjbrochacho/StarCitizenHelper/tags)
+for the full history; each one is a tagged commit, so `git checkout v2026.09.17.1` always gets you
 exactly that point, not a moving target. Releases are dated - `vYYYY.MM.DD`, with `.N` on the end
 if a day needs a second one - so the number answers the question actually asked of it: how old
 is this? `v3.0.0` and `v3.1.0` used `vMAJOR.MINOR.PATCH`; `v1` and `v2` predate even that. All are
